@@ -16,6 +16,7 @@ reference sentinel ``999`` (bins) or ``NA`` (moment field disabled).
 """
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from envtok.errors import UnsupportedInputError
@@ -243,7 +244,7 @@ def signature_fields(token: SiteToken) -> dict[str, str]:
     }
 
 
-def signature(fields: dict[str, str], names: tuple[str, ...]) -> str:
+def signature(fields: Mapping[str, str], names: tuple[str, ...]) -> str:
     """Join the named fields with ``|`` to form a rung or presence signature.
 
     Args:

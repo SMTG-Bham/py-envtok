@@ -33,7 +33,7 @@ classifiers = [
 ]
 dependencies = [
   "ase>=3.27.0",
-  "duckdb>=1.4.2",
+  "duckdb>=2.0.0",
   "numpy>=2.3.3",
   "pyarrow>=22.0.0",
   "pymatgen>=2026.9.23",
@@ -152,6 +152,8 @@ select = [
   "S101",    # pytest uses bare assert statements
   "SLF001",  # tests may inspect private helpers
 ]
+# SQL is assembled from internal identifiers and sql_literal-quoted paths only.
+"src/envtok/{store/cache,coarsen,report,selection/incidence}.py" = ["S608"]
 "build_tools/**" = [
   "INP001",  # standalone scripts, not a package
   "T201",    # scripts report progress with print
@@ -161,7 +163,7 @@ select = [
 convention = "google"
 
 [tool.ruff.lint.pylint]
-max-args = 8
+max-args = 10
 
 [tool.mypy]
 files = ["src", "tests"]

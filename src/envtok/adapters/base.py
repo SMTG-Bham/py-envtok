@@ -66,7 +66,9 @@ class RecordOptions:
     label_units: Mapping[str, str] = field(default_factory=lambda: dict(DEFAULT_UNITS))
 
     def __post_init__(self) -> None:
-        """Validate the options."""
+        """Validate the options and normalise enum values given as text."""
+        object.__setattr__(self, "id_policy", IdPolicy(self.id_policy))
+        object.__setattr__(self, "split", Split.parse(self.split))
         if not self.dataset or not self.revision:
             raise ConfigError("dataset name and revision must be non-empty")
         if self.id_policy is IdPolicy.NAMESPACED_NATIVE_ID and not self.native_id_key:

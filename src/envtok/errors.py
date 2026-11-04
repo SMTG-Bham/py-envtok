@@ -36,3 +36,7 @@ class RetrievalUnavailableError(EnvTokError):
 
 class CoverageError(EnvTokError):
     """An independently audited selection does not meet its coverage contract."""
+
+
+class IncompleteCacheError(EnvTokError):
+    """A stage needs outputs of an earlier stage that are not complete yet."""

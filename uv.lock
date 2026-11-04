@@ -548,7 +548,7 @@ test = [
 requires-dist = [
     { name = "ase", specifier = ">=3.27.0" },
     { name = "ase-db-backends", marker = "extra == 'omat24'", specifier = ">=0.11.0" },
-    { name = "duckdb", specifier = ">=1.4.2" },
+    { name = "duckdb", specifier = ">=2.0.0" },
     { name = "lmdb", marker = "extra == 'omat24'", specifier = ">=1.7.5" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "pyarrow", specifier = ">=22.0.0" },
