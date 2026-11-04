@@ -124,8 +124,10 @@ def _engine(profile: Profile) -> GeometryEngine:
     return _ENGINES[key]
 
 
-def _adapter(spec: dict[str, Any]) -> Adapter:
-    key = digest(spec)
+def _adapter(spec: dict[str, Any], fingerprint: str) -> Adapter:
+    # The cache fingerprint covers the source's file identities, so a source
+    # that changed between runs in one process gets a fresh adapter.
+    key = digest([spec, fingerprint])
     if key not in _ADAPTERS:
         _ADAPTERS[key] = adapter_from_spec(spec)
     return _ADAPTERS[key]
@@ -212,7 +214,7 @@ def run_batch(context: TaskContext, batch: Batch) -> BatchSummary:
     results: list[TokenizedRecord] = []
     if batch.locators:
         assert context.adapter_spec is not None  # noqa: S101 - planner invariant
-        adapter = _adapter(context.adapter_spec)
+        adapter = _adapter(context.adapter_spec, context.fingerprint)
         for locator in batch.locators:
             try:
                 record = adapter.read(locator)
@@ -351,35 +353,19 @@ def execute(
 
     pending = iter(batches)
     retries = 0
-    queued: dict[Future[BatchSummary], Batch] = {}
-    resubmit: list[Batch] = []
+    state = _PoolState()
     with thread_limits(threads_per_worker):
         while True:
             pool = ProcessPoolExecutor(
                 max_workers=workers, mp_context=multiprocessing.get_context("spawn")
             )
             try:
-                while True:
-                    while len(queued) < max_inflight:
-                        upcoming = resubmit.pop() if resubmit else next(pending, None)
-                        if upcoming is None:
-                            break
-                        queued[pool.submit(run_batch, context, upcoming)] = upcoming
-                    if not queued:
-                        return sorted(summaries, key=lambda s: s.index)
-                    done, _ = wait(queued, return_when=FIRST_COMPLETED)
-                    for future in done:
-                        batch = queued.pop(future)
-                        try:
-                            summary = future.result()
-                        except BrokenProcessPool:
-                            resubmit.append(batch)
-                            raise
-                        record(summary)
+                _drain(pool, pending, state, context, max_inflight, record)
+                return sorted(summaries, key=lambda s: s.index)
             except BrokenProcessPool as exc:
                 retries += 1
-                resubmit.extend(queued.values())
-                queued.clear()
+                state.resubmit.extend(state.queued.values())
+                state.queued.clear()
                 if retries > max_retries:
                     raise EnvTokError(
                         f"worker processes crashed {retries} times; committed "
@@ -387,3 +373,48 @@ def execute(
                     ) from exc
             finally:
                 pool.shutdown(wait=True, cancel_futures=True)
+
+
+@dataclass(slots=True)
+class _PoolState:
+    """Batches in flight and batches to resubmit after a pool failure."""
+
+    queued: dict[Future[BatchSummary], Batch] = field(default_factory=dict)
+    resubmit: list[Batch] = field(default_factory=list)
+
+
+def _drain(
+    pool: ProcessPoolExecutor,
+    pending: Iterator[Batch],
+    state: _PoolState,
+    context: TaskContext,
+    max_inflight: int,
+    record: Callable[[BatchSummary], None],
+) -> None:
+    """Keep up to ``max_inflight`` batches queued until every batch is done.
+
+    A batch is moved to ``state.resubmit`` whenever the pool breaks while it
+    is being submitted or awaited, so no batch is ever dropped.
+    """
+    while True:
+        while len(state.queued) < max_inflight:
+            upcoming = state.resubmit.pop() if state.resubmit else next(pending, None)
+            if upcoming is None:
+                break
+            try:
+                future = pool.submit(run_batch, context, upcoming)
+            except BrokenProcessPool:
+                state.resubmit.append(upcoming)
+                raise
+            state.queued[future] = upcoming
+        if not state.queued:
+            return
+        done, _ = wait(state.queued, return_when=FIRST_COMPLETED)
+        for future in done:
+            batch = state.queued.pop(future)
+            try:
+                summary = future.result()
+            except BrokenProcessPool:
+                state.resubmit.append(batch)
+                raise
+            record(summary)

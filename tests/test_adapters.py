@@ -379,8 +379,10 @@ class TestAseDatabases:
             raise ImportError("no ase_db_backends")
 
         monkeypatch.setattr(ase.db, "connect", missing)
+        shard = tmp_path / "x.aselmdb"
+        shard.touch()
         with pytest.raises(ConfigError, match=r"envtok\[omat24\]"):
-            asedb.open_database(tmp_path / "x.aselmdb")
+            asedb.open_database(shard)
 
 
 class TestIterable:

@@ -81,7 +81,6 @@ def geometry_payload(profile: Profile) -> dict[str, Any]:
     """Return everything that determines raw geometric measurements."""
     radii = profile.measures.radii
     return {
-        "profile": profile.name,
         "reference_commit": profile.reference_commit,
         "geometry": profile.geometry,
         "radii": {"name": radii.name, "max_z": radii.max_z, "values": radii.values},

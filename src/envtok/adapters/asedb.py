@@ -31,8 +31,14 @@ from envtok.adapters.base import (
 from envtok.errors import ConfigError
 from envtok.records import SourceRef, StructureRecord
 
-_SHARED_LMDB: dict[str, Any] = {}
-"""Read-only LMDB handles of this process; an environment may be opened once only."""
+_SHARED_LMDB: dict[str, tuple[tuple[int, int, int], Any]] = {}
+"""Read-only LMDB handles of this process, keyed by path, with the file identity
+they were opened for; an environment may be opened once per process only."""
+
+
+def _identity(path: Path) -> tuple[int, int, int]:
+    stat = path.stat()
+    return (stat.st_ino, stat.st_size, stat.st_mtime_ns)
 
 
 def open_database(path: Path) -> Any:
@@ -40,7 +46,7 @@ def open_database(path: Path) -> Any:
 
     LMDB environments can be open only once per process, so ``.aselmdb``
     handles are shared by every adapter of the process (see
-    :func:`close_shared_databases`).
+    :func:`close_shared_databases`). A shard replaced on disk is reopened.
 
     Args:
         path: Database file; ``.aselmdb`` files use the LMDB backend.
@@ -54,17 +60,20 @@ def open_database(path: Path) -> Any:
     if path.suffix != ".aselmdb":
         return ase.db.connect(str(path), use_lock_file=False)
     key = str(path.resolve())
-    if key not in _SHARED_LMDB:
-        try:
-            _SHARED_LMDB[key] = ase.db.connect(
-                str(path), readonly=True, use_lock_file=False
-            )
-        except ImportError as exc:
-            raise ConfigError(
-                f"reading {path} needs the ASE-LMDB backend; install envtok[omat24] "
-                f"({exc})"
-            ) from exc
-    return _SHARED_LMDB[key]
+    identity = _identity(path)
+    shared = _SHARED_LMDB.get(key)
+    if shared is not None and shared[0] == identity:
+        return shared[1]
+    if shared is not None:
+        _close(_SHARED_LMDB.pop(key)[1])
+    try:
+        database = ase.db.connect(str(path), readonly=True, use_lock_file=False)
+    except ImportError as exc:
+        raise ConfigError(
+            f"reading {path} needs the ASE-LMDB backend; install envtok[omat24] ({exc})"
+        ) from exc
+    _SHARED_LMDB[key] = (identity, database)
+    return database
 
 
 def _close(database: Any) -> None:
@@ -75,7 +84,7 @@ def _close(database: Any) -> None:
 
 def close_shared_databases() -> None:
     """Close every shared read-only LMDB handle of this process."""
-    for database in _SHARED_LMDB.values():
+    for _, database in _SHARED_LMDB.values():
         _close(database)
     _SHARED_LMDB.clear()
 
@@ -196,7 +205,7 @@ class AseDbAdapter(Adapter):
     @override
     def close(self) -> None:
         """Close databases owned by this adapter (shared LMDB handles stay open)."""
-        shared = {id(database) for database in _SHARED_LMDB.values()}
+        shared = {id(database) for _, database in _SHARED_LMDB.values()}
         for database in self._open.values():
             if id(database) not in shared:
                 _close(database)

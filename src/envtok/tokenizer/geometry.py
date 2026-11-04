@@ -27,6 +27,7 @@ Adapted from em819/omat24-chemenv-subset@723696d (MIT License, Copyright (c)
 """
 
 import enum
+import gc
 import warnings
 from collections import Counter
 from dataclasses import dataclass, field
@@ -495,7 +496,8 @@ class GeometryEngine:
 
         Third-party warnings (for example CrystalNN's missing oxidation states)
         are captured and counted rather than propagated, so a caller's warning
-        filters cannot change the result.
+        filters cannot change the result. Resource warnings from finalised
+        objects are not attributed to the record.
 
         Args:
             structure: The original structure with the ``magmom`` site property.
@@ -503,8 +505,12 @@ class GeometryEngine:
         Returns:
             The geometric analysis.
         """
+        # Finalise unrelated garbage first, and ignore ResourceWarnings, so
+        # warnings raised by other code cannot leak into this record.
+        gc.collect()
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
+            warnings.simplefilter("ignore", ResourceWarning)
             result = self._analyse(structure)
         counts = Counter(
             f"{w.category.__name__}: {str(w.message).splitlines()[0][:160]}"
