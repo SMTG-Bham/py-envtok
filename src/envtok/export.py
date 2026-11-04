@@ -226,7 +226,7 @@ def export_structures(
     partial = path.with_name(f".{path.name}.{uuid.uuid4().hex}{path.suffix}")
     frames = selected_structures(result, adapter, annotate=annotate)
     if format == "extxyz":
-        with partial.open("w", encoding="utf-8") as handle:
+        with partial.open("w", encoding="utf-8", newline="\n") as handle:
             for atoms in frames:
                 ase.io.write(handle, atoms, format="extxyz")
     else:

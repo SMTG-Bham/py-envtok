@@ -49,7 +49,7 @@ def peak_rss_bytes() -> int | None:
     """Return this process's peak resident set size, or ``None`` if unknown."""
     try:
         import resource  # noqa: PLC0415 - POSIX only
-    except ImportError:  # pragma: no cover - Windows
+    except ImportError:
         return None
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return int(peak if sys.platform == "darwin" else peak * 1024)

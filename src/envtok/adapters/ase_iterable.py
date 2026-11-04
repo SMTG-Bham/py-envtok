@@ -173,7 +173,7 @@ def spool_atoms(frames: Iterable[Atoms], path: str | Path) -> str:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(target.name + ".partial")
-    with partial.open("w", encoding="utf-8") as handle:
+    with partial.open("w", encoding="utf-8", newline="\n") as handle:
         for atoms in frames:
             ase.io.write(handle, atoms, format="extxyz")
     partial.replace(target)

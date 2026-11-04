@@ -116,7 +116,7 @@ def read_frame_at(path: Path, offset: int) -> Atoms:
         handle.seek(offset)
         natoms = int(handle.readline())
         rest = [handle.readline() for _ in range(natoms + 1)]
-    text = f"{natoms}\n" + b"".join(rest).decode()
+    text = f"{natoms}\n" + b"".join(rest).decode().replace("\r\n", "\n")
     atoms = ase.io.read(io.StringIO(text), format="extxyz", index=0, parallel=False)
     return cast("Atoms", atoms)
 
