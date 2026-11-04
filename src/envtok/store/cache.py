@@ -326,6 +326,7 @@ def tokenize(
     keep_neighbours: bool = True,
     shard_index: int = 0,
     num_shards: int = 1,
+    resume: bool = True,
     faults: FaultPlan | None = None,
 ) -> Path:
     """Tokenise every uncommitted batch of this shard; resume what is committed.
@@ -339,6 +340,8 @@ def tokenize(
         keep_neighbours: Retain image-resolved neighbour vectors.
         shard_index: Shard processed by this invocation.
         num_shards: Number of independent shards (for example array tasks).
+        resume: Reuse committed partitions. When false, an existing cache with
+            committed partitions is refused instead of being reused.
         faults: Test-only fault injection.
 
     Returns:
@@ -386,6 +389,11 @@ def tokenize(
         raise StaleCacheError(f"{cache_dir} belongs to a different configuration")
     remove_temporary(partitions)
     committed = committed_partitions(partitions, keys.cache)
+    if committed and not resume:
+        raise ConfigError(
+            f"{cache_dir} already holds {len(committed)} committed partitions and "
+            "resume is disabled; remove the directory or set execution.resume: true"
+        )
     stats = PlanStats()
 
     def selected(index: int) -> bool:

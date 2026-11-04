@@ -82,8 +82,13 @@ class Pipeline:
             workdir=self.workdir,
         )
 
-    def selector(self) -> Selector:
-        """Return the configured selector."""
+    def selector(self, required_records: list[str] | None = None) -> Selector:
+        """Return the configured selector.
+
+        Args:
+            required_records: Override the configured required records (used
+                to give each protected stratum only its own records).
+        """
         s = self.config.selection
         return Selector(
             s.mode,
@@ -91,7 +96,9 @@ class Pipeline:
             prune=s.prune,
             presence_constraints=s.presence_constraints,
             tie_break=s.tie_break,
-            required_records=s.required_records,
+            required_records=s.required_records
+            if required_records is None
+            else required_records,
             prune_after_repair=s.prune_after_repair,
             algorithm=s.algorithm,
             execution=self.execution,
@@ -159,7 +166,11 @@ class Pipeline:
     def tokenize(self, *, shard_index: int = 0, num_shards: int = 1) -> Path:
         """Run (or resume) tokenisation of one shard."""
         return self.tokenizer().tokenize(
-            self.corpus, self.workdir, shard_index=shard_index, num_shards=num_shards
+            self.corpus,
+            self.workdir,
+            shard_index=shard_index,
+            num_shards=num_shards,
+            resume=self.config.execution.resume,
         )
 
     def index(self) -> TokenCache:
@@ -172,8 +183,17 @@ class Pipeline:
         return self.tokenizer().index(cache_dir, self.workdir)
 
     def cache(self) -> TokenCache:
-        """Tokenise (resuming) and index the corpus."""
-        return self.tokenizer().run(self.corpus, self.workdir)
+        """Tokenise (resuming unless disabled) and index the corpus.
+
+        An already indexed cache is reused even with ``resume: false``, so
+        selections and sweeps never repeat finished work.
+        """
+        existing = self.cache_dir()
+        if not self.config.execution.resume and (existing / "plan.json").exists():
+            return self.index()
+        return self.tokenizer().run(
+            self.corpus, self.workdir, resume=self.config.execution.resume
+        )
 
     def fit_and_select(
         self, cache: TokenCache, min_support: int | None = None
@@ -203,10 +223,18 @@ class Pipeline:
             )
             if keep
         ]
-        parts = [
-            (stratum, selector.select(builder.fit(cache, split, where=stratum)))
-            for stratum in strata_values(metadata, keys)
-        ]
+        required = set(self.config.selection.required_records)
+        placed: set[str] = set()
+        parts = []
+        for stratum in strata_values(metadata, keys):
+            classes = builder.fit(cache, split, where=stratum)
+            mine = sorted(required & set(classes.pool.record_ids.tolist()))
+            placed.update(mine)
+            parts.append((stratum, self.selector(mine).select(classes)))
+        if required - placed:
+            raise ConfigError(
+                f"required records are not eligible: {sorted(required - placed)[:5]}"
+            )
         return combine_strata(
             global_classes, parts, {**selector.settings, "stratify_by": list(keys)}
         )

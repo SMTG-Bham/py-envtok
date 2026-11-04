@@ -53,6 +53,7 @@ class Tokenizer:
         batch_size: int | None = None,
         shard_index: int = 0,
         num_shards: int = 1,
+        resume: bool = True,
         faults: FaultPlan | None = None,
     ) -> Path:
         """Run (or resume) the geometry pass for one shard.
@@ -64,6 +65,7 @@ class Tokenizer:
             batch_size: Override records per batch.
             shard_index: Shard processed by this call.
             num_shards: Total number of shards.
+            resume: Reuse committed partitions (refuse an existing cache if false).
             faults: Test-only fault injection.
 
         Returns:
@@ -78,6 +80,7 @@ class Tokenizer:
             keep_neighbours=self.keep_neighbours,
             shard_index=shard_index,
             num_shards=num_shards,
+            resume=resume,
             faults=faults,
         )
 
@@ -105,6 +108,7 @@ class Tokenizer:
         *,
         workers: int | None = None,
         batch_size: int | None = None,
+        resume: bool = True,
     ) -> TokenCache:
         """Tokenise (resuming committed batches) and index the whole corpus.
 
@@ -113,12 +117,13 @@ class Tokenizer:
             workdir: Run work directory.
             workers: Override the number of worker processes.
             batch_size: Override records per batch.
+            resume: Reuse committed partitions (refuse an existing cache if false).
 
         Returns:
             The indexed cache.
         """
         cache_dir = self.tokenize(
-            corpus, workdir, workers=workers, batch_size=batch_size
+            corpus, workdir, workers=workers, batch_size=batch_size, resume=resume
         )
         return self.index(cache_dir, workdir)
 
