@@ -156,6 +156,10 @@ select = [
 "src/envtok/{store/cache,coarsen,report,selection/incidence}.py" = ["S608"]
 # The reference oracle mirrors upstream code structure and SQL verbatim.
 "tests/reference_oracles.py" = ["C901", "E501", "PLR0912", "PLR0914", "PLR0915", "S608"]
+"examples/**" = [
+  "INP001",  # standalone example scripts
+  "T201",    # examples print their results
+]
 "build_tools/**" = [
   "INP001",  # standalone scripts, not a package
   "T201",    # scripts report progress with print

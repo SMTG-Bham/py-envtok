@@ -174,7 +174,9 @@ class EnvTokConfig:
     def resolve(self, path: str) -> Path:
         """Resolve a configured path against :attr:`base_dir`."""
         candidate = Path(path).expanduser()
-        return candidate if candidate.is_absolute() else self.base_dir / candidate
+        return (
+            candidate if candidate.is_absolute() else self.base_dir / candidate
+        ).resolve()
 
     @property
     def workdir(self) -> Path:
