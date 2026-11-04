@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
+from envtok._arrays import sorted_unique
 from envtok.errors import ResourcePolicyError
 
 HEAP_ENTRY_BYTES = 120
@@ -54,7 +55,7 @@ class Incidence:
             The incidence.
         """
         width = np.int32 if n_items < 2**31 else np.int64
-        pairs = np.unique(
+        pairs = sorted_unique(
             rows.astype(np.int64) * max(n_items, 1) + items.astype(np.int64)
         )
         unique_rows = pairs // max(n_items, 1)
@@ -73,10 +74,17 @@ class Incidence:
         return self.indices[self.indptr[row] : self.indptr[row + 1]]
 
     def transpose(self) -> Incidence:
-        """Return the item-by-row incidence."""
+        """Return the item-by-row incidence (rows stay sorted within each item)."""
         rows = np.repeat(np.arange(self.n_rows, dtype=np.int64), np.diff(self.indptr))
-        return Incidence.from_edges(
-            self.indices.astype(np.int64), rows, self.n_items, self.n_rows
+        order = np.argsort(self.indices, kind="stable")
+        indptr = np.zeros(self.n_items + 1, dtype=np.int64)
+        np.cumsum(np.bincount(self.indices, minlength=self.n_items), out=indptr[1:])
+        width = np.int32 if self.n_rows < 2**31 else np.int64
+        return Incidence(
+            n_rows=self.n_items,
+            n_items=self.n_rows,
+            indptr=indptr,
+            indices=rows[order].astype(width),
         )
 
     def item_degrees(self) -> npt.NDArray[np.int64]:

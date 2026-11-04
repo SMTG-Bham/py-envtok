@@ -5,6 +5,7 @@ from collections.abc import Sequence
 import numpy as np
 import numpy.typing as npt
 
+from envtok._arrays import sorted_unique
 from envtok.selection.incidence import Incidence
 
 
@@ -22,7 +23,7 @@ def sole_suppliers(incidence: Incidence) -> npt.NDArray[np.int64]:
     """
     by_item = incidence.transpose()
     single = np.flatnonzero(np.diff(by_item.indptr) == 1)
-    return np.unique(by_item.indices[by_item.indptr[single]].astype(np.int64))
+    return sorted_unique(by_item.indices[by_item.indptr[single]].astype(np.int64))
 
 
 def prune(

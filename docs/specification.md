@@ -368,3 +368,21 @@ DuckDB receives `memory_budget × duckdb_memory_fraction`, leaving the rest
 for Python and NumPy, and spills within `temporary_disk_budget`. Before
 building its incidence, selection estimates its working state and refuses to
 run above `memory_budget`.
+
+### 7.1 Measured scale (synthetic pools, geometry excluded)
+
+`build_tools/benchmark_selection.py` builds a synthetic eligible pool with a
+Zipf-like token frequency and 2–30 sites per record. It then times
+coarsening (memory backend) and the full selection (mandatory, greedy,
+prune and four repairs). Measured on a 20-core WSL2 workstation:
+
+| Records | Edges | Tokens | T | Classes | Coarsen | Select | Peak RSS |
+|---|---|---|---|---|---|---|---|
+| 200,000 | 2.1 M | 19,458 | 50 | 3,345 | 0.8 s | 3.0 s | 0.5 GB |
+| 1,000,000 | 10.7 M | 49,656 | 100 | 6,658 | 4.0 s | 17.6 s | 1.3 GB |
+
+These figures exclude the ChemEnv geometry pass, which dominates the cost of
+real corpora and must be measured on a representative pilot (varied cell
+sizes and distorted structures, not only small ideal cells). For larger
+incidences, use the DuckDB coarsening backend and set `memory_budget` so
+that selection refuses to run before it exceeds the available memory.

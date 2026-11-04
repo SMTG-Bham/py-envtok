@@ -33,6 +33,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+from envtok._arrays import sorted_unique
 from envtok.errors import ConfigError
 from envtok.execution import ExecutionSettings
 from envtok.fingerprint import digest
@@ -155,7 +156,7 @@ def load_pool(
         count=incidence.num_rows,
     )
     edge_token = incidence["token_id"].to_numpy().astype(np.int64)
-    token_ids = np.unique(edge_token)
+    token_ids = sorted_unique(edge_token)
     tokens = cache.read("tokens", ["token_id", "token_key"])
     keys = dict(
         zip(
@@ -196,7 +197,7 @@ def _distinct_support(
     n_records: int,
 ) -> npt.NDArray[np.int64]:
     """Count distinct records per group from (record, group) edges."""
-    pairs = np.unique(edge_group * np.int64(max(n_records, 1)) + edge_record)
+    pairs = sorted_unique(edge_group * np.int64(max(n_records, 1)) + edge_record)
     return np.bincount(pairs // max(n_records, 1), minlength=n_groups).astype(np.int64)
 
 
