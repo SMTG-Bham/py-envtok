@@ -313,7 +313,6 @@ def load_config(source: str | Path | Mapping[str, Any]) -> EnvTokConfig:
     if "source" not in data:
         raise ConfigError("the configuration needs a 'source' section")
     parsed: dict[str, Any] = {
-        name: _section(cls, data.get(name), name)
-        for name, cls in sections.items()
+        name: _section(cls, data.get(name), name) for name, cls in sections.items()
     }
     return EnvTokConfig(base_dir=base, **parsed)

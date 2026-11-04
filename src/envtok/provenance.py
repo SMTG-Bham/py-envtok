@@ -37,7 +37,7 @@ def collect(result: SelectionResult) -> dict[str, Any]:
         source description and resource measurements.
     """
     classes = result.classes
-    cache = classes.cache
+    cache = classes.token_cache
     manifest = cache.manifest
     return {
         "envtok": version("envtok"),

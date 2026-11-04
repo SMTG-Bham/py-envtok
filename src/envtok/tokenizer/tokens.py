@@ -113,10 +113,15 @@ class SiteToken:
             raise UnsupportedInputError(
                 f"token {key!r} has non-integer fields"
             ) from None
+        neighbours = parse_neighbours(nb)
+        if neighbour_string(neighbours) != nb:
+            raise UnsupportedInputError(
+                f"token {key!r} lists its neighbours out of canonical (sorted) order"
+            )
         return cls(
             element=element,
             moment=moment,
-            neighbours=parse_neighbours(nb),
+            neighbours=neighbours,
             geometry=geometry,
             csm_bin=bins[0],
             dmin_bin=bins[1],

@@ -196,8 +196,6 @@ def _distinct_support(
     n_records: int,
 ) -> npt.NDArray[np.int64]:
     """Count distinct records per group from (record, group) edges."""
-    if edge_record.size == 0:
-        return np.zeros(n_groups, dtype=np.int64)
     pairs = np.unique(edge_group * np.int64(max(n_records, 1)) + edge_record)
     return np.bincount(pairs // max(n_records, 1), minlength=n_groups).astype(np.int64)
 
@@ -369,7 +367,8 @@ class CoverageClasses:
     """Coverage classes fitted on a frozen eligible pool.
 
     Attributes:
-        cache: The token cache the classes were fitted on.
+        cache: The token cache the classes were fitted on (``None`` for an
+            in-memory pool).
         profile: Scientific profile.
         min_support: Structure-support threshold T.
         split: Fit split.
@@ -387,7 +386,7 @@ class CoverageClasses:
         backend: Backend that computed the assignment.
     """
 
-    cache: TokenCache
+    cache: TokenCache | None
     profile: Profile
     min_support: int
     split: Split
@@ -411,11 +410,30 @@ class CoverageClasses:
         return len(self.class_signature)
 
     @property
+    def token_cache(self) -> TokenCache:
+        """The token cache, required for auditing and export.
+
+        Raises:
+            ConfigError: For classes fitted on an in-memory pool.
+        """
+        if self.cache is None:
+            raise ConfigError(
+                "these classes were fitted on an in-memory pool; auditing and "
+                "export need classes fitted on a token cache"
+            )
+        return self.cache
+
+    @property
     def fingerprint(self) -> str:
         """Fingerprint of the class universe (cache, pool, ladder, T)."""
+        source = (
+            self.cache.fingerprint
+            if self.cache is not None
+            else digest([self.pool.record_ids.tolist(), self.pool.token_keys])
+        )
         return digest(
             {
-                "cache": self.cache.fingerprint,
+                "cache": source,
                 "split": self.split.value,
                 "invalid_record_policy": self.invalid_record_policy.value,
                 "where": self.where,
@@ -520,7 +538,7 @@ class CoverageClasses:
             json.dumps(
                 {
                     "fingerprint": self.fingerprint,
-                    "cache": str(self.cache.token_dir),
+                    "cache": None if self.cache is None else str(self.cache.token_dir),
                     "profile": self.profile.name,
                     "min_support": self.min_support,
                     "split": self.split.value,
@@ -628,6 +646,29 @@ class CoverageBuilder:
                 f"no eligible {split.value!r} records"
                 + (f" matching {dict(where)}" if where else "")
             )
+        return self.fit_pool(pool, cache=cache, split=split, where=where)
+
+    def fit_pool(
+        self,
+        pool: Pool,
+        *,
+        cache: TokenCache | None = None,
+        split: Split | str = Split.TRAIN,
+        where: Mapping[str, JSONScalar] | None = None,
+    ) -> CoverageClasses:
+        """Fit the classes on an explicit eligible pool.
+
+        Args:
+            pool: The eligible pool.
+            cache: The cache the pool came from (``None`` for synthetic pools,
+                which can be selected from but not audited or exported).
+            split: Fit split recorded with the classes.
+            where: Metadata filter recorded with the classes.
+
+        Returns:
+            The fitted classes.
+        """
+        split = Split.parse(split)
         fields = [signature_fields(SiteToken.from_key(key)) for key in pool.token_keys]
         backend = self.backend
         if backend == "auto":
@@ -639,7 +680,9 @@ class CoverageBuilder:
         if backend == "memory":
             assignment = assign_memory(pool, fields, self.ladder, self.min_support)
         else:
-            root = self.workdir or cache.cache_dir
+            root = self.workdir or (
+                cache.cache_dir if cache is not None else Path.cwd()
+            )
             assignment = assign_duckdb(
                 pool,
                 fields,

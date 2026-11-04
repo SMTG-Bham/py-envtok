@@ -45,7 +45,7 @@ def _atomic_text(path: Path, text: str) -> None:
 
 def manifest_table(result: SelectionResult) -> pa.Table:
     """Return the selected records with source locators and selection reasons."""
-    structures = result.classes.cache.read(
+    structures = result.classes.token_cache.read(
         "structures",
         [
             "record_id",
@@ -219,7 +219,9 @@ def export_structures(
     """
     if format not in FORMATS:
         raise ConfigError(f"format must be one of {FORMATS}, got {format!r}")
-    adapter = corpus.adapter if corpus is not None else result.classes.cache.adapter()
+    adapter = (
+        corpus.adapter if corpus is not None else result.classes.token_cache.adapter()
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_name(f".{path.name}.{uuid.uuid4().hex}{path.suffix}")
     frames = selected_structures(result, adapter, annotate=annotate)

@@ -52,7 +52,7 @@ def audit_classes(classes: CoverageClasses, record_ids: list[str]) -> dict[str, 
         CoverageError: If a selected record is not in the eligible pool or is
             listed twice.
     """
-    cache = classes.cache
+    cache = classes.token_cache
     pool = classes.pool
     token_class = pa.table(
         {
@@ -199,7 +199,7 @@ def processing_quality(classes: CoverageClasses) -> dict[str, Any]:
     Returns:
         Processing-quality metrics.
     """
-    cache = classes.cache
+    cache = classes.token_cache
     connection = connect()
     split = sql_literal(classes.split.value)
     structures = sql_literal(cache.path("structures"))
@@ -271,7 +271,7 @@ def held_out_novelty(classes: CoverageClasses) -> dict[str, Any]:
     Returns:
         Per held-out split: records, sites and the OOV site fraction.
     """
-    cache = classes.cache
+    cache = classes.token_cache
     site_tokens = sql_literal(cache.path("site_tokens"))
     structures = sql_literal(cache.path("structures"))
     tokens = sql_literal(cache.path("tokens"))
@@ -325,7 +325,7 @@ def diagnostics(classes: CoverageClasses, record_ids: list[str]) -> dict[str, An
     Returns:
         Distribution tables and label summaries.
     """
-    cache = classes.cache
+    cache = classes.token_cache
     connection = connect()
     try:
         connection.register(

@@ -80,7 +80,14 @@ class TestTokenEncoding:
         assert (parsed.csm_bin, parsed.dmin_bin, parsed.asym_bin) == (None, None, None)
 
     @pytest.mark.parametrize(
-        "key", ["Fe_0_O_T:4_3_1", "Fe_0_O__3_1_2", "_0_O_T:4_3_1_2", "Fe_x_O_T:4_3_1_2"]
+        "key",
+        [
+            "Fe_0_O_T:4_3_1",
+            "Fe_0_O__3_1_2",
+            "_0_O_T:4_3_1_2",
+            "Fe_x_O_T:4_3_1_2",
+            "Fe_0_O-Cl_T:4_3_1_2",
+        ],
     )
     def test_malformed_keys_are_rejected(self, key: str) -> None:
         with pytest.raises(UnsupportedInputError):
