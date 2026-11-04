@@ -523,11 +523,13 @@ dependencies = [
 [package.optional-dependencies]
 omat24 = [
     { name = "ase-db-backends" },
+    { name = "lmdb" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "ase-db-backends" },
+    { name = "lmdb" },
     { name = "mypy" },
     { name = "prek" },
     { name = "pytest" },
@@ -537,6 +539,7 @@ dev = [
 ]
 test = [
     { name = "ase-db-backends" },
+    { name = "lmdb" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -546,6 +549,7 @@ requires-dist = [
     { name = "ase", specifier = ">=3.27.0" },
     { name = "ase-db-backends", marker = "extra == 'omat24'", specifier = ">=0.11.0" },
     { name = "duckdb", specifier = ">=1.4.2" },
+    { name = "lmdb", marker = "extra == 'omat24'", specifier = ">=1.7.5" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "pyarrow", specifier = ">=22.0.0" },
     { name = "pymatgen", specifier = ">=2026.9.23" },
@@ -557,6 +561,7 @@ provides-extras = ["omat24"]
 [package.metadata.requires-dev]
 dev = [
     { name = "ase-db-backends", specifier = ">=0.11.0" },
+    { name = "lmdb", specifier = ">=1.7.5" },
     { name = "mypy", specifier = ">=2.4.0" },
     { name = "prek", specifier = ">=0.5.5" },
     { name = "pytest", specifier = ">=9.1.1" },
@@ -566,6 +571,7 @@ dev = [
 ]
 test = [
     { name = "ase-db-backends", specifier = ">=0.11.0" },
+    { name = "lmdb", specifier = ">=1.7.5" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
 ]
@@ -791,14 +797,16 @@ wheels = [
 
 [[package]]
 name = "lmdb"
-version = "1.7.3"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cffi" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/87/b6f8bccab1ec1fe58866108c0da648715bc1488627edf9702dae6380613a/lmdb-1.7.3.tar.gz", hash = "sha256:d4a27b7af4fe38f3409d9fbfbf47b617b3d94dee98a00bc8c2a8336ccd3f9b15", size = 883449, upload-time = "2025-07-26T01:11:43.197Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1f/80/24a4064047b1c98ac73c0ad806f16bcd2d800c2eb460d6e6c2961034b8a1/lmdb-3.0.0.tar.gz", hash = "sha256:06dda0723545e14d56ac7dcd6f582d9922c2ed5e16f1c3f8d0e670a96ec2ee65", size = 1202795, upload-time = "2026-10-02T20:03:36.266Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/ab/e6c2ba79107d20c7a45eae2d69e395691635e761b1e57f5a29c5f2fc42ff/lmdb-1.7.3-py3-none-any.whl", hash = "sha256:4cd7fb79b2c69dcf564d4eec36237e0efc303559176b60ff36fb47ccd3b8b5bb", size = 148538, upload-time = "2025-07-26T01:11:42.118Z" },
+    { url = "https://files.pythonhosted.org/packages/78/ce/3d5872af6625b0456b3300fda6deafeb8de825d9fec2b947e12dea447949/lmdb-3.0.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:ba3644422e5abe4e012369f6e19ea77993eabba54454889f07037c7e93f55f48", size = 198830, upload-time = "2026-10-02T20:03:18.999Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/56/82f4cb9a16329b61a465f093c0f0156e50490d2bb572cce79cd575dfc02a/lmdb-3.0.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:88004c2b4862e5ec67cec8a766d3955e0fd31a05400a521a6c86784988915e21", size = 197231, upload-time = "2026-10-02T20:03:20.226Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/39/5c4e5f463d2734ce8d8c68702ce965ae105f47cc836b8b74ea5574e3cc52/lmdb-3.0.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f8f515911ea712a5a0ae0a51e331dcb5ab2265f355b89d328183fd257fdb9bc4", size = 568020, upload-time = "2026-10-02T20:03:21.467Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/44/2a5534a120e6a0805bd470a22b1ac5210b22597ae0236cdf3f46e4b54945/lmdb-3.0.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3e7b803b40ea4c3cb0fa4bc331cf8c44c7d79f91c27e92609a8e90d2bd2f25f6", size = 571903, upload-time = "2026-10-02T20:03:23.184Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/d3/f45b08dfa48415b98482c5f98b21c46a60f6d76796cb14659533686fec4c/lmdb-3.0.0-cp314-cp314-win_amd64.whl", hash = "sha256:d34876ba920b8f2c7b30af2cd8de94133070242fa0b42dfbd26d508044681220", size = 191371, upload-time = "2026-10-02T20:03:24.733Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/ca/7b9329a2129b4ceec5210686d49338a1388b82befc8a1c63b152dcd6b4d7/lmdb-3.0.0-cp314-cp314-win_arm64.whl", hash = "sha256:9feccf2fe5d7826dd745618350f58f675093093da7187b976c2fa6942a23297a", size = 191434, upload-time = "2026-10-02T20:03:25.954Z" },
 ]
 
 [[package]]

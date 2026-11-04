@@ -43,7 +43,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Reads OMat24 ASE-LMDB shards without the fairchem/torch stack.
-omat24 = ["ase-db-backends>=0.11.0"]
+omat24 = ["ase-db-backends>=0.11.0", "lmdb>=1.7.5"]
 
 [project.scripts]
 envtok = "envtok.cli:main"
@@ -63,6 +63,7 @@ dev = [
 ]
 test = [
   "ase-db-backends>=0.11.0",
+  "lmdb>=1.7.5",
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
 ]
@@ -71,8 +72,13 @@ test = [
 minversion = "9.1"
 addopts = ["-ra", "--import-mode=importlib", "--cov", "--cov-report=term-missing"]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+  "error",
+  # ASE's SQLite backend leaves connections to the garbage collector.
+  "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
+]
 
 [tool.coverage.run]
 branch = true
@@ -176,6 +182,8 @@ enable_error_code = [
   "unused-awaitable",
 ]
 pretty = true
+# ASE and pymatgen ship py.typed but are largely unannotated.
+untyped_calls_exclude = ["ase", "pymatgen", "spglib"]
 
 [[tool.mypy.overrides]]
 # Scientific dependencies without usable type information.
