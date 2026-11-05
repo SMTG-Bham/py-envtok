@@ -1,4 +1,4 @@
-name: template-python
+name: envtok
 
 channels:
   - conda-forge

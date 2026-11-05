@@ -6,7 +6,7 @@ repository root, then install the package and its development tools with pip:
 
 ```bash
 conda env create -f build_tools/environment.yml
-conda activate template-python
+conda activate envtok
 python -m pip install --group dev -e .
 ```
 

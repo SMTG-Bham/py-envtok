@@ -1,0 +1,45 @@
+# EnvTok quickstart on the 20-structure synthetic fixture corpus.
+#   uv run envtok run --config examples/quickstart/config.yaml
+# Relative paths are resolved against this file's directory.
+schema_version: 1
+source:
+  adapter: extxyz
+  path: ../../tests/fixtures/corpus.extxyz
+  name: fixtures
+  revision: v1
+  split: train
+  id_policy: namespaced_source_record
+
+corpus:
+  preset: general
+  invalid_record_policy: quarantine
+
+tokenizer:
+  profile: reference-723696d
+  magnetic_policy: source_abs_round_zero_if_missing
+  cache_raw_measurements: true
+  # Opt-in net-charge token field: net_round or net_round_zero_if_missing.
+  # 'disabled' keeps the reference token.
+  charge_policy: disabled
+  charge_key: charge
+
+coverage:
+  # The fixture corpus is tiny; T=100 is the reference's OMat24 value.
+  min_structure_support: 2
+  support_unit: record
+
+selection:
+  mode: cover
+  cost: atoms
+  prune: true
+  presence_constraints: reference
+  tie_break: natoms_then_record_id
+
+execution:
+  workdir: ../../runs/quickstart
+  workers: 1
+  batch_size: 8
+
+output:
+  format: extxyz
+  preserve_labels: true

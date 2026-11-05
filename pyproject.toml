@@ -1,37 +1,57 @@
 [build-system]
-requires = ["uv_build>=0.12.24,<0.13"]
+requires = ["uv_build>=0.13.6,<0.14"]
 build-backend = "uv_build"
 
 [project]
-name = "template-python"
-version = "0.0.0"
-description = "A modern, typed Python package template."
+name = "envtok"
+version = "0.1.0"
+description = "Interpretable local-environment tokens and coverage-guaranteed subset selection for atomistic datasets."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "LICENSES/*"]
 authors = [
   { name = "Louie Slocombe", email = "louies@hotmail.co.uk" },
 ]
-keywords = ["python", "template"]
+keywords = [
+  "atomistic",
+  "chemenv",
+  "dataset curation",
+  "machine-learned interatomic potentials",
+  "materials",
+  "subset selection",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
   "Typing :: Typed",
 ]
 dependencies = [
+  "ase>=3.27.0",
+  "duckdb>=2.0.0",
   "numpy>=2.3.3",
+  "pyarrow>=22.0.0",
+  "pymatgen>=2026.9.23",
+  "pyyaml>=6.0.3",
+  "spglib>=2.7.0",
 ]
 
+[project.optional-dependencies]
+# Reads OMat24 ASE-LMDB shards without the fairchem/torch stack.
+omat24 = ["ase-db-backends>=0.11.0", "lmdb>=1.7.5"]
+
 [project.scripts]
-template-python = "template_python.__main__:main"
+envtok = "envtok.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/LouieSlocombe/template_python"
-Issues = "https://github.com/LouieSlocombe/template_python/issues"
-Repository = "https://github.com/LouieSlocombe/template_python"
+Homepage = "https://github.com/LouieSlocombe/py-envtok"
+Issues = "https://github.com/LouieSlocombe/py-envtok/issues"
+Repository = "https://github.com/LouieSlocombe/py-envtok"
 
 [dependency-groups]
 dev = [
@@ -39,8 +59,11 @@ dev = [
   "mypy>=2.4.0",
   "prek>=0.5.5",
   "ruff>=0.16.10",
+  "types-pyyaml>=6.0.12",
 ]
 test = [
+  "ase-db-backends>=0.11.0",
+  "lmdb>=1.7.5",
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
 ]
@@ -49,12 +72,17 @@ test = [
 minversion = "9.1"
 addopts = ["-ra", "--import-mode=importlib", "--cov", "--cov-report=term-missing"]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+  "error",
+  # ASE's SQLite backend leaves connections to the garbage collector.
+  "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
+]
 
 [tool.coverage.run]
 branch = true
-source_pkgs = ["template_python"]
+source_pkgs = ["envtok"]
 
 [tool.coverage.report]
 fail_under = 100
@@ -62,7 +90,13 @@ show_missing = true
 skip_covered = true
 exclude_also = [
   'if __name__ == "__main__":',
+  'if TYPE_CHECKING:',
+  '\.\.\.$',
 ]
+
+[tool.ruff]
+extend-exclude = ["build_tools/reference/vendored_*.py", "envtok_implementation_plan.md"]
+force-exclude = true
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -116,10 +150,26 @@ select = [
   "INP001",  # pytest's importlib mode does not need tests/__init__.py
   "PLR2004", # literal expected values are clearer in assertions
   "S101",    # pytest uses bare assert statements
+  "SLF001",  # tests may inspect private helpers
+]
+# SQL is assembled from internal identifiers and sql_literal-quoted paths only.
+"src/envtok/{store/cache,coarsen,report,selection/incidence}.py" = ["S608"]
+# The reference oracle mirrors upstream code structure and SQL verbatim.
+"tests/reference_oracles.py" = ["C901", "E501", "PLR0912", "PLR0914", "PLR0915", "S608"]
+"examples/**" = [
+  "INP001",  # standalone example scripts
+  "T201",    # examples print their results
+]
+"build_tools/**" = [
+  "INP001",  # standalone scripts, not a package
+  "T201",    # scripts report progress with print
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 10
 
 [tool.mypy]
 files = ["src", "tests"]
@@ -141,3 +191,18 @@ enable_error_code = [
   "unused-awaitable",
 ]
 pretty = true
+# ASE and pymatgen ship py.typed but are largely unannotated.
+untyped_calls_exclude = ["ase", "pymatgen", "spglib"]
+
+[[tool.mypy.overrides]]
+# Scientific dependencies without usable type information.
+module = [
+  "ase.*",
+  "ase_db_backends.*",
+  "fairchem.*",
+  "pyarrow.*",
+  "pymatgen.*",
+  "spglib.*",
+]
+ignore_missing_imports = true
+follow_untyped_imports = false

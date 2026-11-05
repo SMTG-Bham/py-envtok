@@ -1,0 +1,54 @@
+# Pilot configuration for OMat24 ASE-LMDB shards (resource values illustrative).
+# Install the LMDB backend first:  uv pip install "envtok[omat24]"
+schema_version: 1
+source:
+  adapter: omat24
+  path: /data/omat24/train          # directory of sub-datasets with *.aselmdb shards
+  name: omat24
+  revision: REQUIRED_DATASET_REVISION
+  split: train
+  id_policy: namespaced_source_record
+  native_id_key: sid
+  checksum: stat
+
+corpus:
+  # 'omat24-study' reproduces the reference La-Lu/Ac-Lr exclusion; use
+  # 'general' for other datasets.
+  preset: omat24-study
+  exclude_elements: []
+  deduplicate: false
+  invalid_record_policy: reference   # the study's sentinel policy; 'quarantine' for production
+
+tokenizer:
+  profile: reference-723696d
+  magnetic_policy: source_abs_round_zero_if_missing
+  cache_raw_measurements: true
+  # Opt-in net-charge token field: net_round or net_round_zero_if_missing.
+  # 'disabled' keeps the reference token.
+  charge_policy: disabled
+  charge_key: charge
+
+coverage:
+  min_structure_support: 100        # a starting comparison value, not a universal constant
+  support_unit: record
+  split: train
+
+selection:
+  mode: cover
+  cost: atoms
+  prune: true
+  presence_constraints: reference
+  tie_break: natoms_then_record_id
+
+execution:
+  workers: 16
+  batch_size: 64
+  max_inflight_batches: 32
+  memory_budget: 32GB
+  temporary_disk_budget: 200GB
+  workdir: runs/omat24
+  resume: true
+
+output:
+  format: extxyz
+  preserve_labels: true

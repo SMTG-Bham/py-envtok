@@ -1,3 +1,6 @@
+# The vendored reference code must stay byte-identical to upstream.
+exclude: ^build_tools/reference/vendored_
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
