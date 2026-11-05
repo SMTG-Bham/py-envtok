@@ -16,6 +16,7 @@ from typing import Any, override
 import ase.io
 from ase import Atoms
 
+from envtok._extxyz import encode_string_metadata
 from envtok.adapters.base import Adapter, Locator, RecordOptions, make_record
 from envtok.errors import RetrievalUnavailableError, UnsupportedInputError
 from envtok.records import SourceRef, StructureRecord
@@ -175,6 +176,9 @@ def spool_atoms(frames: Iterable[Atoms], path: str | Path) -> str:
     partial = target.with_name(target.name + ".partial")
     with partial.open("w", encoding="utf-8", newline="\n") as handle:
         for atoms in frames:
-            ase.io.write(handle, atoms, format="extxyz")
+            frame = atoms.copy()
+            frame.calc = atoms.calc
+            frame.info = encode_string_metadata(atoms.info)
+            ase.io.write(handle, frame, format="extxyz")
     partial.replace(target)
     return hashlib.sha256(target.read_bytes()).hexdigest()

@@ -16,6 +16,7 @@ import yaml
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 
+from envtok._extxyz import encode_string_metadata
 from envtok.adapters import Adapter
 from envtok.errors import ConfigError
 from envtok.provenance import collect
@@ -228,6 +229,7 @@ def export_structures(
     if format == "extxyz":
         with partial.open("w", encoding="utf-8", newline="\n") as handle:
             for atoms in frames:
+                atoms.info = encode_string_metadata(atoms.info)
                 ase.io.write(handle, atoms, format="extxyz")
     else:
         database = ase.db.connect(str(partial), type="db")

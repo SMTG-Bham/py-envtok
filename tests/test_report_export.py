@@ -354,6 +354,10 @@ class TestExport:
     def test_in_memory_and_spooled_sources(self, tmp_path: Path) -> None:
         frames = load_frames()
         chosen = [frames[i] for i in (0, 7)]
+        for frame in chosen:
+            frame.info.update(
+                prototype_error="", following_value=1.25, source_row_key="1"
+            )
         memory = Corpus.from_atoms(chosen, name="mem", split="train")
         cache = Tokenizer().run(memory, tmp_path / "mem")
         selection = Selector().select(
@@ -365,6 +369,11 @@ class TestExport:
         exported = ase.io.read(written, index=":")
         assert isinstance(exported, list)
         assert len(exported) == len(selection.selected)
+        for frame in exported:
+            assert frame.info["prototype_error"] == ""
+            assert frame.info["following_value"] == 1.25
+            assert frame.info["source_row_key"] == "1"
+        assert all(frame.info["prototype_error"] == "" for frame in chosen)
         assert collect(selection)["source"]["adapter"] == "ase-iterable"
 
         spooled = Corpus.from_atoms(
@@ -380,6 +389,9 @@ class TestExport:
         sources = {str(a.info["sid"]): a for a in chosen}
         for frame in frames_out:
             assert_frame_matches(frame, sources[str(frame.info["sid"])])
+            assert frame.info["prototype_error"] == ""
+            assert frame.info["following_value"] == 1.25
+            assert frame.info["source_row_key"] == "1"
 
     def test_calculators_are_frozen(self) -> None:
         copper = bulk("Cu", "fcc", a=3.6)

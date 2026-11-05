@@ -13,6 +13,7 @@ from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io.extxyz import key_val_dict_to_str
 
+from envtok._extxyz import encode_string_metadata
 from envtok.adapters.base import RecordOptions, make_record
 from envtok.adapters.extxyz import ExtxyzAdapter
 from envtok.errors import ConfigError, DuplicateRecordError
@@ -510,7 +511,7 @@ def _write_frame(handle: TextIO, atoms: Atoms) -> None:
             )
         properties.extend((name, dtype, str(flat.shape[1])))
         columns.append((flat, dtype))
-    info = _jsonable(dict(atoms.info))
+    info = encode_string_metadata(_jsonable(dict(atoms.info)))
     if shapes:
         info["envtok_array_shapes"] = shapes
     info["Lattice"] = atoms.cell.array.T
