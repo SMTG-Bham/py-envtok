@@ -1,0 +1,54 @@
+# Engineering example with synthetic labels; not a molecular accuracy benchmark.
+profile: molecular_v1
+source:
+  adapter: ase_extxyz
+  path: molecules.extxyz
+  dataset: molecular-smoke
+  revision: synthetic-v1
+  label_namespace: synthetic-harmonic-v1
+state:
+  charge_key: total_charge
+  multiplicity_key: spin_multiplicity
+  unknown_policy: separate_and_report
+  strict_training_export: true
+split:
+  preserve_source_splits: true
+  group_related_states: true
+  group_trajectories_and_scans: true
+chemistry:
+  graph_radius: 2
+  prefer_supplied_graph: true
+  allow_validated_perception: false
+  ambiguous_graph: geometry_fallback
+geometry:
+  backend: soap
+  species: [1, 6, 8]
+  r_cut_angstrom: 5.0
+  n_max: 4
+  l_max: 4
+  sigma_angstrom: 0.5
+  average: "off"
+  normalize: true
+  cache_dtype: float32
+hierarchy:
+  min_source_support: 2
+  min_selected_representatives: 1
+  protect_charge_and_multiplicity: true
+  protect_known_central_formal_charge: true
+selection:
+  mode: cover
+  cost: atoms
+  chemical_core: greedy_cover
+  geometric_refinement: reservoir_fps_regions
+  prototype_region_radius: 0.20
+  prototype_cap: 8
+  reservoir_size: 64
+  background_reserve_fraction: 0.0
+  unresolved_constraints: report_without_relaxing
+reproducibility:
+  seed: 20261105
+  stable_tie_break: record_id
+execution:
+  workdir: ../../runs/molecular
+output:
+  format: extxyz

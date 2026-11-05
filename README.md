@@ -85,6 +85,26 @@ complete configuration and
 [`examples/slurm/tokenize_array.sbatch`](examples/slurm/tokenize_array.sbatch)
 for array-job tokenisation.
 
+## Molecules (experimental)
+
+The separate `molecular_v1` profile selects intact finite molecules while
+protecting total charge, spin multiplicity, electronic state and reference
+method. It combines rooted graph tokens (or an explicit graph-unknown fallback)
+with local SOAP geometry, conservative deduplication, and hard atom budgets.
+Unknown state is never silently converted to neutral/singlet.
+
+```bash
+uv sync --extra molecular
+uv run envtok run --config examples/molecular/omol/config.yaml
+uv run envtok benchmark --config examples/molecular/omol/config.yaml --seeds 0 1 2
+```
+
+The bundled [OMol sample](examples/molecular/omol/README.md) contains 29 real
+training configurations from a documented public mirror. It exercises the
+pipeline and selector comparisons; downstream model accuracy is unvalidated.
+See [molecular usage and data contracts](docs/molecular.md) for the Python API,
+staged CLI, supplied-graph schema, safeguards and current limitations.
+
 ## Inputs
 
 EnvTok reads:

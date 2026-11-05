@@ -1,0 +1,26 @@
+profile: molecular_v1
+source:
+  adapter: ase_extxyz
+  path: sample.extxyz
+  dataset: colabfit/OMol25_train_4M
+  revision: e5f5d2ae9754639feb7f0a1ad46f2ab59955c3e4
+  label_namespace: OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3
+  split: train
+state:
+  charge_key: total_charge
+  multiplicity_key: spin_multiplicity
+  unknown_policy: reject
+  strict_training_export: true
+chemistry:
+  allow_validated_perception: false
+geometry:
+  backend: soap
+  species: [1, 6, 7, 8]
+hierarchy:
+  min_source_support: 5
+  min_selected_representatives: 1
+selection:
+  mode: budget
+  atom_fraction: 0.25
+execution:
+  workdir: ../../../runs/omol-sample

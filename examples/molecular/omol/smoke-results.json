@@ -1,0 +1,474 @@
+{
+  "date": "2026-11-05",
+  "implementation": "molecular_v1.3",
+  "status": "engineering_smoke_only_model_accuracy_pending",
+  "source_sha256": "a5ca8e639f5d162e8bd29eb6d9c02212c99d482884340f5da87e6f837d30a81a",
+  "source_configurations": 29,
+  "source_atoms": 650,
+  "selection": {
+    "complete": true,
+    "budget": 162,
+    "achieved_cost": 154,
+    "selected_configurations": 10,
+    "mandatory_targets": 15,
+    "covered_targets": 15,
+    "geometry_overflow_environments": 481,
+    "nearest_selected_distances": {
+      "maximum": 1.0640820784258012,
+      "mean": 0.42769944542264826,
+      "missing_class_count": 0,
+      "p95": 0.847952732773862,
+      "sample_count": 650
+    }
+  },
+  "comparison_note": "Comparisons add shared state/size strata, giving 23 mandatory targets rather than the standalone 15. Seeds refer to selection only; no models trained.",
+  "selector_comparisons": [
+    {
+      "selector": "stratified_random",
+      "fraction": 0.05,
+      "selection_seed": 0,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.05,
+      "selection_seed": 0,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.05,
+      "selection_seed": 0,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.05,
+      "selection_seed": 1,
+      "achieved_cost": 32,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 11
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.05,
+      "selection_seed": 1,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.05,
+      "selection_seed": 1,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.05,
+      "selection_seed": 2,
+      "achieved_cost": 32,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 11
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.05,
+      "selection_seed": 2,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.05,
+      "selection_seed": 2,
+      "achieved_cost": 26,
+      "budget": 32,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 15
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.1,
+      "selection_seed": 0,
+      "achieved_cost": 59,
+      "budget": 65,
+      "selected_configurations": 1,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 5
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.1,
+      "selection_seed": 0,
+      "achieved_cost": 58,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.1,
+      "selection_seed": 0,
+      "achieved_cost": 58,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.1,
+      "selection_seed": 1,
+      "achieved_cost": 62,
+      "budget": 65,
+      "selected_configurations": 3,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 11
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.1,
+      "selection_seed": 1,
+      "achieved_cost": 58,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.1,
+      "selection_seed": 1,
+      "achieved_cost": 58,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.1,
+      "selection_seed": 2,
+      "achieved_cost": 63,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.1,
+      "selection_seed": 2,
+      "achieved_cost": 58,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.1,
+      "selection_seed": 2,
+      "achieved_cost": 58,
+      "budget": 65,
+      "selected_configurations": 5,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 20
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.25,
+      "selection_seed": 0,
+      "achieved_cost": 159,
+      "budget": 162,
+      "selected_configurations": 8,
+      "complete": false,
+      "mandatory_targets": 23,
+      "covered_targets": 22
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.25,
+      "selection_seed": 0,
+      "achieved_cost": 161,
+      "budget": 162,
+      "selected_configurations": 9,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.25,
+      "selection_seed": 0,
+      "achieved_cost": 161,
+      "budget": 162,
+      "selected_configurations": 9,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.25,
+      "selection_seed": 1,
+      "achieved_cost": 158,
+      "budget": 162,
+      "selected_configurations": 8,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.25,
+      "selection_seed": 1,
+      "achieved_cost": 161,
+      "budget": 162,
+      "selected_configurations": 9,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.25,
+      "selection_seed": 1,
+      "achieved_cost": 161,
+      "budget": 162,
+      "selected_configurations": 9,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 0.25,
+      "selection_seed": 2,
+      "achieved_cost": 156,
+      "budget": 162,
+      "selected_configurations": 8,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "token_only",
+      "fraction": 0.25,
+      "selection_seed": 2,
+      "achieved_cost": 161,
+      "budget": 162,
+      "selected_configurations": 9,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "combined",
+      "fraction": 0.25,
+      "selection_seed": 2,
+      "achieved_cost": 161,
+      "budget": 162,
+      "selected_configurations": 9,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 1.0,
+      "selection_seed": 0,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "token_only",
+      "fraction": 1.0,
+      "selection_seed": 0,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "combined",
+      "fraction": 1.0,
+      "selection_seed": 0,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 1.0,
+      "selection_seed": 1,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "token_only",
+      "fraction": 1.0,
+      "selection_seed": 1,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "combined",
+      "fraction": 1.0,
+      "selection_seed": 1,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "stratified_random",
+      "fraction": 1.0,
+      "selection_seed": 2,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "token_only",
+      "fraction": 1.0,
+      "selection_seed": 2,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    },
+    {
+      "selector": "combined",
+      "fraction": 1.0,
+      "selection_seed": 2,
+      "achieved_cost": 650,
+      "budget": 650,
+      "selected_configurations": 29,
+      "complete": true,
+      "mandatory_targets": 23,
+      "covered_targets": 23
+    }
+  ],
+  "descriptor_sensitivity": [
+    {
+      "name": "larger-cutoff",
+      "settings": {
+        "r_cut_angstrom": 7.0
+      },
+      "selected_configurations": 10,
+      "selected_atoms": 154,
+      "complete": true,
+      "overflow_environments": 468,
+      "nearest_selected_distances": {
+        "maximum": 1.104592271222731,
+        "mean": 0.5172868200166204,
+        "missing_class_count": 0,
+        "p95": 0.9717275119079736,
+        "sample_count": 650
+      },
+      "descriptor_features": 680
+    },
+    {
+      "name": "higher-resolution",
+      "settings": {
+        "n_max": 6,
+        "l_max": 6
+      },
+      "selected_configurations": 12,
+      "selected_atoms": 157,
+      "complete": true,
+      "overflow_environments": 485,
+      "nearest_selected_distances": {
+        "maximum": 0.9439562388742804,
+        "mean": 0.45834637844963017,
+        "missing_class_count": 0,
+        "p95": 0.8455344666285067,
+        "sample_count": 650
+      },
+      "descriptor_features": 2100
+    }
+  ],
+  "validation": {
+    "molecular_tests_passed": 636,
+    "base_tests_passed": 634,
+    "base_optional_tests_skipped": 2,
+    "branch_coverage_percent": 100.0
+  },
+  "limitations": [
+    "Ordered first-100-row preview filtered to 29 finite CHNO configurations, not a representative scientific pilot.",
+    "Large geometric overflow remains; mandatory chemical/state coverage does not certify geometric fidelity or accuracy.",
+    "Descriptor spaces differ between sensitivity settings; their distances are not directly comparable.",
+    "No MACE/model training, energy/force predictive accuracy, million-record scaling, or broader-chemistry validation performed."
+  ]
+}

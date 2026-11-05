@@ -1,0 +1,134 @@
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q0-0 family_id=H2O total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [0, 0, 0], \"radicals\": [0, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.00938118194601999 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.68691510      -0.41741610      -0.00000000       0.07632390      -0.05963090
+H        0.00000000      -0.68691510      -0.41741610      -0.00000000      -0.07632390      -0.05963090
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q0-1 family_id=H2O total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [0, 0, 0], \"radicals\": [0, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.001500989111363205 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.73270944      -0.45319464      -0.00000000       0.03052956      -0.02385236
+H        0.00000000      -0.73270944      -0.45319464      -0.00000000      -0.03052956      -0.02385236
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q0-2 family_id=H2O total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [0, 0, 0], \"radicals\": [0, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.0 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.76323900      -0.47704700      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000      -0.76323900      -0.47704700      -0.00000000      -0.00000000      -0.00000000
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q0-3 family_id=H2O total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [0, 0, 0], \"radicals\": [0, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.0023452954865050045 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.80140095      -0.50686245      -0.00000000      -0.03816195       0.02981545
+H        0.00000000      -0.80140095      -0.50686245      -0.00000000       0.03816195       0.02981545
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q0-4 family_id=H2O total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [0, 0, 0], \"radicals\": [0, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.015854197488773765 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.86246007      -0.55456717      -0.00000000      -0.09922107       0.07752017
+H        0.00000000      -0.86246007      -0.55456717      -0.00000000       0.09922107       0.07752017
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q0-5 family_id=H2O total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [0, 0, 0], \"radicals\": [0, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.045404920618736785 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.93115158      -0.60823498      -0.00000000      -0.16791258       0.13118798
+H        0.00000000      -0.93115158      -0.60823498      -0.00000000       0.16791258       0.13118798
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q1-0 family_id=H2O total_charge=1 spin_multiplicity=2 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [1, 0, 0], \"radicals\": [1, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=1.00938118194602 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.68691510      -0.41741610      -0.00000000       0.07632390      -0.05963090
+H        0.00000000      -0.68691510      -0.41741610      -0.00000000      -0.07632390      -0.05963090
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q1-1 family_id=H2O total_charge=1 spin_multiplicity=2 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [1, 0, 0], \"radicals\": [1, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=1.0015009891113633 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.73270944      -0.45319464      -0.00000000       0.03052956      -0.02385236
+H        0.00000000      -0.73270944      -0.45319464      -0.00000000      -0.03052956      -0.02385236
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q1-2 family_id=H2O total_charge=1 spin_multiplicity=2 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [1, 0, 0], \"radicals\": [1, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=1.0 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.76323900      -0.47704700      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000      -0.76323900      -0.47704700      -0.00000000      -0.00000000      -0.00000000
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q1-3 family_id=H2O total_charge=1 spin_multiplicity=2 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [1, 0, 0], \"radicals\": [1, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=1.002345295486505 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.80140095      -0.50686245      -0.00000000      -0.03816195       0.02981545
+H        0.00000000      -0.80140095      -0.50686245      -0.00000000       0.03816195       0.02981545
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q1-4 family_id=H2O total_charge=1 spin_multiplicity=2 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [1, 0, 0], \"radicals\": [1, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=1.0158541974887738 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.86246007      -0.55456717      -0.00000000      -0.09922107       0.07752017
+H        0.00000000      -0.86246007      -0.55456717      -0.00000000       0.09922107       0.07752017
+3
+Properties=species:S:1:pos:R:3:forces:R:3 sid=H2O-q1-5 family_id=H2O total_charge=1 spin_multiplicity=2 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"]], \"formal_charges\": [1, 0, 0], \"radicals\": [1, 0, 0], \"stereochemistry\": [null, null, null], \"aromatic\": [false, false, false], \"rings\": [false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=1.0454049206187368 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200      -0.00000000      -0.00000000      -0.00000000
+H        0.00000000       0.93115158      -0.60823498      -0.00000000      -0.16791258       0.13118798
+H        0.00000000      -0.93115158      -0.60823498      -0.00000000       0.16791258       0.13118798
+5
+Properties=species:S:1:pos:R:3:forces:R:3 sid=CH4-q0-0 family_id=CH4 total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [0, 3, \"single\"], [0, 4, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null], \"aromatic\": [false, false, false, false, false], \"rings\": [false, false, false, false, false], \"source\": \"explicit CH4 fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.023747367475439967 pbc="F F F"
+C        0.00000000       0.00000000       0.00000000      -0.00000000      -0.00000000      -0.00000000
+H        0.56620620       0.56620620       0.56620620       0.06291180       0.06291180       0.06291180
+H       -0.56620620      -0.56620620       0.56620620      -0.06291180      -0.06291180       0.06291180
+H        0.56620620      -0.56620620      -0.56620620       0.06291180      -0.06291180      -0.06291180
+H       -0.56620620       0.56620620      -0.56620620      -0.06291180       0.06291180      -0.06291180
+5
+Properties=species:S:1:pos:R:3:forces:R:3 sid=CH4-q0-1 family_id=CH4 total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [0, 3, \"single\"], [0, 4, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null], \"aromatic\": [false, false, false, false, false], \"rings\": [false, false, false, false, false], \"source\": \"explicit CH4 fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.003799578796070409 pbc="F F F"
+C        0.00000000       0.00000000       0.00000000      -0.00000000      -0.00000000      -0.00000000
+H        0.60395328       0.60395328       0.60395328       0.02516472       0.02516472       0.02516472
+H       -0.60395328      -0.60395328       0.60395328      -0.02516472      -0.02516472       0.02516472
+H        0.60395328      -0.60395328      -0.60395328       0.02516472      -0.02516472      -0.02516472
+H       -0.60395328       0.60395328      -0.60395328      -0.02516472       0.02516472      -0.02516472
+5
+Properties=species:S:1:pos:R:3:forces:R:3 sid=CH4-q0-2 family_id=CH4 total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [0, 3, \"single\"], [0, 4, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null], \"aromatic\": [false, false, false, false, false], \"rings\": [false, false, false, false, false], \"source\": \"explicit CH4 fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.0 pbc="F F F"
+C        0.00000000       0.00000000       0.00000000      -0.00000000      -0.00000000      -0.00000000
+H        0.62911800       0.62911800       0.62911800      -0.00000000      -0.00000000      -0.00000000
+H       -0.62911800      -0.62911800       0.62911800      -0.00000000      -0.00000000      -0.00000000
+H        0.62911800      -0.62911800      -0.62911800      -0.00000000      -0.00000000      -0.00000000
+H       -0.62911800       0.62911800      -0.62911800      -0.00000000      -0.00000000      -0.00000000
+5
+Properties=species:S:1:pos:R:3:forces:R:3 sid=CH4-q0-3 family_id=CH4 total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [0, 3, \"single\"], [0, 4, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null], \"aromatic\": [false, false, false, false, false], \"rings\": [false, false, false, false, false], \"source\": \"explicit CH4 fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.005936841868859992 pbc="F F F"
+C        0.00000000       0.00000000       0.00000000      -0.00000000      -0.00000000      -0.00000000
+H        0.66057390       0.66057390       0.66057390      -0.03145590      -0.03145590      -0.03145590
+H       -0.66057390      -0.66057390       0.66057390       0.03145590       0.03145590      -0.03145590
+H        0.66057390      -0.66057390      -0.66057390      -0.03145590       0.03145590       0.03145590
+H       -0.66057390       0.66057390      -0.66057390       0.03145590      -0.03145590       0.03145590
+5
+Properties=species:S:1:pos:R:3:forces:R:3 sid=CH4-q0-4 family_id=CH4 total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [0, 3, \"single\"], [0, 4, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null], \"aromatic\": [false, false, false, false, false], \"rings\": [false, false, false, false, false], \"source\": \"explicit CH4 fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.04013305103349354 pbc="F F F"
+C        0.00000000       0.00000000       0.00000000      -0.00000000      -0.00000000      -0.00000000
+H        0.71090334       0.71090334       0.71090334      -0.08178534      -0.08178534      -0.08178534
+H       -0.71090334      -0.71090334       0.71090334       0.08178534       0.08178534      -0.08178534
+H        0.71090334      -0.71090334      -0.71090334      -0.08178534       0.08178534       0.08178534
+H       -0.71090334       0.71090334      -0.71090334       0.08178534      -0.08178534       0.08178534
+5
+Properties=species:S:1:pos:R:3:forces:R:3 sid=CH4-q0-5 family_id=CH4 total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [0, 3, \"single\"], [0, 4, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null], \"aromatic\": [false, false, false, false, false], \"rings\": [false, false, false, false, false], \"source\": \"explicit CH4 fixture connectivity\"}" graph_status=supplied synthetic_labels=T energy=0.1149372585811295 pbc="F F F"
+C        0.00000000       0.00000000       0.00000000      -0.00000000      -0.00000000      -0.00000000
+H        0.76752396       0.76752396       0.76752396      -0.13840596      -0.13840596      -0.13840596
+H       -0.76752396      -0.76752396       0.76752396       0.13840596       0.13840596      -0.13840596
+H        0.76752396      -0.76752396      -0.76752396      -0.13840596       0.13840596       0.13840596
+H       -0.76752396       0.76752396      -0.76752396       0.13840596      -0.13840596       0.13840596
+6
+Properties=species:S:1:pos:R:3:forces:R:3 sid=water-dimer-0 family_id=water-dimer-scan scan_id=synthetic-separation total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [3, 4, \"single\"], [3, 5, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null, null], \"aromatic\": [false, false, false, false, false, false], \"rings\": [false, false, false, false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied fragment_ids="_JSON [\"left\", \"left\", \"left\", \"right\", \"right\", \"right\"]" synthetic_labels=T energy=0.0 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H        0.00000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H        0.00000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+O        7.20000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H        7.20000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H        7.20000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+6
+Properties=species:S:1:pos:R:3:forces:R:3 sid=water-dimer-1 family_id=water-dimer-scan scan_id=synthetic-separation total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [3, 4, \"single\"], [3, 5, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null, null], \"aromatic\": [false, false, false, false, false, false], \"rings\": [false, false, false, false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied fragment_ids="_JSON [\"left\", \"left\", \"left\", \"right\", \"right\", \"right\"]" synthetic_labels=T energy=0.0 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H        0.00000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H        0.00000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+O        8.20000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H        8.20000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H        8.20000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+6
+Properties=species:S:1:pos:R:3:forces:R:3 sid=water-dimer-2 family_id=water-dimer-scan scan_id=synthetic-separation total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [3, 4, \"single\"], [3, 5, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null, null], \"aromatic\": [false, false, false, false, false, false], \"rings\": [false, false, false, false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied fragment_ids="_JSON [\"left\", \"left\", \"left\", \"right\", \"right\", \"right\"]" synthetic_labels=T energy=0.0 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H        0.00000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H        0.00000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+O       10.20000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H       10.20000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H       10.20000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+6
+Properties=species:S:1:pos:R:3:forces:R:3 sid=water-dimer-3 family_id=water-dimer-scan scan_id=synthetic-separation total_charge=0 spin_multiplicity=1 label_namespace=synthetic-harmonic-v1 split=train graph="_JSON {\"bonds\": [[0, 1, \"single\"], [0, 2, \"single\"], [3, 4, \"single\"], [3, 5, \"single\"]], \"formal_charges\": [0, 0, 0, 0, 0, 0], \"radicals\": [0, 0, 0, 0, 0, 0], \"stereochemistry\": [null, null, null, null, null, null], \"aromatic\": [false, false, false, false, false, false], \"rings\": [false, false, false, false, false, false], \"source\": \"explicit H2O fixture connectivity\"}" graph_status=supplied fragment_ids="_JSON [\"left\", \"left\", \"left\", \"right\", \"right\", \"right\"]" synthetic_labels=T energy=0.0 pbc="F F F"
+O        0.00000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H        0.00000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H        0.00000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+O       13.20000000       0.00000000       0.11926200       0.00000000       0.00000000       0.00000000
+H       13.20000000       0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000
+H       13.20000000      -0.76323900      -0.47704700       0.00000000       0.00000000       0.00000000

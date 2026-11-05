@@ -2,6 +2,27 @@
 
 Date: 5 November 2026
 
+### Execution status (5 November 2026)
+
+The experimental `molecular_v1` workflow is now implemented under
+`src/envtok/molecular/`, with a staged CLI, optional RDKit/DScribe dependencies,
+and regression tests. See [usage and contracts](docs/molecular.md).
+
+| Milestone | Current status |
+| --- | --- |
+| 1 Data contract | Implemented: explicit molecular states, validated units, source split protection, conservative exact deduplication and intact export. |
+| 2 Molecular representation | Implemented: rooted graph hierarchy, separate graph-unknown fallback, local SOAP, and supplied torsion/fragment safeguards. |
+| 3 Selection | Implemented: distinct-configuration support and multiplicity, hard budgets, chemical core, geometric regions, independent audit and restart manifests. |
+| 4 Scientific pilot | Engineering comparisons and prediction-metric harness implemented. A real 29-configuration/650-atom OMol training smoke sample is bundled. Model training, accuracy acceptance and the representative 20k–50k pilot remain outstanding. |
+| 5 Scale | Deferred: the current pilot implementation holds records and incidence in memory; million-record throughput and worker-count invariance are not established. |
+| 6 Broader chemistry | Deferred pending domain-specific scientific validation; diagnostic safeguards do not establish application accuracy. |
+
+The [OMol sample provenance and reproduction instructions](examples/molecular/omol/README.md)
+record the public ColabFit mirror, exact source-response hash, original training
+partition, units and charge/spin mapping. This ordered sample is an engineering
+check, not evidence for a scientific compression ratio. The plan below remains
+the specification for the uncompleted scientific and scaling milestones.
+
 ## 1 Purpose and scientific scope
 
 Build a Python workflow that takes a molecular configuration database and returns a smaller set of intact configurations, with traceable coverage of chemistry, electronic state, and geometry. The intended outputs are training subsets or candidates for more expensive quantum calculations.
@@ -10,7 +31,9 @@ Use a separate, versioned molecular representation profile with a reusable selec
 
 Published EnvTok uses discrete local environments and approximate weighted set cover, with total selected atoms as the cost. Its descriptor has no explicit molecular charge field; its molecular results are described as ongoing work. Molecular compression performance therefore needs a separate benchmark. [R1](https://arxiv.org/pdf/2610.14392v1)
 
-The design below is a proposed molecular extension. Proposed interfaces and configuration examples are not commands that already exist.
+The design below records the molecular extension proposal. The execution status
+above distinguishes implemented interfaces from remaining scientific and scale
+work; consult the linked usage guide for the supported commands and settings.
 
 ## 2 Main design decisions
 
@@ -447,4 +470,3 @@ The references establish the original method and available components. The molec
 - **Original implementation reference** [EnvTok source repository](https://github.com/em819/omat24-chemenv-subset)
 
 Inspect the original repository's current code and licence before reusing implementation. The plan does not assume that the molecular features described here already exist in that repository.
-
