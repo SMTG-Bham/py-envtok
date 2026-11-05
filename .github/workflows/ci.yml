@@ -42,7 +42,7 @@ jobs:
         run: uv run --locked mypy
 
   test:
-    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.resolution }})
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.resolution }}, ${{ matrix.extras }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -57,6 +57,11 @@ jobs:
         # "lowest-direct" tests the oldest dependency versions allowed by
         # pyproject.toml.
         resolution: [locked, lowest-direct]
+        extras: [base]
+        include:
+          - python-version: "3.14"
+            resolution: locked
+            extras: molecular
 
     steps:
       - name: Check out the repository
@@ -70,8 +75,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Test with the locked dependencies
-        if: matrix.resolution == 'locked'
+        if: matrix.resolution == 'locked' && matrix.extras == 'base'
         run: uv run --locked --no-default-groups --group test pytest
+
+      - name: Test the real molecular descriptor backends
+        if: matrix.extras == 'molecular'
+        run: |
+          uv run --locked --extra molecular --no-default-groups --group test python -c "from dscribe.descriptors import SOAP; from rdkit import Chem"
+          uv run --locked --extra molecular --no-default-groups --group test pytest
 
       - name: Test with the oldest allowed dependencies
         if: matrix.resolution == 'lowest-direct'

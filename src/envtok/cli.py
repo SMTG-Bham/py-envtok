@@ -9,7 +9,8 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from envtok.errors import EnvTokError
+from envtok.errors import ConfigError, EnvTokError
+from envtok.molecular import cli as molecular_cli
 from envtok.pipeline import Pipeline, load_selection, random_baselines
 
 
@@ -39,6 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     inspect = with_config("inspect", "validate a sample of records before a large run")
     inspect.add_argument("--sample", type=int, default=100)
+    for stage in molecular_cli.STAGES:
+        sub = with_config(stage, f"molecular profile: {stage}")
+        if stage == "benchmark":
+            sub.add_argument("--seeds", type=int, nargs="+", default=[0])
     tokenize = with_config("tokenize", "compute (or resume) the token cache")
     tokenize.add_argument("--shard-index", type=int, default=0)
     tokenize.add_argument("--num-shards", type=int, default=1)
@@ -57,7 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     report = commands.add_parser("report", help="re-run the audit of a selection")
     report.add_argument("--run", required=True, type=Path, help="selection directory")
     export = commands.add_parser("export", help="export the selected structures")
-    export.add_argument("--run", required=True, type=Path, help="selection directory")
+    export_source = export.add_mutually_exclusive_group(required=True)
+    export_source.add_argument("--run", type=Path, help="selection directory")
+    export_source.add_argument("--config", type=Path, help="molecular configuration")
     export.add_argument("--format", choices=["extxyz", "asedb"], default=None)
     export.add_argument("--output", type=Path, default=None)
     baseline = commands.add_parser("baseline", help="equal-atom random baselines")
@@ -67,7 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _dispatch(arguments: argparse.Namespace) -> Any:  # noqa: PLR0911 - one exit per command
+    if molecular_cli.supports(arguments):
+        return molecular_cli.dispatch(arguments)
     command = arguments.command
+    if command == "export" and arguments.config is not None:
+        raise ConfigError("export --config requires profile: molecular_v1")
     if command in {"report", "export", "baseline"}:
         if command == "baseline":
             return {"summary": random_baselines(arguments.run, arguments.seeds)}

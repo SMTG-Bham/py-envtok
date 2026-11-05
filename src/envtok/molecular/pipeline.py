@@ -1,0 +1,774 @@
+"""Restartable molecular pilot pipeline, manifests and independent auditing.
+
+This implementation is intended for measured pilot pools. Records and incidence
+are held in memory; full-dataset sharding is a separate scaling milestone.
+"""
+
+import hashlib
+import html
+import json
+import math
+import platform
+import time
+from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import asdict
+from importlib import metadata
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+import yaml
+
+from envtok.errors import ConfigError, CoverageError, StaleCacheError
+from envtok.molecular.config import MolecularConfig, load_molecular_config
+from envtok.molecular.data import (
+    PreparedRecords,
+    export_records,
+    iter_extxyz,
+    prepare_records,
+)
+from envtok.molecular.geometry import (
+    GeometryRegions,
+    build_geometry_regions,
+    nearest_selected_distances,
+)
+from envtok.molecular.records import MolecularRecord
+from envtok.molecular.representations import (
+    MolecularFeatures,
+    RepresentationSettings,
+    featurize_records,
+)
+from envtok.molecular.selection import (
+    Candidate,
+    HierarchyResult,
+    MolecularSelectionResult,
+    Target,
+    build_hierarchy,
+    select_candidates,
+)
+
+IMPLEMENTATION_VERSION = "molecular_v1.3"
+
+
+def _json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, indent=2, allow_nan=False)
+
+
+def _digest(value: Any) -> str:
+    return hashlib.sha256(_json(value).encode()).hexdigest()
+
+
+def _file_hash(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def _write_json(path: Path, value: Any) -> None:
+    temporary = path.with_suffix(path.suffix + ".partial")
+    temporary.write_text(_json(value) + "\n")
+    temporary.replace(path)
+
+
+def _read_json(path: Path, required: set[str]) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text())
+        if not isinstance(value, dict) or not required <= value.keys():
+            raise ValueError("missing manifest fields")
+    except (OSError, ValueError) as exc:
+        raise StaleCacheError(f"cannot read molecular manifest {path}: {exc}") from exc
+    return value
+
+
+def _software() -> dict[str, Any]:
+    return {
+        "python": platform.python_version(),
+        "implementation": IMPLEMENTATION_VERSION,
+        "packages": {
+            dist.metadata["Name"]: dist.version for dist in metadata.distributions()
+        },
+    }
+
+
+def audit_selection(
+    candidates: Sequence[Candidate],
+    mandatory: Mapping[str, Target],
+    selected_ids: Sequence[str],
+    *,
+    budget: float | None = None,
+) -> dict[str, Any]:
+    """Independently count distinct selected witnesses and enforce the hard budget."""
+    lookup = {row.record_id: row for row in candidates}
+    if len(set(selected_ids)) != len(selected_ids) or set(selected_ids) - set(lookup):
+        raise CoverageError("selection contains duplicate or non-candidate IDs")
+    selected = [lookup[rid] for rid in selected_ids]
+    counts: Counter[str] = Counter(token for row in selected for token in row.targets)
+    unmet = {
+        token: target.requirement - counts[token]
+        for token, target in mandatory.items()
+        if counts[token] < target.requirement
+    }
+    cost = sum(row.cost for row in selected)
+    if budget is not None and cost > budget:
+        raise CoverageError(f"selected cost {cost} exceeds hard budget {budget}")
+    refinements = set().union(*(row.refinement_targets for row in candidates))
+    covered = set().union(*(row.refinement_targets for row in selected))
+    return {
+        "complete": not unmet,
+        "unmet_constraints": unmet,
+        "achieved_cost": cost,
+        "budget": budget,
+        "candidate_configurations": len(candidates),
+        "selected_configurations": len(selected),
+        "candidate_atoms": sum(row.cost for row in candidates),
+        "target_counts": {token: counts[token] for token in sorted(mandatory)},
+        "mandatory_targets": len(mandatory),
+        "covered_targets": len(mandatory) - len(unmet),
+        "refinement_targets": len(refinements),
+        "covered_refinement_targets": len(covered),
+        "status": "complete" if not unmet else "heuristic_incomplete",
+        "explanation": "All mandatory constraints achieved."
+        if not unmet
+        else (
+            "The heuristic did not achieve every mandatory constraint. "
+            "This is not an infeasibility certificate."
+        ),
+    }
+
+
+class MolecularPipeline:
+    """Run finite-molecule stages without changing the periodic reference profile."""
+
+    def __init__(
+        self, config: str | Path | Mapping[str, Any] | MolecularConfig
+    ) -> None:
+        """Resolve source and configuration-addressed output directories."""
+        self.config = (
+            config
+            if isinstance(config, MolecularConfig)
+            else load_molecular_config(config)
+        )
+        self.settings = self.config.resolved()
+        self.source = Path(self.settings["source"]["path"])
+        if not self.source.is_file():
+            raise ConfigError(f"molecular source does not exist: {self.source}")
+        self.source_hash = _file_hash(self.source)
+        self.software = _software()
+        self.runtime_software = self.software
+        self._settings_hash = _digest(self.settings)
+        self._loaded = False
+        fingerprint_data = {
+            "config": self.settings,
+            "source_sha256": self.source_hash,
+            "software": self.software,
+        }
+        self.fingerprint = _digest(fingerprint_data)
+        self.directory = Path(self.settings["execution"]["workdir"]) / (
+            "molecular-" + self.fingerprint[:16]
+        )
+        self.directory.mkdir(parents=True, exist_ok=True)
+        feature_settings = {
+            key: self.settings[key]
+            for key in (
+                "source",
+                "state",
+                "split",
+                "chemistry",
+                "geometry",
+                "reproducibility",
+            )
+        }
+        feature_key = _digest(
+            {
+                "settings": feature_settings,
+                "source_sha256": self.source_hash,
+                "software": self.software,
+            }
+        )
+        self.feature_directory = self.directory.parent / (
+            "features-" + feature_key[:16]
+        )
+        self.feature_directory.mkdir(parents=True, exist_ok=True)
+        self._prepared: PreparedRecords | None = None
+        self._features: tuple[MolecularFeatures, ...] | None = None
+        self._built: (
+            tuple[
+                tuple[Candidate, ...],
+                dict[str, Target],
+                HierarchyResult,
+                GeometryRegions,
+            ]
+            | None
+        ) = None
+        self.timings: dict[str, float] = {}
+
+    @classmethod
+    def load_run(cls, directory: str | Path) -> MolecularPipeline:
+        """Bind an existing selection and verify its frozen provenance.
+
+        The saved directory is authoritative, including when moved. A different
+        runtime is reported without refitting the saved representation or targets.
+        """
+        self = cls.__new__(cls)
+        self.directory = Path(directory).resolve()
+        self.config = load_molecular_config(self.directory / "config.resolved.yaml")
+        self.settings = self.config.resolved()
+        self._settings_hash = _digest(self.settings)
+        provenance = _read_json(
+            self.directory / "provenance.json",
+            {
+                "source_sha256",
+                "fingerprint",
+                "feature_directory",
+                "targets_sha256",
+                "features_sha256",
+            },
+        )
+        self.source = Path(self.settings["source"]["path"])
+        self.source_hash = provenance["source_sha256"]
+        self.fingerprint = provenance["fingerprint"]
+        self.feature_directory = Path(provenance["feature_directory"])
+        self.software = _read_json(
+            self.directory / "software-lock.json",
+            {"python", "implementation", "packages"},
+        )
+        expected = _digest(
+            {
+                "config": self.settings,
+                "source_sha256": self.source_hash,
+                "software": self.software,
+            }
+        )
+        if expected != self.fingerprint:
+            raise StaleCacheError(
+                "saved molecular configuration or software lock changed"
+            )
+        self.runtime_software = _software()
+        self._loaded = True
+        self._prepared = None
+        self._features = None
+        self._built = None
+        self.timings = {}
+        self._check_source()
+        self._load_targets()
+        return self
+
+    def _check_source(self) -> None:
+        if _digest(self.settings) != self._settings_hash:
+            raise StaleCacheError(
+                "molecular configuration changed after initialization"
+            )
+        try:
+            unchanged = _file_hash(self.source) == self.source_hash
+        except OSError as exc:
+            raise StaleCacheError("molecular source is unavailable") from exc
+        if not unchanged:
+            raise StaleCacheError("molecular source content changed; create a new run")
+
+    def _load_targets(
+        self,
+    ) -> tuple[
+        tuple[Candidate, ...], dict[str, Target], HierarchyResult, GeometryRegions
+    ]:
+        provenance = _read_json(self.directory / "provenance.json", {"targets_sha256"})
+        path = self.directory / "targets.json"
+        if not path.exists() or _file_hash(path) != provenance["targets_sha256"]:
+            raise StaleCacheError("frozen molecular targets are missing or corrupt")
+        data = _read_json(
+            path,
+            {
+                "incidence",
+                "requirements",
+                "mapping",
+                "lineage",
+                "support",
+                "group_support",
+                "rare_targets",
+                "optional_targets",
+                "prototypes",
+                "region_targets",
+                "overflow",
+                "sampled_counts",
+                "region_radius",
+            },
+        )
+        candidates = tuple(
+            Candidate(
+                row["record_id"],
+                row["cost"],
+                frozenset(row["targets"]),
+                frozenset(row["refinement_targets"]),
+                row.get("group_id"),
+            )
+            for row in data["incidence"]
+        )
+        mandatory = {
+            key: Target(**value) for key, value in data["requirements"].items()
+        }
+        hierarchy = HierarchyResult(
+            targets={row.record_id: row.targets for row in candidates},
+            mapping=data["mapping"],
+            support=data["support"],
+            group_support=data["group_support"],
+            rare_targets=frozenset(data["rare_targets"]),
+            optional_targets=frozenset(data["optional_targets"]),
+            lineage={key: tuple(value) for key, value in data["lineage"].items()},
+            source_support=data["source_support"],
+            source_group_support=data["source_group_support"],
+        )
+        regions = GeometryRegions(
+            targets={
+                key: frozenset(value) for key, value in data["region_targets"].items()
+            },
+            prototypes={
+                key: np.asarray(value, dtype=np.float64)
+                for key, value in data["prototypes"].items()
+            },
+            overflow=tuple(tuple(row) for row in data["overflow"]),
+            sampled_counts=data["sampled_counts"],
+            radius=data["region_radius"],
+        )
+        return candidates, mandatory, hierarchy, regions
+
+    def _load_features(self) -> tuple[MolecularFeatures, ...]:
+        descriptor_path = self.feature_directory / "descriptors.npz"
+        manifest_path = self.feature_directory / "features.json"
+        commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
+        if (
+            not manifest_path.exists()
+            or _file_hash(manifest_path) != commit["features_sha256"]
+        ):
+            raise StaleCacheError("molecular feature metadata is missing or corrupt")
+        if self._loaded:
+            provenance = _read_json(
+                self.directory / "provenance.json", {"features_sha256"}
+            )
+            if _file_hash(manifest_path) != provenance["features_sha256"]:
+                raise StaleCacheError("frozen molecular feature metadata changed")
+        manifest = _read_json(manifest_path, {"records", "arrays_sha256"})
+        if not descriptor_path.exists() or manifest["arrays_sha256"] != _file_hash(
+            descriptor_path
+        ):
+            raise StaleCacheError("molecular descriptor cache is missing or corrupt")
+        features = []
+        with np.load(descriptor_path, allow_pickle=False) as arrays:
+            for index, row in enumerate(manifest["records"]):
+                row["state_key"] = tuple(row["state_key"])
+                row["token_hierarchy"] = tuple(
+                    tuple(tokens) for tokens in row["token_hierarchy"]
+                )
+                row["safeguard_targets"] = tuple(row["safeguard_targets"])
+                row["zero_descriptor_atoms"] = tuple(row["zero_descriptor_atoms"])
+                features.append(
+                    MolecularFeatures(**row, descriptors=arrays[f"f{index}"])
+                )
+        return tuple(features)
+
+    @property
+    def seed(self) -> int:
+        """Selection randomness, separate from downstream model seeds."""
+        return int(self.settings["reproducibility"]["seed"])
+
+    def ingest(self) -> PreparedRecords:
+        """Validate records, protect splits and deduplicate conservatively."""
+        self._check_source()
+        if self._prepared is not None:
+            return self._prepared
+        start = time.perf_counter()
+        source = {
+            key: value
+            for key, value in self.settings["source"].items()
+            if key not in {"adapter", "path"}
+        }
+        state = {
+            key: value
+            for key, value in self.settings["state"].items()
+            if key != "strict_training_export"
+        }
+        self._prepared = prepare_records(
+            iter_extxyz(self.source, **source, **state),
+            validation_fraction=self.settings["split"]["validation_fraction"],
+            seed=self.seed,
+        )
+        self._check_source()
+        prepared = self._prepared
+        report = {
+            key: getattr(prepared, key)
+            for key in (
+                "exclusions",
+                "duplicate_lineage",
+                "conflicts",
+                "cross_split_duplicates",
+                "group_warnings",
+                "split_manifest",
+            )
+        }
+        report.update(
+            {
+                "eligible_records": len(prepared.records),
+                "candidate_records": len(prepared.candidates),
+                "source_sha256": self.source_hash,
+                "missing_charge": sum(r.total_charge is None for r in prepared.records),
+                "missing_multiplicity": sum(
+                    r.spin_multiplicity is None for r in prepared.records
+                ),
+            }
+        )
+        if not self._loaded:
+            _write_json(self.directory / "ingestion.json", report)
+            _write_json(self.directory / "splits.json", prepared.split_manifest)
+        self.timings["ingest_seconds"] = time.perf_counter() - start
+        return prepared
+
+    def featurize(self) -> tuple[MolecularFeatures, ...]:
+        """Fit species on training candidates and cache local features."""
+        self._check_source()
+        if self._features is not None:
+            return self._features
+        records = self.ingest().candidates
+        if not records:
+            raise ConfigError(
+                "no eligible training candidates; official held-out splits "
+                "are never used for fitting"
+            )
+        start = time.perf_counter()
+        descriptor_path = self.feature_directory / "descriptors.npz"
+        manifest_path = self.feature_directory / "features.json"
+        if self._loaded or (
+            self.settings["execution"]["resume"] and manifest_path.exists()
+        ):
+            self._features = self._load_features()
+        else:
+            geometry = {
+                key: value
+                for key, value in self.settings["geometry"].items()
+                if key not in {"average", "normalize", "cache_dtype"}
+            }
+            geometry["species"] = tuple(geometry["species"]) or tuple(
+                sorted({int(z) for record in records for z in record.atoms.numbers})
+            )
+            settings = RepresentationSettings(
+                **geometry,
+                graph_radius=self.settings["chemistry"]["graph_radius"],
+                allow_validated_perception=self.settings["chemistry"][
+                    "allow_validated_perception"
+                ],
+            )
+            self._features = tuple(featurize_records(records, settings))
+            temporary = descriptor_path.with_suffix(".partial")
+            with temporary.open("wb") as stream:
+                np.savez_compressed(
+                    stream,
+                    allow_pickle=False,
+                    **{
+                        f"f{i}": feature.descriptors
+                        for i, feature in enumerate(self._features)
+                    },
+                )
+            temporary.replace(descriptor_path)
+            rows = [
+                {
+                    key: value
+                    for key, value in asdict(feature).items()
+                    if key != "descriptors"
+                }
+                for feature in self._features
+            ]
+            _write_json(
+                manifest_path,
+                {
+                    "records": rows,
+                    "settings": asdict(settings),
+                    "arrays_sha256": _file_hash(descriptor_path),
+                },
+            )
+            _write_json(
+                self.feature_directory / "commit.json",
+                {"features_sha256": _file_hash(manifest_path)},
+            )
+        self._check_source()
+        self.timings["featurize_seconds"] = time.perf_counter() - start
+        return self._features
+
+    def build_targets(
+        self,
+    ) -> tuple[
+        tuple[Candidate, ...], dict[str, Target], HierarchyResult, GeometryRegions
+    ]:
+        """Fit protected chemical hierarchy and bounded geometric prototype regions."""
+        self._check_source()
+        if self._loaded:
+            return self._load_targets()
+        if self._built is not None:
+            return self._built
+        start = time.perf_counter()
+        features = self.featurize()
+        families = {f.record_id: f.family_id for f in features}
+        hierarchy_settings = self.settings["hierarchy"]
+        hierarchy = build_hierarchy(
+            {f.record_id: f.token_hierarchy for f in features},
+            hierarchy_settings["min_source_support"],
+            family_ids=families,
+            rare_policy=hierarchy_settings["rare_policy"],
+        )
+        selection = self.settings["selection"]
+        regions = build_geometry_regions(
+            self.descriptor_rows(hierarchy),
+            group_ids=families,
+            radius=selection["prototype_region_radius"],
+            prototype_cap=selection["prototype_cap"],
+            reservoir_size=selection["reservoir_size"],
+            seed=self.seed,
+        )
+        records = {r.record_id: r for r in self.ingest().candidates}
+        candidates = tuple(
+            Candidate(
+                f.record_id,
+                records[f.record_id].natoms,
+                hierarchy.targets[f.record_id] | frozenset(f.safeguard_targets),
+                regions.targets[f.record_id]
+                if selection["geometric_refinement"] != "none"
+                else frozenset(),
+                f.family_id,
+            )
+            for f in features
+        )
+        mandatory = {
+            token: Target(hierarchy_settings["min_selected_representatives"])
+            for row in candidates
+            for token in sorted(row.targets - hierarchy.optional_targets)
+        }
+        self._built = candidates, mandatory, hierarchy, regions
+        _write_json(
+            self.directory / "targets.json",
+            {
+                "mapping": hierarchy.mapping,
+                "lineage": hierarchy.lineage,
+                "support": hierarchy.support,
+                "group_support": hierarchy.group_support,
+                "source_support": hierarchy.source_support,
+                "source_group_support": hierarchy.source_group_support,
+                "rare_targets": sorted(hierarchy.rare_targets),
+                "optional_targets": sorted(hierarchy.optional_targets),
+                "requirements": {
+                    key: asdict(value) for key, value in mandatory.items()
+                },
+                "prototypes": {
+                    key: value.tolist() for key, value in regions.prototypes.items()
+                },
+                "region_targets": {
+                    key: sorted(value) for key, value in regions.targets.items()
+                },
+                "overflow": regions.overflow,
+                "region_radius": regions.radius,
+                "sampled_counts": regions.sampled_counts,
+                "signatures": {
+                    token: signature
+                    for f in features
+                    for token, signature in f.signatures.items()
+                },
+                "incidence": [
+                    {
+                        "record_id": c.record_id,
+                        "cost": c.cost,
+                        "group_id": c.group_id,
+                        "targets": sorted(c.targets),
+                        "refinement_targets": sorted(c.refinement_targets),
+                    }
+                    for c in candidates
+                ],
+            },
+        )
+        self.timings["targets_seconds"] = time.perf_counter() - start
+        return self._built
+
+    def descriptor_rows(
+        self, hierarchy: HierarchyResult
+    ) -> dict[str, list[tuple[str, Any]]]:
+        """Pair each local descriptor with its protected fitted class."""
+        return {
+            f.record_id: [
+                (hierarchy.mapping[path[0]], vector)
+                for path, vector in zip(f.token_hierarchy, f.descriptors, strict=True)
+            ]
+            for f in self.featurize()
+        }
+
+    def atom_budget(self) -> int | None:
+        """Resolve fractions against deduplicated training atoms, rounding down."""
+        selection = self.settings["selection"]
+        if selection["mode"] == "cover":
+            return None
+        if selection["atom_budget"] is not None:
+            return int(selection["atom_budget"])
+        return math.floor(
+            sum(r.natoms for r in self.ingest().candidates)
+            * float(selection["atom_fraction"])
+        )
+
+    def select(self) -> MolecularSelectionResult:
+        """Select whole records, audit independently and write the manifest."""
+        self._check_source()
+        if (self.directory / "provenance.json").exists():
+            self._load_targets()
+        candidates, mandatory, _, _ = self.build_targets()
+        start = time.perf_counter()
+        settings = self.settings["selection"]
+        result = select_candidates(
+            candidates,
+            mandatory,
+            mode=settings["mode"],
+            budget=self.atom_budget(),
+            background_reserve_fraction=settings["background_reserve_fraction"],
+            seed=self.seed,
+            prune=settings["prune"],
+        )
+        self.timings["select_seconds"] = time.perf_counter() - start
+        (self.directory / "selected_ids.txt").write_text(
+            "".join(f"{rid}\n" for rid in result.selected_ids)
+        )
+        selected = self.selected_records(result.selected_ids)
+        rows = [
+            {
+                "record_id": r.record_id,
+                "natoms": r.natoms,
+                "total_charge": r.total_charge,
+                "spin_multiplicity": r.spin_multiplicity,
+                "electronic_state_id": r.electronic_state_id,
+                "label_namespace": r.label_namespace,
+                "family_id": r.family_id,
+                "split": r.split.value,
+                "source_ref_json": _json(asdict(r.record.source_ref)),
+                "reason": result.reasons[r.record_id],
+            }
+            for r in selected
+        ]
+        pq.write_table(
+            pa.Table.from_pylist(rows)
+            if rows
+            else pa.table({"record_id": pa.array([], type=pa.string())}),
+            self.directory / "selected_manifest.parquet",
+        )
+        (self.directory / "config.resolved.yaml").write_text(
+            yaml.safe_dump(self.settings, sort_keys=True)
+        )
+        _write_json(self.directory / "software-lock.json", self.software)
+        _write_json(
+            self.directory / "provenance.json",
+            {
+                "fingerprint": self.fingerprint,
+                "source_sha256": self.source_hash,
+                "split_sha256": _digest(self.ingest().split_manifest),
+                "feature_directory": str(self.feature_directory),
+                "targets_sha256": _file_hash(self.directory / "targets.json"),
+                "features_sha256": _file_hash(self.feature_directory / "features.json"),
+                "candidate_restriction": "eligible deduplicated training records",
+                "timings": self.timings,
+                "feature_bytes": sum(f.descriptors.nbytes for f in self.featurize()),
+                "background_requested_cost": result.background_requested_cost,
+                "background_achieved_cost": result.background_achieved_cost,
+            },
+        )
+        self.audit()
+        return result
+
+    def selected_records(
+        self, selected_ids: Sequence[str]
+    ) -> tuple[MolecularRecord, ...]:
+        """Retrieve selected records with their original atom order and labels."""
+        lookup = {r.record_id: r for r in self.ingest().candidates}
+        return tuple(lookup[rid] for rid in selected_ids)
+
+    def audit(self) -> dict[str, Any]:
+        """Audit saved IDs against training-only targets, cost and local distances."""
+        self._check_source()
+        path = self.directory / "selected_ids.txt"
+        if not path.exists():
+            raise ConfigError("no molecular selection exists; run select first")
+        ids = path.read_text().splitlines()
+        candidates, mandatory, hierarchy, regions = self._load_targets()
+        report = audit_selection(candidates, mandatory, ids, budget=self.atom_budget())
+        manifest_path = self.feature_directory / "features.json"
+        if (
+            manifest_path.exists()
+            and (self.feature_directory / "descriptors.npz").exists()
+        ):
+            provenance = _read_json(
+                self.directory / "provenance.json", {"features_sha256"}
+            )
+            if _file_hash(manifest_path) != provenance["features_sha256"]:
+                raise StaleCacheError("frozen molecular feature metadata changed")
+            features = self._load_features()
+            descriptors = {
+                feature.record_id: [
+                    (hierarchy.mapping[path[0]], vector)
+                    for path, vector in zip(
+                        feature.token_hierarchy, feature.descriptors, strict=True
+                    )
+                ]
+                for feature in features
+            }
+            report["nearest_selected_distances"] = nearest_selected_distances(
+                descriptors, ids, seed=self.seed
+            )
+            report["geometry_audit_status"] = "available"
+        else:
+            features = ()
+            report["nearest_selected_distances"] = None
+            report["geometry_audit_status"] = "unavailable_feature_cache"
+        report["geometry_overflow_environments"] = len(regions.overflow)
+        report["graph_status"] = dict(
+            Counter(feature.graph_status for feature in features)
+        )
+        report["zero_descriptor_atoms"] = {
+            feature.record_id: feature.zero_descriptor_atoms
+            for feature in features
+            if feature.zero_descriptor_atoms
+        }
+        report["software_environment_matches_selection"] = (
+            self.runtime_software == self.software
+        )
+        selected = self.selected_records(ids)
+        distribution_keys: tuple[tuple[str, Callable[[MolecularRecord], str]], ...] = (
+            ("state", lambda r: _json(r.state_key)),
+            ("size", lambda r: str(r.natoms)),
+            ("formula", lambda r: str(r.atoms.get_chemical_formula())),
+        )
+        report["distributions"] = {
+            name: {
+                "input": dict(Counter(key(r) for r in self.ingest().candidates)),
+                "selected": dict(Counter(key(r) for r in selected)),
+            }
+            for name, key in distribution_keys
+        }
+        report["scientific_validation"] = (
+            "Selection diagnostics only; downstream accuracy has not been established."
+        )
+        _write_json(self.directory / "coverage.json", report)
+        (self.directory / "report.html").write_text(
+            "<!doctype html><meta charset='utf-8'>"
+            "<title>Molecular selection audit</title>"
+            "<h1>Molecular selection audit</h1><pre>"
+            + html.escape(_json(report))
+            + "</pre>"
+        )
+        return report
+
+    def export(self, output: str | Path | None = None) -> Path:
+        """Audit and export intact records, enforcing the state policy."""
+        self.audit()
+        ids = (self.directory / "selected_ids.txt").read_text().splitlines()
+        return export_records(
+            self.selected_records(ids),
+            output or self.directory / "subset.extxyz",
+            strict_training_export=self.settings["state"]["strict_training_export"],
+        )
+
+    def run(self) -> Path:
+        """Select, report and optionally materialise a training subset."""
+        self.select()
+        if self.settings["output"]["format"] != "none":
+            self.export()
+        return self.directory
