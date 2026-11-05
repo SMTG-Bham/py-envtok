@@ -492,11 +492,15 @@ def build_index(
     Raises:
         IncompleteCacheError: If any planned batch is not committed.
         DuplicateRecordError: If two records share an ID.
-        StaleCacheError: If ``profile`` has different geometry settings.
+        StaleCacheError: If ``profile`` has different geometry settings or a
+            different moment policy.
     """
     manifest = _read_json(cache_dir / CACHE_FILE)
     if manifest["keys"]["geometry"] != digest(geometry_payload(profile)):
-        raise StaleCacheError("the profile's geometry settings differ from this cache")
+        raise StaleCacheError(
+            "the profile's geometry settings or moment policy differ from this "
+            "cache; tokenise with this profile first"
+        )
     if not (cache_dir / PLAN_FILE).exists():
         raise IncompleteCacheError(f"tokenisation of {cache_dir} has not finished")
     plan = _read_json(cache_dir / PLAN_FILE)

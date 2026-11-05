@@ -6,14 +6,16 @@ its content, so a cache is reused only when it is still valid:
 * **source**: adapter kind, file identities (size, mtime, optional SHA-256)
   and record options.
 * **geometry**: neighbour, polyhedron and symmetry settings, the radius table,
-  the asymmetry decay length and backend library versions.
+  the asymmetry decay length, the moment policy and backend library versions.
 * **corpus**: element exclusions applied before geometry.
 * **token**: geometry fingerprint plus bins, moment policy and, when enabled,
   the charge policy and key.
 * **classes/selection**: token fingerprint plus eligibility, ladder, T,
   constraints, cost and tie policy (see :mod:`envtok.coarsen`).
 
-Changing T never repeats geometry; changing bins reuses raw measurements.
+Changing T never repeats geometry; changing bins or the charge field reuses
+raw measurements. Changing the moment policy repeats geometry: moments decide
+which records pass validation and feed the magnetic symmetry analysis.
 Python's process-randomised ``hash()`` is never used for persistent identity.
 """
 
@@ -79,13 +81,21 @@ def package_versions(
 
 
 def geometry_payload(profile: Profile) -> dict[str, Any]:
-    """Return everything that determines raw geometric measurements."""
+    """Return everything that determines the committed partitions.
+
+    The moment policy belongs here, not only in the token payload: with
+    moments disabled, the stored raw moments are zero, noncollinear moments
+    no longer fail a record, and spglib sees no ``magmom`` property, so the
+    symmetry orbits differ too. A cache tokenised under one policy can
+    therefore never be indexed under the other.
+    """
     radii = profile.measures.radii
     return {
         "reference_commit": profile.reference_commit,
         "geometry": profile.geometry,
         "radii": {"name": radii.name, "max_z": radii.max_z, "values": radii.values},
         "asymmetry_lambda": profile.measures.asymmetry_lambda,
+        "magnetic_policy": profile.magnetic_policy,
         "backend": package_versions(),
         "implementation": TOKENIZER_IMPLEMENTATION,
     }

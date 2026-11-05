@@ -371,7 +371,7 @@ Close contacts and large forces are never filtered.
 | Fingerprint | Covers |
 |---|---|
 | source | adapter kind; file identities (size, mtime, optional SHA-256); record options |
-| geometry | geometry settings, radius table, asymmetry λ, backend versions, implementation version |
+| geometry | geometry settings, radius table, asymmetry λ, moment policy, backend versions, implementation version |
 | corpus | element exclusions applied before geometry |
 | token | geometry fingerprint, bins, moment policy; the charge policy and key only when the charge field is enabled |
 | classes | index, split, invalid-record policy, stratum, ladder, presence families, T |
@@ -383,9 +383,12 @@ setting therefore never resumes from an unrelated checkpoint. Each partition
 records the cache fingerprint, and a mismatching partition is rejected.
 
 **What triggers recomputation.** Changing T reuses everything up to the
-index. Changing bins or the moment policy reuses the raw per-site
-measurements, which are always stored. Enabling, disabling or re-keying the
-charge field reuses them too: the charge comes from the cached metadata. Changing radii or λ needs the
+index. Changing bins reuses the raw per-site measurements, which are always
+stored. Enabling, disabling or re-keying the charge field reuses them too:
+the charge comes from the cached metadata. Changing the moment policy repeats
+the geometry pass. With moments disabled, the stored moments are zero,
+noncollinear moments no longer fail a record, and the symmetry analysis sees
+no magnetic moments, so its orbits differ. Changing radii or λ needs the
 image-resolved neighbour vectors, retained when
 `cache_raw_measurements: true`, or else recomputation.
 

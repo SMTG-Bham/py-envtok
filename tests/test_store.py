@@ -18,6 +18,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from ase import Atoms
+from ase.build import bulk
 from helpers import CORPUS
 
 from envtok import __version__
@@ -687,16 +688,31 @@ class TestIndex:
         assert other.summary["sites"] == full_cache.summary["sites"]
         assert (other.token_dir / INDEX_FILE).exists()
 
-    def test_renamed_token_variant_reuses_partitions(
+    def test_moment_policy_never_shares_partitions(
         self, full_cache: TokenCache, tmp_path: Path
     ) -> None:
+        # Disabled moments are stored as zeros, relax validation and change the
+        # symmetry orbits, so neither direction may reuse the other's cache.
         geometry_only = dataclasses.replace(
             PROFILE,
             name="reference-723696d+geometry-only",
             magnetic_policy=MagneticPolicy.DISABLED,
         )
-        other = Tokenizer(geometry_only).index(full_cache.cache_dir, tmp_path)
-        assert other.summary["sites"] == full_cache.summary["sites"]
+        with pytest.raises(StaleCacheError, match="moment policy"):
+            Tokenizer(geometry_only).index(full_cache.cache_dir, tmp_path)
+        iron = bulk("Fe", "bcc", a=2.87, cubic=True)
+        iron.set_initial_magnetic_moments([2.2, 2.2])
+        corpus = Corpus.from_atoms([iron], name="fe", split="train")
+        plain = Tokenizer(geometry_only).run(corpus, tmp_path)
+        with pytest.raises(StaleCacheError, match="moment policy"):
+            Tokenizer(PROFILE).index(plain.cache_dir, tmp_path)
+        magnetic = Tokenizer(PROFILE).run(corpus, tmp_path)
+        assert magnetic.cache_dir != plain.cache_dir
+        keys = [magnetic.read("tokens")["token_key"], plain.read("tokens")["token_key"]]
+        assert [[k[:5] for k in column.to_pylist()] for column in keys] == [
+            ["Fe_2_"],
+            ["Fe_NA"],
+        ]
 
     def test_adapter_verification(self, subset: Path, tmp_path: Path) -> None:
         loaded = ase.io.read(subset, index=":")
