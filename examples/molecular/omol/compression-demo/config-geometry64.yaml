@@ -1,0 +1,30 @@
+# Prepare data with build_tools/sample_omol.py from a local OMol25 4M archive.
+# Finer prototype sensitivity check; reuses the primary run's SOAP features.
+profile: molecular_v1
+source:
+  adapter: ase_extxyz
+  path: ../../../../runs/omol-compression-demo/data/sample.extxyz
+  dataset: OMol25-native-4M
+  revision: local-4M-shard-95fd3efd85268d39
+  label_namespace: OMol25:native-4M
+  split: train
+state:
+  charge_key: total_charge
+  multiplicity_key: spin_multiplicity
+  unknown_policy: reject
+  strict_training_export: true
+chemistry:
+  allow_validated_perception: false
+geometry:
+  backend: soap
+  species: [1, 6, 7, 8]
+hierarchy:
+  min_source_support: 5
+  min_selected_representatives: 1
+selection:
+  mode: cover
+  prototype_region_radius: 0.20
+  prototype_cap: 64
+  reservoir_size: 256
+execution:
+  workdir: ../../../../runs/omol-compression-demo/pipeline

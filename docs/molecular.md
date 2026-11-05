@@ -12,6 +12,12 @@ Selection coverage and descriptor distances do not establish preserved model
 accuracy. Application validation, full-scale sharding and broader chemistry
 profiles remain follow-up work.
 
+The [native OMol25 compression example](../examples/molecular/omol/compression-demo/README.md)
+extends the runnable examples to 512 real configurations, with unbudgeted
+cover, random and budget comparisons, and a finer-prototype sensitivity
+check. Its reports separate mandatory targets, modeled geometry regions and
+source environments outside the prototype radii.
+
 ## Run the engineering example
 
 The bundled generator creates 22 configurations with known charge/multiplicity,

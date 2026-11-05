@@ -1,5 +1,11 @@
 # OMol25 training smoke sample
 
+For a larger compression case, see the
+[512-configuration native OMol25 example](compression-demo/README.md), with
+unbudgeted cover, random/budget comparisons and explicit geometry limits.
+It uses a separate native archive; the mirror sample and accuracy screens
+below remain available.
+
 This is a real, deliberately small OMol25 sample: **29 finite CHNO
 configurations and 650 atoms**, filtered from the first 100 rows of the public
 [ColabFit OMol25 train 4M mirror](https://huggingface.co/datasets/colabfit/OMol25_train_4M).
