@@ -248,8 +248,14 @@ class TestBuilderValidation:
         )
         np.testing.assert_array_equal(duck.token_class, memory.token_class)
         assert duck.class_signature == memory.class_signature
+        # Without a workdir or cache, DuckDB spills to a temporary directory,
+        # never into the current directory.
+        cwd = tmp_path / "cwd"
+        cwd.mkdir()
+        monkeypatch.chdir(cwd)
         unrooted = CoverageBuilder(min_structure_support=3, backend="duckdb")
         assert unrooted.fit_pool(pool).class_signature == memory.class_signature
+        assert not any(cwd.iterdir())
 
 
 class TestEligibility:

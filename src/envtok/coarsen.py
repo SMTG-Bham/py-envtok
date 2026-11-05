@@ -22,6 +22,7 @@ never influence the classes.
 """
 
 import json
+import tempfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -568,7 +569,9 @@ class CoverageBuilder:
         backend: ``auto``, ``memory`` or ``duckdb``.
         ladder: Override the profile's rungs (for documented variants and tests).
         execution: Resource settings for the DuckDB backend.
-        workdir: Spill directory root for the DuckDB backend.
+        workdir: Spill directory root for the DuckDB backend (default: the
+            token cache directory, else a temporary directory removed after
+            the fit).
     """
 
     def __init__(
@@ -681,16 +684,16 @@ class CoverageBuilder:
         if backend == "memory":
             assignment = assign_memory(pool, fields, self.ladder, self.min_support)
         else:
-            root = self.workdir or (
-                cache.cache_dir if cache is not None else Path.cwd()
-            )
-            assignment = assign_duckdb(
-                pool,
-                fields,
-                self.ladder,
-                self.min_support,
-                lambda: self.execution.duckdb(root),
-            )
+            root = self.workdir or (cache.cache_dir if cache is not None else None)
+            with tempfile.TemporaryDirectory(prefix="envtok-") as scratch:
+                spill = root or Path(scratch)
+                assignment = assign_duckdb(
+                    pool,
+                    fields,
+                    self.ladder,
+                    self.min_support,
+                    lambda: self.execution.duckdb(spill),
+                )
         keys = sorted(
             set(zip(assignment.rung.tolist(), assignment.signature, strict=True))
         )
