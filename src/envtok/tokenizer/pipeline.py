@@ -14,9 +14,10 @@ import numpy as np
 from ase import Atoms
 from pymatgen.core.structure import Structure
 
+from envtok.errors import ConfigError
 from envtok.profiles import CorpusPolicy, MagneticPolicy, Profile
 from envtok.records import IssueSeverity, StructureRecord, validate_record
-from envtok.tokenizer.bins import csm_bin, digitize, moment_bin
+from envtok.tokenizer.bins import charge_bin, csm_bin, digitize, moment_bin
 from envtok.tokenizer.geometry import GeometryEngine, SiteStatus
 from envtok.tokenizer.tokens import SiteToken, neighbour_string, parse_neighbours
 
@@ -369,17 +370,33 @@ def _analyse(
         )
 
 
-def site_token(site: SiteRow, profile: Profile) -> SiteToken:
+def site_token(
+    site: SiteRow, profile: Profile, net_charge: float | None = None
+) -> SiteToken:
     """Derive the full token of one site from its raw measurements.
 
     Args:
         site: Raw site row.
-        profile: Scientific profile (bins and moment policy).
+        profile: Scientific profile (bins, moment and charge policies).
+        net_charge: The record's resolved net charge (see
+            :func:`envtok.tokenizer.charge.resolve_net_charge`); required when
+            the profile has a charge field, ignored otherwise.
 
     Returns:
         The typed token.
+
+    Raises:
+        ConfigError: If the profile has a charge field and no charge is given.
     """
     bins = profile.bins
+    charge = None
+    if profile.charge_enabled:
+        if net_charge is None:
+            raise ConfigError(
+                f"profile {profile.name!r} has a charge field; pass the record's "
+                "net charge"
+            )
+        charge = charge_bin(net_charge, profile.charge_policy)
     return SiteToken(
         element=site.element,
         moment=moment_bin(site.moment, profile.magnetic_policy),
@@ -388,4 +405,5 @@ def site_token(site: SiteRow, profile: Profile) -> SiteToken:
         csm_bin=csm_bin(site.csm, bins),
         dmin_bin=digitize(site.ratio_min, bins.dmin_edges),
         asym_bin=digitize(site.asymmetry, bins.asymmetry_edges),
+        charge=charge,
     )

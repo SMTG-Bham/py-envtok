@@ -8,7 +8,8 @@ its content, so a cache is reused only when it is still valid:
 * **geometry**: neighbour, polyhedron and symmetry settings, the radius table,
   the asymmetry decay length and backend library versions.
 * **corpus**: element exclusions applied before geometry.
-* **token**: geometry fingerprint plus bins and moment policy.
+* **token**: geometry fingerprint plus bins, moment policy and, when enabled,
+  the charge policy and key.
 * **classes/selection**: token fingerprint plus eligibility, ladder, T,
   constraints, cost and tie policy (see :mod:`envtok.coarsen`).
 
@@ -99,9 +100,17 @@ def corpus_payload(policy: CorpusPolicy) -> dict[str, Any]:
 
 
 def token_payload(profile: Profile) -> dict[str, Any]:
-    """Return everything that determines token keys from raw measurements."""
-    return {
+    """Return everything that determines token keys from raw measurements.
+
+    The charge settings are included only when the charge field is enabled,
+    so profiles without one keep the token fingerprint they always had.
+    """
+    payload: dict[str, Any] = {
         "geometry": digest(geometry_payload(profile)),
         "bins": profile.bins,
         "magnetic_policy": profile.magnetic_policy,
     }
+    if profile.charge_enabled:
+        payload["charge_policy"] = profile.charge_policy
+        payload["charge_key"] = profile.charge_key
+    return payload

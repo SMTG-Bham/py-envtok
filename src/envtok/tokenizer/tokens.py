@@ -13,6 +13,13 @@ the end; naive underscore splitting is wrong.
 
 Undefined bins and moments are ``None`` internally and map losslessly to the
 reference sentinel ``999`` (bins) or ``NA`` (moment field disabled).
+
+Profiles with a charge policy (an EnvTok extension) add the record's rounded
+net charge as an eighth field, written ``q<charge>`` after the moment:
+``E_spin_q<charge>_nb_poly_f5_dmin_abin``, for example
+``Fe_0_q-1_Cl-O-O-O_T:4_3_1_2``. The ``q`` prefix cannot begin a neighbour
+field (element symbols are capitalised), so the two grammars never collide,
+and a token without a charge field keeps the reference string exactly.
 """
 
 from collections import Counter
@@ -25,6 +32,9 @@ from envtok.profiles.reference import UNDEFINED_SENTINEL
 INVALID = "INVALID"
 """Neighbour/geometry placeholder for sites without any usable neighbour set."""
 MOMENT_DISABLED = "NA"
+CHARGE_DISABLED = "NA"
+CHARGE_PREFIX = "q"
+_CHARGE_FIELD = 2
 CN_UNKNOWN = "NA"
 UNRELIABLE_GEOMETRY = "UNCL"
 CATCHALL_PREFIX = "__CATCHALL__|"
@@ -47,6 +57,8 @@ class SiteToken:
         csm_bin: Continuous-symmetry-measure bin, ``None`` if undefined.
         dmin_bin: Minimum normalised contact distance bin, ``None`` if undefined.
         asym_bin: Asymmetry bin, ``None`` if undefined.
+        charge: Rounded signed net charge of the record, or ``None`` when the
+            profile has no charge field (the reference token).
     """
 
     element: str
@@ -56,6 +68,7 @@ class SiteToken:
     csm_bin: int | None
     dmin_bin: int | None
     asym_bin: int | None
+    charge: int | None = None
 
     @property
     def coordination_number(self) -> int | None:
@@ -70,12 +83,17 @@ class SiteToken:
         return neighbour_string(self.neighbours)
 
     def key(self) -> str:
-        """Return the reference interchange string (the canonical token key)."""
+        """Return the interchange string (the canonical token key).
+
+        Tokens without a charge field produce the reference string.
+        """
         spin = MOMENT_DISABLED if self.moment is None else str(self.moment)
+        charge = () if self.charge is None else (charge_text(self.charge),)
         return "_".join(
             (
                 self.element,
                 spin,
+                *charge,
                 self.neighbour_string,
                 self.geometry,
                 _bin_text(self.csm_bin),
@@ -89,7 +107,8 @@ class SiteToken:
         """Parse a reference interchange string.
 
         Args:
-            key: A string ``E_spin_nb_poly_f5_dmin_abin``.
+            key: A string ``E_spin_nb_poly_f5_dmin_abin``, or
+                ``E_spin_q<charge>_nb_poly_f5_dmin_abin`` with a charge field.
 
         Returns:
             The typed token.
@@ -98,8 +117,13 @@ class SiteToken:
             UnsupportedInputError: If the string does not follow the grammar.
         """
         parts = key.split("_")
+        charge = None
+        if len(parts) > _CHARGE_FIELD and parts[_CHARGE_FIELD].startswith(
+            CHARGE_PREFIX
+        ):
+            charge = _parse_charge(key, parts.pop(_CHARGE_FIELD))
         if len(parts) < 7:  # noqa: PLR2004 - seven-field grammar
-            raise UnsupportedInputError(f"token {key!r} has fewer than seven fields")
+            raise UnsupportedInputError(f"token {key!r} has too few fields")
         element, spin, nb = parts[0], parts[1], parts[2]
         geometry = "_".join(parts[3:-3])
         if not element or not geometry:
@@ -126,7 +150,27 @@ class SiteToken:
             csm_bin=bins[0],
             dmin_bin=bins[1],
             asym_bin=bins[2],
+            charge=charge,
         )
+
+
+def charge_text(charge: int) -> str:
+    """Return the token field of a net charge, for example ``"q-1"``."""
+    return f"{CHARGE_PREFIX}{charge}"
+
+
+def _parse_charge(key: str, text: str) -> int:
+    try:
+        charge = int(text.removeprefix(CHARGE_PREFIX))
+    except ValueError:
+        raise UnsupportedInputError(
+            f"token {key!r} has a non-integer charge field {text!r}"
+        ) from None
+    if charge_text(charge) != text:
+        raise UnsupportedInputError(
+            f"token {key!r} writes its charge field {text!r} non-canonically"
+        )
+    return charge
 
 
 def _bin_text(value: int | None) -> str:
@@ -214,6 +258,8 @@ def signature_fields(token: SiteToken) -> dict[str, str]:
     * ``nbset``: sorted distinct neighbour elements.
     * ``cn_sig``: the coordination number, or ``NA`` when no usable neighbour
       set exists, so placeholders cannot masquerade as one-coordinate sites.
+    * ``charge``: the charge field (``q-1``), or ``NA`` without one. It is an
+      EnvTok extension used only by profiles with a charge policy.
 
     The derived fields operate on the reference neighbour string, so the
     ``INVALID`` and empty placeholders project exactly as in the reference
@@ -233,6 +279,9 @@ def signature_fields(token: SiteToken) -> dict[str, str]:
     return {
         "elem": token.element,
         "spin": MOMENT_DISABLED if token.moment is None else str(token.moment),
+        "charge": CHARGE_DISABLED
+        if token.charge is None
+        else charge_text(token.charge),
         "nb": nb,
         "poly": token.geometry,
         "f5": f5,

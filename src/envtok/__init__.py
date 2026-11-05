@@ -20,7 +20,7 @@ from importlib.metadata import version
 from envtok.coarsen import CoverageBuilder, CoverageClasses
 from envtok.corpus import Corpus
 from envtok.execution import ExecutionSettings
-from envtok.profiles import get_profile
+from envtok.profiles import get_profile, with_net_charge
 from envtok.selection import SelectionResult, Selector
 from envtok.store.cache import TokenCache
 from envtok.tokenization import Tokenizer
@@ -40,4 +40,5 @@ __all__ = [
     "Tokenizer",
     "__version__",
     "get_profile",
+    "with_net_charge",
 ]

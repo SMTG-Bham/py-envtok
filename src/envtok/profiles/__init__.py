@@ -9,6 +9,7 @@ from envtok.profiles.corpus import (
 )
 from envtok.profiles.radii import CORDERO_2008, RadiusTable, table_drift
 from envtok.profiles.reference import (
+    NET_CHARGE_LADDER,
     REFERENCE_723696D,
     REFERENCE_COMMIT,
     REFERENCE_LADDER,
@@ -16,12 +17,14 @@ from envtok.profiles.reference import (
     SIGNATURE_FIELDS,
     UNDEFINED_SENTINEL,
     BinSettings,
+    ChargePolicy,
     GeometrySettings,
     MagneticPolicy,
     MeasureSettings,
     PresenceFamily,
     Profile,
     Rung,
+    with_net_charge,
 )
 
 _PROFILES = {REFERENCE_723696D.name: REFERENCE_723696D}
@@ -51,6 +54,7 @@ def get_profile(profile: str | Profile) -> Profile:
 
 __all__ = [
     "CORDERO_2008",
+    "NET_CHARGE_LADDER",
     "OMAT24_STUDY_EXCLUDED",
     "REFERENCE_723696D",
     "REFERENCE_COMMIT",
@@ -59,6 +63,7 @@ __all__ = [
     "SIGNATURE_FIELDS",
     "UNDEFINED_SENTINEL",
     "BinSettings",
+    "ChargePolicy",
     "CorpusPolicy",
     "GeometrySettings",
     "InvalidRecordPolicy",
@@ -71,4 +76,5 @@ __all__ = [
     "corpus_policy",
     "get_profile",
     "table_drift",
+    "with_net_charge",
 ]

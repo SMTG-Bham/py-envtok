@@ -15,8 +15,9 @@ order.
 """
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from envtok.errors import ConfigError
 from envtok.profiles.radii import CORDERO_2008, RadiusTable
 
 REFERENCE_COMMIT = "723696de2c26584b8a907ef900690c0caf3c7b68"
@@ -37,6 +38,26 @@ class MagneticPolicy(enum.StrEnum):
 
     SOURCE_ABS_ROUND_ZERO_IF_MISSING = "source_abs_round_zero_if_missing"
     DISABLED = "disabled"
+
+
+class ChargePolicy(enum.StrEnum):
+    """How the site charge field is derived (an EnvTok extension).
+
+    The reference token has no charge field. When enabled, every site of a
+    record carries the record's net charge, read from a metadata key and
+    rounded to the nearest integer (ties to even), keeping its sign.
+
+    Attributes:
+        DISABLED: No charge field (the reference behaviour).
+        NET_ROUND: ``round(net_charge)``; a tokenised record without a numeric
+            net charge fails at index time with reason ``missing_charge``.
+        NET_ROUND_ZERO_IF_MISSING: As ``NET_ROUND``, but a record without a
+            net charge is treated as neutral and counted as defaulted.
+    """
+
+    DISABLED = "disabled"
+    NET_ROUND = "net_round"
+    NET_ROUND_ZERO_IF_MISSING = "net_round_zero_if_missing"
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +186,7 @@ class BinSettings:
 SIGNATURE_FIELDS = (
     "elem",
     "spin",
+    "charge",
     "nb",
     "poly",
     "f5",
@@ -175,7 +197,11 @@ SIGNATURE_FIELDS = (
     "nbset",
     "cn_sig",
 )
-"""Field names usable in rung and presence signatures (reference column names)."""
+"""Field names usable in rung and presence signatures.
+
+All but ``charge`` are reference column names; ``charge`` exists only in
+profiles with a charge policy.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,26 +253,64 @@ _MODIFIER_CHAIN: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-def build_reference_ladder() -> tuple[Rung, ...]:
-    """Return the 33 reference rungs, finest first.
+# The net-charge extension keeps charge in the two finest identity levels and
+# drops it first, before spin: net charge is a property of the whole cell, so
+# a site of a charged cell may be otherwise bulk-like.
+_NET_CHARGE_IDENTITY_LEVELS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("R0", "", ("elem", "spin", "charge", "nb", "poly", "f5")),
+    ("R1", "drop_f5", ("elem", "spin", "charge", "nb", "poly")),
+    ("R1q", "drop_charge", ("elem", "spin", "nb", "poly")),
+    *_IDENTITY_LEVELS[2:],
+)
+
+
+def build_ladder(
+    identity_levels: tuple[tuple[str, str, tuple[str, ...]], ...],
+) -> tuple[Rung, ...]:
+    """Cross identity levels with the modifier chain, finest first.
 
     Every identity level is offered with both modifiers attached, then with
     the asymmetry bin only, then bare. The first rung is the full token and
     is named ``R0_full`` as in the reference.
+
+    Args:
+        identity_levels: ``(prefix, description, fields)`` in order.
 
     Returns:
         The ordered rungs.
     """
     rungs = []
     for suffix, modifiers in _MODIFIER_CHAIN:
-        for prefix, description, identity in _IDENTITY_LEVELS:
+        for prefix, description, identity in identity_levels:
             name = f"{prefix}{suffix}_{description}" if description else prefix + suffix
             rungs.append(Rung(name=name, fields=identity + modifiers))
     rungs[0] = Rung(name="R0_full", fields=rungs[0].fields)
     return tuple(rungs)
 
 
+def build_reference_ladder() -> tuple[Rung, ...]:
+    """Return the 33 reference rungs, finest first (see :func:`build_ladder`)."""
+    return build_ladder(_IDENTITY_LEVELS)
+
+
+def build_net_charge_ladder() -> tuple[Rung, ...]:
+    """Return the 36 rungs of the net-charge extension, finest first.
+
+    The reference ladder with ``charge`` added to ``R0`` and ``R1`` and one
+    extra identity level, ``R1q`` (``drop_charge``), between ``R1`` and
+    ``R2``. Every rung from ``R1q`` onwards ignores charge, so a rare
+    charge state is merged with the other charge states of its environment
+    rather than forced into the cover. Use ``stratify_by: [charge]`` when
+    every charge state must be covered separately.
+
+    Returns:
+        The ordered rungs.
+    """
+    return build_ladder(_NET_CHARGE_IDENTITY_LEVELS)
+
+
 REFERENCE_LADDER = build_reference_ladder()
+NET_CHARGE_LADDER = build_net_charge_ladder()
 
 REFERENCE_PRESENCE_FAMILIES: tuple[PresenceFamily, ...] = (
     PresenceFamily("F_elem_poly", ("elem", "poly_reliable")),
@@ -271,6 +335,12 @@ class Profile:
         presence_families: Ordered rare-presence repair families.
         min_support: Smallest allowed structure-support threshold T
             (``n_coverage + 1`` with single coverage).
+        charge_policy: Charge field policy (disabled in the reference).
+        charge_key: Metadata key holding each record's net charge.
+
+    Raises:
+        ConfigError: If the ladder uses the ``charge`` field while the charge
+            policy is disabled, or ignores it while the policy is enabled.
     """
 
     name: str
@@ -282,6 +352,30 @@ class Profile:
     ladder: tuple[Rung, ...]
     presence_families: tuple[PresenceFamily, ...]
     min_support: int = 2
+    charge_policy: ChargePolicy = ChargePolicy.DISABLED
+    charge_key: str = "charge"
+
+    def __post_init__(self) -> None:
+        """Check that the ladder and the charge policy agree."""
+        uses_charge = any("charge" in rung.fields for rung in self.ladder)
+        if self.charge_enabled and not uses_charge:
+            raise ConfigError(
+                f"profile {self.name!r} has charge policy "
+                f"{self.charge_policy.value!r} but no rung uses the 'charge' field; "
+                "build it with envtok.profiles.with_net_charge"
+            )
+        if not self.charge_enabled and uses_charge:
+            raise ConfigError(
+                f"profile {self.name!r} uses the 'charge' field in its ladder but "
+                "its charge policy is disabled"
+            )
+        if self.charge_enabled and not self.charge_key:
+            raise ConfigError("charge_key must be a non-empty metadata key")
+
+    @property
+    def charge_enabled(self) -> bool:
+        """Whether tokens carry the net-charge field."""
+        return self.charge_policy is not ChargePolicy.DISABLED
 
 
 REFERENCE_723696D = Profile(
@@ -294,3 +388,51 @@ REFERENCE_723696D = Profile(
     ladder=REFERENCE_LADDER,
     presence_families=REFERENCE_PRESENCE_FAMILIES,
 )
+
+
+def with_net_charge(
+    profile: Profile,
+    policy: ChargePolicy | str = ChargePolicy.NET_ROUND,
+    *,
+    key: str = "charge",
+    ladder: tuple[Rung, ...] | None = None,
+) -> Profile:
+    """Return ``profile`` with the net-charge token field enabled.
+
+    The profile is renamed ``<name>+net-charge``. Bins, geometry and the
+    moment policy are unchanged, so an existing token cache is reused: the
+    charge is read from the cached metadata when the index is built.
+
+    Args:
+        profile: Base profile (its ladder must be the reference ladder unless
+            ``ladder`` is given).
+        policy: An enabled charge policy.
+        key: Metadata key holding each record's net charge.
+        ladder: Rungs to use instead of :data:`NET_CHARGE_LADDER`.
+
+    Returns:
+        The extended profile.
+
+    Raises:
+        ConfigError: For a disabled policy, a profile that already has a
+            charge field, or a custom ladder without an explicit replacement.
+    """
+    policy = ChargePolicy(policy)
+    if policy is ChargePolicy.DISABLED:
+        raise ConfigError("with_net_charge needs an enabled charge policy")
+    if profile.charge_enabled:
+        raise ConfigError(f"profile {profile.name!r} already has a charge field")
+    if ladder is None:
+        if profile.ladder != REFERENCE_LADDER:
+            raise ConfigError(
+                f"profile {profile.name!r} has a custom ladder; pass the "
+                "charge-aware ladder explicitly"
+            )
+        ladder = NET_CHARGE_LADDER
+    return replace(
+        profile,
+        name=f"{profile.name}+net-charge",
+        charge_policy=policy,
+        charge_key=key,
+        ladder=ladder,
+    )

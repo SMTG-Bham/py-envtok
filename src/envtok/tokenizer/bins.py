@@ -11,7 +11,12 @@ import math
 import numpy as np
 import numpy.typing as npt
 
-from envtok.profiles.reference import UNDEFINED_SENTINEL, BinSettings, MagneticPolicy
+from envtok.profiles.reference import (
+    UNDEFINED_SENTINEL,
+    BinSettings,
+    ChargePolicy,
+    MagneticPolicy,
+)
 
 
 def csm_bin(csm: float | None, bins: BinSettings) -> int | None:
@@ -71,6 +76,22 @@ def moment_bin(moment: float, policy: MagneticPolicy) -> int | None:
     return round(abs(moment))
 
 
+def charge_bin(net_charge: float, policy: ChargePolicy) -> int | None:
+    """Return the charge field of the sites of one record.
+
+    Args:
+        net_charge: The record's net charge (0 when defaulted).
+        policy: Charge policy.
+
+    Returns:
+        ``round(net_charge)`` with ties to even, keeping the sign, or ``None``
+        when the policy is disabled.
+    """
+    if policy is ChargePolicy.DISABLED:
+        return None
+    return round(net_charge)
+
+
 def csm_bins(
     csm: npt.NDArray[np.float64], defined: npt.NDArray[np.bool_], bins: BinSettings
 ) -> npt.NDArray[np.int64]:
@@ -125,3 +146,20 @@ def moment_bins(
     if policy is MagneticPolicy.DISABLED:
         return None
     return np.rint(np.abs(moments)).astype(np.int64)
+
+
+def charge_bins(
+    net_charges: npt.NDArray[np.float64], policy: ChargePolicy
+) -> npt.NDArray[np.int64] | None:
+    """Vectorised :func:`charge_bin`.
+
+    Args:
+        net_charges: Net charge of each site's record.
+        policy: Charge policy.
+
+    Returns:
+        Signed rounded charges (ties to even), or ``None`` when disabled.
+    """
+    if policy is ChargePolicy.DISABLED:
+        return None
+    return np.rint(net_charges).astype(np.int64)
