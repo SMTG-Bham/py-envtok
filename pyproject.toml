@@ -44,6 +44,8 @@ dependencies = [
 [project.optional-dependencies]
 # Reads OMat24 ASE-LMDB shards without the fairchem/torch stack.
 omat24 = ["ase-db-backends>=0.11.0", "lmdb>=1.7.5"]
+# Finite-molecule graph perception and local continuous SOAP descriptors.
+molecular = ["rdkit>=2026.9.1", "dscribe>=2.1.2"]
 
 [project.scripts]
 envtok = "envtok.cli:main"
