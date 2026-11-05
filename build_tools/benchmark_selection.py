@@ -11,13 +11,12 @@ Usage::
 
 import argparse
 import json
-import resource
-import sys
 import time
 
 import numpy as np
 
 from envtok.coarsen import CoverageBuilder, Pool
+from envtok.execution import peak_rss_bytes
 from envtok.selection import Selector, class_incidence
 from envtok.selection.incidence import estimate_selection_bytes
 from envtok.tokenizer.tokens import SiteToken, composition
@@ -64,12 +63,6 @@ def synthetic_pool(n_records: int, n_tokens: int, seed: int) -> Pool:
     )
 
 
-def peak_mib() -> float:
-    """Peak resident set size of this process in MiB."""
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return peak / 2**20 if sys.platform == "darwin" else peak / 1024
-
-
 def main() -> None:
     """Run the benchmark and print a JSON summary."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -90,6 +83,7 @@ def main() -> None:
     result = Selector().select(classes)
     selected = time.perf_counter()
     incidence = class_incidence(classes)
+    peak_rss = peak_rss_bytes()
     print(
         json.dumps(
             {
@@ -112,7 +106,9 @@ def main() -> None:
                     / 2**20,
                     1,
                 ),
-                "peak_rss_mib": round(peak_mib(), 1),
+                "peak_rss_mib": None
+                if peak_rss is None
+                else round(peak_rss / 2**20, 1),
             },
             indent=1,
         )

@@ -190,11 +190,8 @@ def file_fingerprint(path: Path, *, checksum: str = "stat") -> dict[str, Any]:
         "mtime_ns": stat.st_mtime_ns,
     }
     if checksum == "full":
-        digest = hashlib.sha256()
         with path.open("rb") as handle:
-            for block in iter(lambda: handle.read(1 << 20), b""):
-                digest.update(block)
-        result["sha256"] = digest.hexdigest()
+            result["sha256"] = hashlib.file_digest(handle, "sha256").hexdigest()
     return result
 
 

@@ -6,8 +6,9 @@ database, with explicit, independently audited diversity guarantees.
 It tokenises every atom's local chemical environment into an interpretable
 **EnvTok** token. The token records the element, the magnetic moment, the
 neighbour multiset, the ChemEnv polyhedron and its distortion, compression,
-and asymmetry. Rare tokens are coarsened into coverage classes until each
-class is supported by at least *T* distinct structures. EnvTok then picks a
+and asymmetry. Rare tokens are coarsened into coverage classes targeting
+support from at least *T* distinct structures, with a terminal per-element
+class for environments that remain too rare. EnvTok then picks a
 low-atom-cost subset of original configurations covering every class and
 every rare (element, geometry, coordination, compression, asymmetry)
 combination.
@@ -26,47 +27,190 @@ pinned environment. See [`docs/specification.md`](docs/specification.md) and
 
 > A diversity cover does not preserve the sampling distribution, and it does
 > not guarantee equivalent model accuracy. EnvTok reports compression by
-> structures *and* by atoms, and validate the trade-off on your own data.
+> structures *and* by atoms. Validate the trade-off on your own data.
 > The ~1% retention reported in the paper belongs to its OMat24 experiment.
+
+Jump to [Quick start](#quick-start), [Configuration](#configure-your-dataset),
+[CLI](#command-line-interface), [Molecules](#molecules-experimental),
+[Inputs](#inputs), [Outputs](#outputs) or [Troubleshooting](#troubleshooting).
+
+## How selection works
+
+1. **Tokenise the source.** Validate each record, compute its local environments,
+   and cache the measurements. Selection always keeps or removes a whole
+   original configuration; it never extracts isolated atoms from a structure.
+2. **Fit coverage classes.** Count support in distinct eligible training
+   records, then progressively drop token detail according to the profile's
+   coarsening ladder. Repeated equivalent sites within one structure count
+   only once toward support.
+3. **Select and repair.** Start with required records and sole suppliers of a
+   class, greedily add coverage per atom, prune redundant structures, then
+   repair missing rare-presence signatures. The result is deterministic for
+   the same input and settings, but is not a proof of minimum atom cost.
+4. **Audit independently.** Recompute coverage from the selected IDs and the
+   frozen class mapping. The report distinguishes class coverage, original
+   full-token coverage, processing quality, and the atoms and structures kept.
+
+The coverage guarantee applies to the fitted classes and configured presence
+constraints over the eligible pool. It does not mean every original full token
+is retained. Held-out records do not influence the classes; unseen held-out
+tokens are reported as out of vocabulary.
+
+For periodic materials, start with the reference profile below. For finite
+molecules with charge, spin and geometry protections, use the separate
+[experimental molecular workflow](#molecules-experimental).
 
 ## Install
 
-EnvTok needs Python 3.14 and [uv](https://docs.astral.sh/uv/) 0.13 or newer.
+The supported development environment is Python 3.14 with
+[uv](https://docs.astral.sh/uv/) 0.13.6 or newer. From a source checkout:
 
 ```bash
+git clone https://github.com/LouieSlocombe/py-envtok.git
+cd py-envtok
 uv sync
+uv run envtok --version
 ```
+
+The commands below assume you are in the repository root. Use `uv sync --locked`
+to require the committed dependency lockfile. The default sync also installs
+the development tools; add `--no-dev` if you only need to run the package.
 
 To read OMat24 ASE-LMDB shards, install the LMDB backend. fairchem and torch
 are not needed.
 
 ```bash
-uv pip install "envtok[omat24]"
+uv sync --extra omat24
 ```
+
+The `molecular` extra adds RDKit and DScribe for the molecular workflow. Both
+extras can be installed together with `uv sync --extra omat24 --extra molecular`.
+An alternative [Conda setup](build_tools/README.md#conda-environment) is also
+provided.
 
 ## Quick start
 
-Run the pipeline on the bundled 20-structure synthetic corpus:
+Inspect and run the pipeline on the bundled 20-structure synthetic corpus.
+No dataset download or optional dependency is needed:
 
 ```bash
+uv run envtok inspect --config examples/quickstart/config.yaml --sample 20
 uv run envtok run --config examples/quickstart/config.yaml
 ```
 
-Or use the Python API:
+The final command prints JSON containing the `selection` directory, under
+`runs/quickstart/selection-T2-<fingerprint>/`. Open its `report.html` to review
+coverage and retention; `subset.extxyz` contains the selected original
+structures, and `selected_ids.txt` records their identities. Repeating the
+command reuses committed tokenisation work.
+
+The fixture is an engineering example, so it uses a small support threshold
+of 2. Its retention rate is not a prediction for a real dataset.
+
+### Python API
+
+This example uses the same bundled corpus:
 
 ```python
 from envtok import Corpus, CoverageBuilder, Selector, Tokenizer
 
-corpus = Corpus.from_source("omat24.yaml")  # or Corpus.from_extxyz / from_atoms
-cache = Tokenizer(profile="reference-723696d").run(corpus, "runs/omat24", workers=16)
-classes = CoverageBuilder(min_structure_support=100).fit(cache, split="train")
+corpus = Corpus.from_extxyz(
+    "tests/fixtures/corpus.extxyz",
+    dataset="fixtures",
+    revision="v1",
+    split="train",
+)
+cache = Tokenizer(profile="reference-723696d").run(corpus, "runs/quickstart-api")
+classes = CoverageBuilder(min_structure_support=2).fit(cache, split="train")
 result = Selector(mode="cover", cost="atoms").select(classes)
-result.validate()  # independent audit; raises CoverageError if anything is uncovered
-result.write_manifest("runs/omat24/selection")
-result.export("runs/omat24/selection/subset.extxyz", format="extxyz")
+report = result.validate()  # raises CoverageError if required coverage is missing
+output = result.write_manifest("runs/quickstart-api/selection")
+result.export(output / "subset.extxyz", format="extxyz")
+print(report["structures"], report["atoms"], report["classes"])
 ```
 
+Use `Corpus.from_source("examples/quickstart/config.yaml")` to read the source
+and corpus policy from YAML instead. The other factories are listed under
+[Inputs](#inputs).
+
+For a complete script that also checks exported geometry, atom order, metadata
+and labels against the source:
+
+```bash
+uv run python examples/quickstart/quickstart.py
+```
+
+## Configure your dataset
+
+Save a configuration such as `dataset.yaml` next to your `data/` directory:
+
+```yaml
+schema_version: 1
+source:
+  adapter: extxyz
+  path: data/train.extxyz
+  name: my-dataset
+  revision: v1
+  split: train
+
+corpus:
+  preset: general
+  invalid_record_policy: quarantine
+
+tokenizer:
+  profile: reference-723696d
+
+coverage:
+  min_structure_support: 100
+  split: train
+
+selection:
+  mode: cover
+  cost: atoms
+
+execution:
+  workdir: runs/my-dataset
+  workers: 4
+  batch_size: 32
+  resume: true
+
+output:
+  format: extxyz
+```
+
+Then run `uv run envtok inspect --config dataset.yaml`, followed by
+`uv run envtok run --config dataset.yaml`. Input and work-directory paths are
+resolved relative to the YAML file, not the shell's working directory.
+Unknown configuration keys are rejected, and the resolved configuration with
+all defaults is saved alongside the selection.
+
+The main choices are:
+
+| Setting | How to choose it |
+|---|---|
+| `source.revision` | Give the input a meaningful version label; it is part of each record's identity. |
+| `source.split` / `source.split_key` | Use a constant split for a training-only source, or read per-record split metadata with `split_key`. |
+| `coverage.split` | Fit and select on this split; the default is `train`. Match it to the source's split assignments. |
+| `coverage.min_structure_support` | An integer *T* ≥ 2 controlling coarsening, not the number of structures to select or a retention percentage. |
+| `corpus.invalid_record_policy` | `quarantine` excludes records with unusable local environments from selection; `reference` keeps them with sentinel tokens. |
+| `selection.stratify_by` | Fit and cover metadata strata separately, for example `[charge, method]`, when these distinctions must survive selection. |
+| `output.format` | `extxyz`, `asedb`, or `none` to write only the manifest and reports. |
+
+Higher *T* asks for more source support before retaining a detailed class. Tokens
+that never reach *T* enter a terminal per-element class even if its support is
+lower. *T* does **not** require *T* selected representatives. The coarsening
+ladder is not nested, so increasing *T* need not reduce selected atoms
+monotonically; use a sweep and compare the reports.
+
+The reference selector supports `mode: cover` with atom cost. Its
+`mode: budget` is not implemented; hard atom budgets are available in the
+separate molecular profile.
+
 ## Command-line interface
+
+These are the reference-profile commands. Use `uv run envtok --help` or
+`uv run envtok <command> --help` for arguments, and put `-v` before the command
+to log progress, for example `uv run envtok -v run --config dataset.yaml`.
 
 | Command | Purpose |
 |---|---|
@@ -79,6 +223,56 @@ result.export("runs/omat24/selection/subset.extxyz", format="extxyz")
 | `envtok report --run DIR` | re-run the independent audit of a selection |
 | `envtok export --run DIR [--format extxyz\|asedb] [--output PATH]` | export the selected original structures |
 | `envtok baseline --run DIR --seeds 0 1 2` | equal-atom random baselines, audited against the same classes |
+
+`--run` takes the **selection directory**, not the parent work directory.
+Use the path printed by `run` or `select`. For example, replace `<fingerprint>`
+with the suffix from your quick start:
+
+```bash
+RUN_DIR="runs/quickstart/selection-T2-<fingerprint>"
+uv run envtok report --run "$RUN_DIR"
+uv run envtok export --run "$RUN_DIR" --format asedb --output runs/quickstart/subset.db
+uv run envtok baseline --run "$RUN_DIR" --seeds 0 1 2
+```
+
+`select` writes and audits a manifest; `run` also exports in the configured
+format. `baseline` measures coverage of random subsets using the selection's
+atom count as the budget; it does not measure downstream model accuracy.
+
+### Restart, sweeps and parallel runs
+
+The stages can be run separately on the same configuration:
+
+```bash
+uv run envtok tokenize --config dataset.yaml
+uv run envtok index --config dataset.yaml
+uv run envtok select --config dataset.yaml
+uv run envtok sweep --config dataset.yaml --min-support 30 100 300
+```
+
+Tokenisation commits independent batches atomically. With
+`execution.resume: true` (the default), rerun the same command after interruption
+to reuse committed batches. `tokenize` with `resume: false` refuses committed
+partitions. Selection and sweeps can still reuse a finished cache; use a new
+work directory to force a fresh geometry run.
+
+Changing *T* or selector settings reuses the token index and creates a separate
+selection directory. Changing the net-charge token field reuses the geometry
+measurements but builds a different token index. Changes to the source,
+geometry settings, magnetic policy or batch size use a different geometry
+cache. Keep original inputs available and unchanged for later export.
+
+For local parallelism, set `execution.workers` and optionally
+`max_inflight_batches` and `threads_per_worker`. `memory_budget` bounds the
+estimated selection working state and configures DuckDB memory;
+`temporary_disk_budget` limits DuckDB spill storage. These are not a global
+memory cap for all geometry workers. `coverage.backend: duckdb` enables
+external aggregation; `auto` selects it above 50 million incidence edges.
+
+For a cluster, give each tokenisation task a distinct `--shard-index` from
+0 to `--num-shards - 1`, all using the same configuration and shared work
+directory. Wait for every task before running `index`, then `select` and
+`export`.
 
 See [`examples/omat24/omat24.yaml`](examples/omat24/omat24.yaml) for a
 complete configuration and
@@ -93,11 +287,42 @@ method. It combines rooted graph tokens (or an explicit graph-unknown fallback)
 with local SOAP geometry, conservative deduplication, and hard atom budgets.
 Unknown state is never silently converted to neutral/singlet.
 
+This profile has its own configuration schema, selected by the top-level
+`profile: molecular_v1`. Start from the bundled configuration:
+
 ```bash
 uv sync --extra molecular
 uv run --extra molecular envtok run --config examples/molecular/omol/config.yaml
 uv run --extra molecular envtok benchmark --config examples/molecular/omol/config.yaml
 ```
+
+To impose a hard atom cap, set exactly one of `atom_fraction` or `atom_budget`:
+
+```yaml
+selection:
+  mode: budget
+  atom_fraction: 0.25  # alternatively, replace this with atom_budget: 1000
+```
+
+The fraction is measured against atoms in the deduplicated training candidate
+pool. For `mode: cover`, omit both budget settings. A budgeted run can finish
+with `complete: false`: inspect `unmet_constraints` in `coverage.json` to see
+what the selected subset does not cover. An incomplete heuristic cover is not
+a proof that complete coverage is impossible within that budget.
+
+Set `source.label_namespace` to identify the reference method, and map the
+total-charge and spin-multiplicity fields with `state.charge_key` and
+`state.multiplicity_key` (defaults: `total_charge` and `spin_multiplicity`).
+Neither is inferred from partial charges or site magnetic moments. Unknown
+states remain distinct, and the default strict training export requires known
+charge and multiplicity.
+
+Molecular runs write to `<workdir>/molecular-<fingerprint>/`. The CLI currently
+reads one extended XYZ source and exports extended XYZ; the Python API also
+accepts ASE iterables. This is a serial, in-memory pilot without worker-count
+sharding. Its staged commands include `ingest`, `split`, `featurize`,
+`build-targets`, `select`, `audit` and `export`; use `benchmark` for budget
+comparisons rather than the reference profile's `sweep`.
 
 The bundled [OMol sample](examples/molecular/omol/README.md) contains 29 real
 training configurations from a documented public mirror. It exercises the
@@ -119,19 +344,35 @@ failed accuracy screens and unsuitable evaluation data explicitly.
 
 ## Inputs
 
-EnvTok reads:
+The reference workflow supports these sources:
 
-- ASE iterables, including sequences, factories and one-shot iterators (which
-  can be spooled to a managed extxyz store);
-- extended XYZ, plain or compressed (`.gz`, `.bz2`, `.xz`);
-- ASE databases;
-- OMat24 ASE-LMDB shards, read natively.
+| Input | YAML `source.adapter` | Python factory |
+|---|---|---|
+| ASE sequences, factories or iterators | Python API only | `Corpus.from_atoms(...)` |
+| Extended XYZ, including `.gz`, `.bz2` and `.xz` | `extxyz` | `Corpus.from_extxyz(...)` |
+| ASE databases | `asedb` | `Corpus.from_ase_db(...)` |
+| OMat24 ASE-LMDB shards | `omat24` | `Corpus.from_omat24(...)` |
+
+For a one-shot ASE iterator, pass `spool_to="runs/source.extxyz"` to
+`Corpus.from_atoms(...)` to make the source retrievable for export and
+resumable. Supply `name`, a meaningful `revision`, and `split="train"` when
+building a training corpus. File-based factories use `dataset` instead of
+`name`. By default, records are `unsplit`, whereas class fitting defaults to
+`train`; set the split explicitly or intentionally fit `split="unsplit"`.
 
 Record IDs are namespaced by dataset, revision, shard and native key, so an
 OMat24 `sid` is never assumed unique. Every discovered record is accounted
 for as eligible, excluded or failed; nothing is skipped silently. The
 `omat24-study` preset reproduces the study's La–Lu/Ac–Lr exclusion. The
-default `general` preset excludes nothing.
+default `general` preset applies no element exclusions.
+
+The reference profile uses source initial magnetic moments, rounds their
+absolute values, and defaults missing moments to zero. Vector moments are
+unsupported under that policy. Energy and force labels are not needed to
+choose a diversity subset, but downstream training still needs suitable
+labels. Stored energy, forces, stress and supported arrays are preserved on
+export; no live calculator runs and the reference workflow does not convert
+label units.
 
 ## Charged structures
 
@@ -168,7 +409,8 @@ Run `envtok inspect` first to check that the key is present. See
 
 ## Outputs
 
-Each selection goes to its own configuration-addressed directory
+Each reference-profile selection goes to its own configuration-addressed
+directory
 `<workdir>/selection-T<T>-<fingerprint>/`, which contains:
 
 - `selected_ids.txt` and `selected_manifest.parquet`: source locators, atom
@@ -178,8 +420,9 @@ Each selection goes to its own configuration-addressed directory
 - `coverage.json` and `report.html`: the independent audit and its readable
   report;
 - the frozen class mapping;
-- optionally `subset.extxyz`, exported from the original sources with labels
-  preserved and no live calculator.
+- `run.json` for reloading a CLI selection;
+- optionally `subset.extxyz` or `subset.db`, exported from the original sources
+  with labels preserved and no live calculator.
 
 The report covers:
 
@@ -191,9 +434,48 @@ The report covers:
 - held-out out-of-vocabulary rates;
 - input versus selected distributions.
 
+Start with `report.html` for a readable view and `coverage.json` for automated
+checks. Read processing quality alongside coverage: a complete cover of the
+eligible pool does not imply that every discovered input was usable. Compare
+both atom and structure retention, since structures may differ greatly in size.
+
+Molecular runs also write selected IDs, a manifest, resolved configuration,
+provenance and reports. Their additional artifacts are `ingestion.json`,
+`splits.json`, `targets.json` and `software-lock.json`. Reports include budget
+compliance, unmet constraints and nearest-selected geometry distances. See the
+[molecular output contract](docs/molecular.md#commands-restart-and-outputs).
+
+## Troubleshooting
+
+| Symptom | What to check |
+|---|---|
+| Empty or unexpectedly small selection | Check source split assignments against `coverage.split`, exclusions, and failed or quarantined records in the report. |
+| Missing charge failures | With `net_round`, the configured key must contain a numeric net charge. Use `inspect` to review charge sources. |
+| Export cannot retrieve records | Keep the original sources available; spool one-shot iterators before tokenisation. |
+| Indexing reports incomplete partitions | Finish or rerun every tokenisation shard with the same configuration before indexing. |
+| Selection exceeds the configured memory policy | Review the estimate and available resources, then adjust `execution.memory_budget`; DuckDB aggregation does not remove the selector's own memory needs. |
+| Molecular export rejects unknown state | Provide known total charge and multiplicity through the configured keys; see the molecular data contract for permissive export. |
+
+## Documentation and examples
+
+- [Specification](docs/specification.md): token fields, coarsening ladder,
+  selection algorithm, storage, audit and execution contracts.
+- [Discrepancy log](docs/discrepancies.md): differences between the paper,
+  reference implementation and this package.
+- [Molecular guide](docs/molecular.md): data contracts, graphs, descriptors,
+  safeguards and current limitations.
+- [OMat24 sample](examples/omat24/small-sample/README.md) and
+  [OMol sample](examples/molecular/omol/README.md): real-data provenance and
+  small qualification results.
+- [Build and benchmark tools](build_tools/README.md): acceptance runs,
+  accuracy screens and packaging checks.
+
 ## Development
 
+Install the development environment and run the checks used by CI:
+
 ```bash
+uv sync --locked
 uv run prek install
 uv run prek run --all-files
 uv run mypy
@@ -203,6 +485,9 @@ uv run pytest
 The test suite enforces 100% branch coverage. Golden reference fixtures are
 regenerated with the pinned reference environment described in
 [`build_tools/reference/README.md`](build_tools/reference/README.md).
+To exercise the real optional molecular backends, run
+`uv run --extra molecular pytest`. CI tests Python 3.14 with the locked and
+lowest allowed direct dependency versions, plus a molecular-extra job.
 
 ## Citing
 

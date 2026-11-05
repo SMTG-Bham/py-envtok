@@ -181,4 +181,5 @@ def spool_atoms(frames: Iterable[Atoms], path: str | Path) -> str:
             frame.info = encode_string_metadata(atoms.info)
             ase.io.write(handle, frame, format="extxyz")
     partial.replace(target)
-    return hashlib.sha256(target.read_bytes()).hexdigest()
+    with target.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
