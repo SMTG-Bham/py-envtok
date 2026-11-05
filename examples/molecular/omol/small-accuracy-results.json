@@ -1,0 +1,1095 @@
+{
+  "elapsed_seconds": 0.5646721679995608,
+  "engineering_screen_rule": "all mandatory targets covered and holdout force RMSE <= 1.10 times the full training-pool reference; not a scientific acceptance claim",
+  "group_warnings": [
+    "molecular@unspecified:sample.extxyz:0: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:1: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:10: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:11: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:12: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:13: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:14: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:15: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:17: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:18: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:19: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:2: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:20: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:21: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:25: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:26: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:28: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:5: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:6: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:7: missing grouping metadata; grouped by exact composition",
+    "molecular@unspecified:sample.extxyz:9: missing grouping metadata; grouped by exact composition"
+  ],
+  "holdout_configurations": 4,
+  "limitations": [
+    "Ordered 29-record source snapshot, not a representative pilot.",
+    "Development holdout only; no official test set or hyperparameter search.",
+    "Pair model lacks angular, many-body and state physics; this is not MACE.",
+    "Incomplete mandatory coverage remains a failed subset despite model fit.",
+    "One split and seed cannot establish uncertainty or simulation accuracy."
+  ],
+  "model": {
+    "centres_angstrom": [
+      0.7,
+      1.1,
+      1.5,
+      2.0,
+      2.6,
+      3.3,
+      4.1
+    ],
+    "cutoff_angstrom": 5.0,
+    "intercepts": "unpenalized element counts fitted independently on each selected training set",
+    "loss": "mean over records of squared energy error per atom plus mean squared force-component error",
+    "name": "linear_gaussian_radial_pairs_v1",
+    "ridge": 0.0001,
+    "species": [
+      1,
+      6,
+      7,
+      8
+    ],
+    "width_angstrom": 0.5
+  },
+  "neutral_singlet_records": 21,
+  "runs": [
+    {
+      "coefficients": [
+        -14.455287966027974,
+        -1035.7120551034836,
+        -1491.901259152036,
+        -2045.1587272160168,
+        1.7153890322250618,
+        -1.2357570653086896,
+        0.594531876461474,
+        -0.15765841610186726,
+        -0.1858513753466582,
+        0.04785156832105031,
+        -0.38086140905102184,
+        4.807548429215558,
+        -10.04776557074132,
+        6.299380893087033,
+        -2.1934704773187264,
+        0.7795193264233404,
+        -0.28483570069283815,
+        0.5649461332400847,
+        0.360273903244547,
+        -1.1662121409962651,
+        1.1431316848642723,
+        -0.24023686770897257,
+        -0.19648202973610296,
+        0.005089626442725148,
+        -0.09080420572303183,
+        1.2553567826825258,
+        -5.630972698217619,
+        3.6454234724190613,
+        -1.3918375579495716,
+        0.45299068108421636,
+        -0.35992279561759233,
+        -0.7347102298884352,
+        0.32004322497957105,
+        -0.9948839804582121,
+        -0.48421595892688174,
+        1.2782176887852472,
+        -0.6583815748524557,
+        -0.18313531314774423,
+        -0.6483662731236777,
+        4.115531476452631,
+        -4.630951586819776,
+        1.8083183912973766,
+        -0.09310013672632067,
+        0.3960559337423888,
+        -0.675010438911329,
+        1.2551182185292475,
+        2.713338219044431,
+        -3.1957479975102956,
+        0.558780564258555,
+        0.5128149082405571,
+        -0.7031960409833005,
+        -0.640327247965331,
+        -0.22956029002727973,
+        -0.2597322548678136,
+        0.6276689585284032,
+        1.0296944627962077,
+        -0.6532315280022658,
+        1.4594116930013143,
+        -0.6518235946699633,
+        3.9873342564825407,
+        -0.9534546655218321,
+        -0.10196319023198441,
+        0.9031906735099824,
+        0.40410122509968005,
+        2.4167591460808637,
+        -1.7951390661522737,
+        1.7808259841500131,
+        0.3988660537660005,
+        1.5286685677383858,
+        1.9239818699611817,
+        -0.520956732472456,
+        0.8896847228385241,
+        0.2846487103900017,
+        0.8550485392742928
+      ],
+      "fit_seconds": 0.04594833399914933,
+      "holdout": {
+        "aggregate": {
+          "atoms": 52,
+          "configurations": 4,
+          "energy": {
+            "mae": 2.8457933995644,
+            "rmse": 2.9620551160529867,
+            "unit": "eV"
+          },
+          "forces": {
+            "mae": 0.6211883320911455,
+            "p95_vector_error": 3.97486480806484,
+            "p99_vector_error": 5.080142725116492,
+            "rmse": 1.0349426128993455,
+            "unit": "eV/Ang"
+          }
+        },
+        "by_charge": {
+          "0.0": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.8457933995644,
+              "rmse": 2.9620551160529867,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.6211883320911455,
+              "p95_vector_error": 3.97486480806484,
+              "p99_vector_error": 5.080142725116492,
+              "rmse": 1.0349426128993455,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_label_namespace": {
+          "OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.8457933995644,
+              "rmse": 2.9620551160529867,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.6211883320911455,
+              "p95_vector_error": 3.97486480806484,
+              "p99_vector_error": 5.080142725116492,
+              "rmse": 1.0349426128993455,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_multiplicity": {
+          "1": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.8457933995644,
+              "rmse": 2.9620551160529867,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.6211883320911455,
+              "p95_vector_error": 3.97486480806484,
+              "p99_vector_error": 5.080142725116492,
+              "rmse": 1.0349426128993455,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_size": {
+          "<30": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.8457933995644,
+              "rmse": 2.9620551160529867,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.6211883320911455,
+              "p95_vector_error": 3.97486480806484,
+              "p99_vector_error": 5.080142725116492,
+              "rmse": 1.0349426128993455,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "status": "predictions_evaluated"
+      },
+      "selection": {
+        "achieved_cost": 446,
+        "budget": 446,
+        "candidate_atoms": 446,
+        "candidate_configurations": 17,
+        "complete": true,
+        "covered_refinement_targets": 64,
+        "covered_targets": 7,
+        "explanation": "All mandatory constraints achieved.",
+        "fraction": 1.0,
+        "mandatory_targets": 7,
+        "refinement_targets": 64,
+        "selected_configurations": 17,
+        "selected_ids": [
+          "molecular@unspecified:neutral-pool.extxyz:0",
+          "molecular@unspecified:neutral-pool.extxyz:1",
+          "molecular@unspecified:neutral-pool.extxyz:10",
+          "molecular@unspecified:neutral-pool.extxyz:11",
+          "molecular@unspecified:neutral-pool.extxyz:12",
+          "molecular@unspecified:neutral-pool.extxyz:14",
+          "molecular@unspecified:neutral-pool.extxyz:15",
+          "molecular@unspecified:neutral-pool.extxyz:16",
+          "molecular@unspecified:neutral-pool.extxyz:19",
+          "molecular@unspecified:neutral-pool.extxyz:2",
+          "molecular@unspecified:neutral-pool.extxyz:3",
+          "molecular@unspecified:neutral-pool.extxyz:4",
+          "molecular@unspecified:neutral-pool.extxyz:5",
+          "molecular@unspecified:neutral-pool.extxyz:6",
+          "molecular@unspecified:neutral-pool.extxyz:7",
+          "molecular@unspecified:neutral-pool.extxyz:8",
+          "molecular@unspecified:neutral-pool.extxyz:9"
+        ],
+        "selector": "full_pool",
+        "status": "complete",
+        "target_counts": {
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<10\"]": 1,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<30\"]": 11,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<60\"]": 5,
+          "molecular_v1:fallback:2530c6ece5476056d7921e4acb006089dfc6edbf377d0c4cddb749761d66dc5c": 17,
+          "molecular_v1:fallback:2a823421115c4a67270ccedb7c69cbafcdfc9d6fac6b72376aa39269d87d127a": 17,
+          "molecular_v1:fallback:55ee780a4d35a7538cfa419b7e77a15660540749dff96f078aec5d4c72f6d42a": 10,
+          "molecular_v1:fallback:894f1400459b4252422074daccb54478cc05d6deda4d4aab2c7bdbf20bd468b0": 15
+        },
+        "unmet_constraints": {}
+      },
+      "selector": "full_pool",
+      "status": "evaluated",
+      "training": {
+        "element_count_rank": 4,
+        "parameters": 74,
+        "regularized_design_rank": 74,
+        "ridge": 0.0001,
+        "training_atoms": 446,
+        "training_configurations": 17
+      }
+    },
+    {
+      "coefficients": [
+        -13.868722863050317,
+        -1039.3174941703255,
+        -1493.1134454609357,
+        -2032.6191578582548,
+        0.32332678979537377,
+        -1.185288456306921,
+        1.063366902544601,
+        -0.26617893368756995,
+        -0.17210506629845668,
+        0.29971517858962216,
+        0.0998275863301501,
+        6.73450655366787,
+        -13.827970159636777,
+        7.936923529861716,
+        -2.392357907189627,
+        0.7111364894372052,
+        -0.16848094199750108,
+        0.60906906420513,
+        -0.781983986958835,
+        0.7381692259428405,
+        -0.4111169094444165,
+        0.6319070254685002,
+        -1.127142080424818,
+        0.965805711172635,
+        0.8308498049834583,
+        -0.8186005502526541,
+        0.37461821121320327,
+        -0.7270154606351866,
+        -0.5722878023474038,
+        -0.47366386812785777,
+        -1.5997874804945127,
+        -2.6666600505805675,
+        2.5446419135151928,
+        -2.93116044181329,
+        0.9909560087831437,
+        0.812289595490256,
+        -0.5112484531762789,
+        -0.35839656063598113,
+        0.6180496057014011,
+        5.966236163331942,
+        -5.918573016465331,
+        2.5081454695964567,
+        -0.13186155053585935,
+        3.38745303013404,
+        -4.538273140514079,
+        5.458081204682799,
+        3.6277377981613625,
+        -3.6855993122013615,
+        -0.7001644382250447,
+        1.728270315127702,
+        -1.8054378104843067,
+        -0.14658382248228463,
+        0.034114949413663,
+        -0.02933424228876902,
+        -0.9029048191494553,
+        0.6456080120849492,
+        -2.1070268678504362,
+        -3.08566531895206,
+        2.7036808799464467,
+        10.375819052732481,
+        0.5664620255327577,
+        0.042086527658845796,
+        -1.7962070721063412,
+        1.941530817095753,
+        2.6461403492497197,
+        -4.0124560437460275,
+        -0.5632778984527818,
+        0.5160705874056024,
+        2.1514634479885615,
+        3.344893663599308,
+        -0.8099475884433787,
+        -1.242853335079758,
+        5.4127112988833375,
+        -1.200802503362322
+      ],
+      "engineering_screen_pass": false,
+      "fit_seconds": 0.009681457000624505,
+      "force_rmse_ratio_to_full": 1.5267590382734018,
+      "holdout": {
+        "aggregate": {
+          "atoms": 52,
+          "configurations": 4,
+          "energy": {
+            "mae": 9.161829738443657,
+            "rmse": 11.498781877992277,
+            "unit": "eV"
+          },
+          "forces": {
+            "mae": 0.9311844743114717,
+            "p95_vector_error": 5.021635964489807,
+            "p99_vector_error": 9.649427912043445,
+            "rmse": 1.5801079883383664,
+            "unit": "eV/Ang"
+          }
+        },
+        "by_charge": {
+          "0.0": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 9.161829738443657,
+              "rmse": 11.498781877992277,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.9311844743114717,
+              "p95_vector_error": 5.021635964489807,
+              "p99_vector_error": 9.649427912043445,
+              "rmse": 1.5801079883383664,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_label_namespace": {
+          "OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 9.161829738443657,
+              "rmse": 11.498781877992277,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.9311844743114717,
+              "p95_vector_error": 5.021635964489807,
+              "p99_vector_error": 9.649427912043445,
+              "rmse": 1.5801079883383664,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_multiplicity": {
+          "1": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 9.161829738443657,
+              "rmse": 11.498781877992277,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.9311844743114717,
+              "p95_vector_error": 5.021635964489807,
+              "p99_vector_error": 9.649427912043445,
+              "rmse": 1.5801079883383664,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_size": {
+          "<30": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 9.161829738443657,
+              "rmse": 11.498781877992277,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.9311844743114717,
+              "p95_vector_error": 5.021635964489807,
+              "p99_vector_error": 9.649427912043445,
+              "rmse": 1.5801079883383664,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "status": "predictions_evaluated"
+      },
+      "selection": {
+        "achieved_cost": 102,
+        "budget": 111,
+        "candidate_atoms": 446,
+        "candidate_configurations": 17,
+        "complete": true,
+        "covered_refinement_targets": 29,
+        "covered_targets": 7,
+        "explanation": "All mandatory constraints achieved.",
+        "fraction": 0.25,
+        "mandatory_targets": 7,
+        "nearest_selected": {
+          "maximum": 0.9072881343909815,
+          "mean": 0.31605815496650247,
+          "missing_class_count": 0,
+          "p95": 0.7583590040197677,
+          "sample_count": 446
+        },
+        "protected_strata_met": true,
+        "refinement_targets": 64,
+        "selected_configurations": 5,
+        "selected_ids": [
+          "molecular@unspecified:neutral-pool.extxyz:10",
+          "molecular@unspecified:neutral-pool.extxyz:11",
+          "molecular@unspecified:neutral-pool.extxyz:12",
+          "molecular@unspecified:neutral-pool.extxyz:5",
+          "molecular@unspecified:neutral-pool.extxyz:8"
+        ],
+        "selection_seconds": 3.4996000067621935e-05,
+        "selection_seed": 0,
+        "selector": "stratified_random",
+        "status": "complete",
+        "target_counts": {
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<10\"]": 1,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<30\"]": 3,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<60\"]": 1,
+          "molecular_v1:fallback:2530c6ece5476056d7921e4acb006089dfc6edbf377d0c4cddb749761d66dc5c": 5,
+          "molecular_v1:fallback:2a823421115c4a67270ccedb7c69cbafcdfc9d6fac6b72376aa39269d87d127a": 5,
+          "molecular_v1:fallback:55ee780a4d35a7538cfa419b7e77a15660540749dff96f078aec5d4c72f6d42a": 4,
+          "molecular_v1:fallback:894f1400459b4252422074daccb54478cc05d6deda4d4aab2c7bdbf20bd468b0": 5
+        },
+        "unmet_constraints": {}
+      },
+      "selector": "stratified_random",
+      "status": "evaluated",
+      "training": {
+        "element_count_rank": 4,
+        "parameters": 74,
+        "regularized_design_rank": 74,
+        "ridge": 0.0001,
+        "training_atoms": 102,
+        "training_configurations": 5
+      }
+    },
+    {
+      "coefficients": [
+        -15.014880918210123,
+        -1032.7743070423994,
+        -1492.6766429087038,
+        -2044.5567615665682,
+        0.36675481010320254,
+        -0.38254880057513674,
+        0.728761703388443,
+        -0.14532415972075796,
+        -0.25344086329752,
+        0.1527568510632875,
+        -0.10488603720255618,
+        5.869949147320142,
+        -13.295851354992706,
+        8.24390626111402,
+        -2.826981690984013,
+        1.0913718120985934,
+        -0.42226567179352514,
+        0.6514591589472047,
+        -0.5444971009671917,
+        0.8689249193724891,
+        -0.15510500409629913,
+        0.8298206615338017,
+        -0.3820518345664823,
+        0.6338903965521361,
+        1.2357075598009715,
+        1.02364188038041,
+        -0.12845964363694407,
+        1.476745439599739,
+        -1.123324872901538,
+        0.7188231579829676,
+        -0.7846654858899456,
+        0.12369264956009829,
+        0.44925518431762157,
+        -0.9251947500825395,
+        -2.158834547597337,
+        2.004657490353054,
+        -0.28491701694582616,
+        0.4024411233481828,
+        -1.7893713369927298,
+        7.537754035438411,
+        -8.451986186404724,
+        4.46854785985488,
+        -1.1558086496719113,
+        0.41572879978514266,
+        0.4975375088922931,
+        4.776935037071411,
+        9.230970349641439,
+        -9.39024615606752,
+        0.5502265430313287,
+        0.7170832755272158,
+        -1.3580141416634888,
+        -0.6294830372476667,
+        -2.2689971507982705,
+        -0.5479691490461107,
+        0.1375789164362402,
+        0.17151658924548485,
+        -0.5291712173365113,
+        -0.5581081088834026,
+        -0.13000043612907675,
+        1.37575032338367,
+        -1.0106919015026392,
+        0.12007896082027969,
+        0.03773319700337652,
+        0.10669893839917677,
+        3.7873894797484127,
+        -3.983031977902094,
+        1.6524256980740688,
+        0.06326471073093032,
+        0.41962544926288814,
+        1.4297154209184129,
+        2.591416939468587,
+        1.1825508926576447,
+        -1.2357152387037331,
+        -0.13297919570658934
+      ],
+      "engineering_screen_pass": false,
+      "fit_seconds": 0.008496596999975736,
+      "force_rmse_ratio_to_full": 1.542340764225692,
+      "holdout": {
+        "aggregate": {
+          "atoms": 52,
+          "configurations": 4,
+          "energy": {
+            "mae": 2.222188737750912,
+            "rmse": 3.469798843829224,
+            "unit": "eV"
+          },
+          "forces": {
+            "mae": 0.8951896851622061,
+            "p95_vector_error": 5.901493307380537,
+            "p99_vector_error": 8.628016811264429,
+            "rmse": 1.5962341805089113,
+            "unit": "eV/Ang"
+          }
+        },
+        "by_charge": {
+          "0.0": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.222188737750912,
+              "rmse": 3.469798843829224,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8951896851622061,
+              "p95_vector_error": 5.901493307380537,
+              "p99_vector_error": 8.628016811264429,
+              "rmse": 1.5962341805089113,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_label_namespace": {
+          "OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.222188737750912,
+              "rmse": 3.469798843829224,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8951896851622061,
+              "p95_vector_error": 5.901493307380537,
+              "p99_vector_error": 8.628016811264429,
+              "rmse": 1.5962341805089113,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_multiplicity": {
+          "1": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.222188737750912,
+              "rmse": 3.469798843829224,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8951896851622061,
+              "p95_vector_error": 5.901493307380537,
+              "p99_vector_error": 8.628016811264429,
+              "rmse": 1.5962341805089113,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_size": {
+          "<30": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 2.222188737750912,
+              "rmse": 3.469798843829224,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8951896851622061,
+              "p95_vector_error": 5.901493307380537,
+              "p99_vector_error": 8.628016811264429,
+              "rmse": 1.5962341805089113,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "status": "predictions_evaluated"
+      },
+      "selection": {
+        "achieved_cost": 111,
+        "budget": 111,
+        "candidate_atoms": 446,
+        "candidate_configurations": 17,
+        "complete": true,
+        "covered_refinement_targets": 25,
+        "covered_targets": 7,
+        "explanation": "All mandatory constraints achieved.",
+        "fraction": 0.25,
+        "mandatory_targets": 7,
+        "nearest_selected": {
+          "maximum": 0.7822709396635429,
+          "mean": 0.28865089962775775,
+          "missing_class_count": 0,
+          "p95": 0.6677502718400727,
+          "sample_count": 446
+        },
+        "protected_strata_met": true,
+        "refinement_targets": 64,
+        "selected_configurations": 6,
+        "selected_ids": [
+          "molecular@unspecified:neutral-pool.extxyz:11",
+          "molecular@unspecified:neutral-pool.extxyz:12",
+          "molecular@unspecified:neutral-pool.extxyz:14",
+          "molecular@unspecified:neutral-pool.extxyz:19",
+          "molecular@unspecified:neutral-pool.extxyz:4",
+          "molecular@unspecified:neutral-pool.extxyz:7"
+        ],
+        "selection_seconds": 0.0016014689999792608,
+        "selection_seed": 0,
+        "selector": "token_only",
+        "status": "complete",
+        "target_counts": {
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<10\"]": 1,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<30\"]": 4,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<60\"]": 1,
+          "molecular_v1:fallback:2530c6ece5476056d7921e4acb006089dfc6edbf377d0c4cddb749761d66dc5c": 6,
+          "molecular_v1:fallback:2a823421115c4a67270ccedb7c69cbafcdfc9d6fac6b72376aa39269d87d127a": 6,
+          "molecular_v1:fallback:55ee780a4d35a7538cfa419b7e77a15660540749dff96f078aec5d4c72f6d42a": 4,
+          "molecular_v1:fallback:894f1400459b4252422074daccb54478cc05d6deda4d4aab2c7bdbf20bd468b0": 5
+        },
+        "unmet_constraints": {}
+      },
+      "selector": "token_only",
+      "status": "evaluated",
+      "training": {
+        "element_count_rank": 4,
+        "parameters": 74,
+        "regularized_design_rank": 74,
+        "ridge": 0.0001,
+        "training_atoms": 111,
+        "training_configurations": 6
+      }
+    },
+    {
+      "coefficients": [
+        -15.124382721233754,
+        -1033.5876025686446,
+        -1496.0726691571713,
+        -2041.0894907574807,
+        -0.8696608767972975,
+        0.27369997860171225,
+        0.4843514712807746,
+        -0.38845133534653087,
+        -0.23413348936890088,
+        -0.001876449046221751,
+        0.34460984986086984,
+        6.228920024067662,
+        -13.358450880980584,
+        8.48316389904717,
+        -2.4921574068496,
+        0.8295910651065981,
+        -0.027339991917841644,
+        -0.37660446499172906,
+        0.5671223770575864,
+        -0.9478559647834075,
+        2.4156137309032317,
+        -0.9961378103378706,
+        0.5042753863665439,
+        -0.6539910768536856,
+        -0.01629269834214142,
+        0.9057950638673731,
+        -1.0439626387695853,
+        1.889961524258979,
+        -1.616395112387579,
+        0.47638162555475105,
+        -1.60247553984334,
+        -1.5019655766566018,
+        1.3312107009089829,
+        -2.0188966555612353,
+        -3.1501506143404754,
+        3.45878304430758,
+        -2.0521256560753045,
+        -1.9298781941733836,
+        -0.9086856406740935,
+        7.220606633588147,
+        -7.763918496953046,
+        4.335444923309581,
+        0.21038804741988315,
+        2.0831302652304657,
+        1.7052386209159067,
+        11.737555132096702,
+        2.281999734055603,
+        -2.9244354138135122,
+        -2.779593845510668,
+        2.9344619625614428,
+        -1.9029343577728355,
+        -1.3626377234282927,
+        4.692673541299882,
+        -1.106090949203633,
+        2.1148452421974753,
+        -0.33078022429515386,
+        0.1905662682114837,
+        0.9504485944009105,
+        -0.5321105183849681,
+        5.067009022008534,
+        -1.0194608521296118,
+        0.26568990766241996,
+        -0.68192230593408,
+        1.2991850033810124,
+        1.5151655877612882,
+        -3.1421725804672462,
+        -1.677691288237554,
+        0.11483077240022865,
+        0.695287018870907,
+        2.067777011482221,
+        2.9740461227593045,
+        1.942752612128814,
+        -2.2456898298251673,
+        -0.6776450871026896
+      ],
+      "engineering_screen_pass": false,
+      "fit_seconds": 0.00702331799948297,
+      "force_rmse_ratio_to_full": 1.3038597433272576,
+      "holdout": {
+        "aggregate": {
+          "atoms": 52,
+          "configurations": 4,
+          "energy": {
+            "mae": 4.436820336416076,
+            "rmse": 4.679165401323855,
+            "unit": "eV"
+          },
+          "forces": {
+            "mae": 0.8751144637814011,
+            "p95_vector_error": 4.586788510086443,
+            "p99_vector_error": 5.555579565176877,
+            "rmse": 1.349420009613382,
+            "unit": "eV/Ang"
+          }
+        },
+        "by_charge": {
+          "0.0": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 4.436820336416076,
+              "rmse": 4.679165401323855,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8751144637814011,
+              "p95_vector_error": 4.586788510086443,
+              "p99_vector_error": 5.555579565176877,
+              "rmse": 1.349420009613382,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_label_namespace": {
+          "OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 4.436820336416076,
+              "rmse": 4.679165401323855,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8751144637814011,
+              "p95_vector_error": 4.586788510086443,
+              "p99_vector_error": 5.555579565176877,
+              "rmse": 1.349420009613382,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_multiplicity": {
+          "1": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 4.436820336416076,
+              "rmse": 4.679165401323855,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8751144637814011,
+              "p95_vector_error": 4.586788510086443,
+              "p99_vector_error": 5.555579565176877,
+              "rmse": 1.349420009613382,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "by_size": {
+          "<30": {
+            "atoms": 52,
+            "configurations": 4,
+            "energy": {
+              "mae": 4.436820336416076,
+              "rmse": 4.679165401323855,
+              "unit": "eV"
+            },
+            "forces": {
+              "mae": 0.8751144637814011,
+              "p95_vector_error": 4.586788510086443,
+              "p99_vector_error": 5.555579565176877,
+              "rmse": 1.349420009613382,
+              "unit": "eV/Ang"
+            }
+          }
+        },
+        "status": "predictions_evaluated"
+      },
+      "selection": {
+        "achieved_cost": 99,
+        "budget": 111,
+        "candidate_atoms": 446,
+        "candidate_configurations": 17,
+        "complete": true,
+        "covered_refinement_targets": 29,
+        "covered_targets": 7,
+        "explanation": "All mandatory constraints achieved.",
+        "fraction": 0.25,
+        "mandatory_targets": 7,
+        "nearest_selected": {
+          "maximum": 0.8833256063691776,
+          "mean": 0.3629611774592456,
+          "missing_class_count": 0,
+          "p95": 0.726578747110885,
+          "sample_count": 446
+        },
+        "protected_strata_met": true,
+        "refinement_targets": 64,
+        "selected_configurations": 6,
+        "selected_ids": [
+          "molecular@unspecified:neutral-pool.extxyz:11",
+          "molecular@unspecified:neutral-pool.extxyz:12",
+          "molecular@unspecified:neutral-pool.extxyz:14",
+          "molecular@unspecified:neutral-pool.extxyz:4",
+          "molecular@unspecified:neutral-pool.extxyz:6",
+          "molecular@unspecified:neutral-pool.extxyz:8"
+        ],
+        "selection_seconds": 0.0015314319998651627,
+        "selection_seed": 0,
+        "selector": "combined",
+        "status": "complete",
+        "target_counts": {
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<10\"]": 1,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<30\"]": 4,
+          "benchmark_stratum:[[\"OMol25:ORCA6:wB97M-V:def2-TZVPD:RI-J:COSX:DEFGRID3\",0.0,1,null],\"<60\"]": 1,
+          "molecular_v1:fallback:2530c6ece5476056d7921e4acb006089dfc6edbf377d0c4cddb749761d66dc5c": 6,
+          "molecular_v1:fallback:2a823421115c4a67270ccedb7c69cbafcdfc9d6fac6b72376aa39269d87d127a": 6,
+          "molecular_v1:fallback:55ee780a4d35a7538cfa419b7e77a15660540749dff96f078aec5d4c72f6d42a": 5,
+          "molecular_v1:fallback:894f1400459b4252422074daccb54478cc05d6deda4d4aab2c7bdbf20bd468b0": 5
+        },
+        "unmet_constraints": {}
+      },
+      "selector": "combined",
+      "status": "evaluated",
+      "training": {
+        "element_count_rank": 4,
+        "parameters": 74,
+        "regularized_design_rank": 74,
+        "ridge": 0.0001,
+        "training_atoms": 99,
+        "training_configurations": 6
+      }
+    }
+  ],
+  "selection_seed": 0,
+  "software": {
+    "implementation": "molecular_v1.3",
+    "packages": {
+      "PyMySQL": "1.2.3",
+      "PyYAML": "6.0.3",
+      "Pygments": "2.21.0",
+      "ase": "3.29.0",
+      "ase_db_backends": "0.11.0",
+      "ast_serialize": "0.13.1",
+      "bibtexparser": "1.4.4",
+      "certifi": "2026.10.23",
+      "cffi": "2.1.1",
+      "charset-normalizer": "3.5.2",
+      "cloudpickle": "3.1.2",
+      "contourpy": "1.4.0",
+      "coverage": "7.17.2",
+      "cryptography": "50.0.2",
+      "cycler": "0.12.1",
+      "dscribe": "2.1.2",
+      "duckdb": "2.0.0",
+      "envtok": "0.1.0",
+      "fonttools": "4.68.0",
+      "idna": "3.20",
+      "iniconfig": "2.3.1",
+      "joblib": "1.6.0",
+      "kiwisolver": "1.5.1",
+      "librt": "0.16.0",
+      "llvmlite": "0.50.0",
+      "lmdb": "3.0.0",
+      "lxml": "6.1.3",
+      "matplotlib": "3.11.2",
+      "monty": "2026.10.21",
+      "mpmath": "1.3.0",
+      "mypy": "2.4.1",
+      "mypy_extensions": "1.2.0",
+      "narwhals": "2.28.0",
+      "networkx": "3.7",
+      "numba": "0.68.1",
+      "numpy": "2.4.6",
+      "orjson": "3.13.0",
+      "packaging": "26.3",
+      "palettable": "3.3.3",
+      "pandas": "3.1.1",
+      "pathspec": "1.1.1",
+      "pillow": "13.0.0",
+      "pip": "26.2.2",
+      "plotly": "7.1.0",
+      "pluggy": "1.7.0",
+      "prek": "0.5.10",
+      "psycopg2-binary": "2.9.13",
+      "pyarrow": "26.0.1",
+      "pycparser": "3.12",
+      "pymatgen": "2026.10.24",
+      "pymatgen-core": "2026.10.31",
+      "pyparsing": "3.3.3",
+      "pytest": "9.2.0",
+      "pytest-cov": "7.1.0",
+      "python-dateutil": "4.0.0",
+      "rdkit": "2026.9.1",
+      "requests": "2.34.2",
+      "ruamel.yaml": "0.19.1",
+      "ruff": "0.17.3",
+      "scikit-learn": "1.9.1",
+      "scipy": "1.18.1",
+      "sparse": "0.19.3",
+      "spglib": "2.8.0",
+      "sympy": "1.14.0",
+      "tabulate": "0.10.0",
+      "threadpoolctl": "3.8.0",
+      "tqdm": "4.70.1",
+      "types-PyYAML": "6.0.12.20261103",
+      "typing_extensions": "4.16.0",
+      "tzdata": "2026.6",
+      "uncertainties": "3.2.3",
+      "urllib3": "2.8.0",
+      "uv": "0.13.7"
+    },
+    "python": "3.14.10"
+  },
+  "source_id_mapping": {
+    "molecular@unspecified:neutral-pool.extxyz:0": "molecular@unspecified:sample.extxyz:0",
+    "molecular@unspecified:neutral-pool.extxyz:1": "molecular@unspecified:sample.extxyz:1",
+    "molecular@unspecified:neutral-pool.extxyz:10": "molecular@unspecified:sample.extxyz:19",
+    "molecular@unspecified:neutral-pool.extxyz:11": "molecular@unspecified:sample.extxyz:2",
+    "molecular@unspecified:neutral-pool.extxyz:12": "molecular@unspecified:sample.extxyz:20",
+    "molecular@unspecified:neutral-pool.extxyz:13": "molecular@unspecified:sample.extxyz:21",
+    "molecular@unspecified:neutral-pool.extxyz:14": "molecular@unspecified:sample.extxyz:25",
+    "molecular@unspecified:neutral-pool.extxyz:15": "molecular@unspecified:sample.extxyz:26",
+    "molecular@unspecified:neutral-pool.extxyz:16": "molecular@unspecified:sample.extxyz:28",
+    "molecular@unspecified:neutral-pool.extxyz:17": "molecular@unspecified:sample.extxyz:5",
+    "molecular@unspecified:neutral-pool.extxyz:18": "molecular@unspecified:sample.extxyz:6",
+    "molecular@unspecified:neutral-pool.extxyz:19": "molecular@unspecified:sample.extxyz:7",
+    "molecular@unspecified:neutral-pool.extxyz:2": "molecular@unspecified:sample.extxyz:10",
+    "molecular@unspecified:neutral-pool.extxyz:20": "molecular@unspecified:sample.extxyz:9",
+    "molecular@unspecified:neutral-pool.extxyz:3": "molecular@unspecified:sample.extxyz:11",
+    "molecular@unspecified:neutral-pool.extxyz:4": "molecular@unspecified:sample.extxyz:12",
+    "molecular@unspecified:neutral-pool.extxyz:5": "molecular@unspecified:sample.extxyz:13",
+    "molecular@unspecified:neutral-pool.extxyz:6": "molecular@unspecified:sample.extxyz:14",
+    "molecular@unspecified:neutral-pool.extxyz:7": "molecular@unspecified:sample.extxyz:15",
+    "molecular@unspecified:neutral-pool.extxyz:8": "molecular@unspecified:sample.extxyz:17",
+    "molecular@unspecified:neutral-pool.extxyz:9": "molecular@unspecified:sample.extxyz:18"
+  },
+  "source_records": 29,
+  "source_sha256": "a5ca8e639f5d162e8bd29eb6d9c02212c99d482884340f5da87e6f837d30a81a",
+  "split_manifest": {
+    "molecular@unspecified:sample.extxyz:0": "train",
+    "molecular@unspecified:sample.extxyz:1": "train",
+    "molecular@unspecified:sample.extxyz:10": "train",
+    "molecular@unspecified:sample.extxyz:11": "train",
+    "molecular@unspecified:sample.extxyz:12": "train",
+    "molecular@unspecified:sample.extxyz:13": "train",
+    "molecular@unspecified:sample.extxyz:14": "train",
+    "molecular@unspecified:sample.extxyz:15": "train",
+    "molecular@unspecified:sample.extxyz:17": "train",
+    "molecular@unspecified:sample.extxyz:18": "train",
+    "molecular@unspecified:sample.extxyz:19": "train",
+    "molecular@unspecified:sample.extxyz:2": "train",
+    "molecular@unspecified:sample.extxyz:20": "train",
+    "molecular@unspecified:sample.extxyz:21": "validation",
+    "molecular@unspecified:sample.extxyz:25": "train",
+    "molecular@unspecified:sample.extxyz:26": "train",
+    "molecular@unspecified:sample.extxyz:28": "train",
+    "molecular@unspecified:sample.extxyz:5": "validation",
+    "molecular@unspecified:sample.extxyz:6": "validation",
+    "molecular@unspecified:sample.extxyz:7": "train",
+    "molecular@unspecified:sample.extxyz:9": "validation"
+  },
+  "split_policy": "source train only; supplied family/trajectory links, exact-composition fallback; fixed 25% group-hash holdout",
+  "split_seed": 20261105,
+  "status": "engineering_accuracy_screen_only",
+  "training_configurations": 17
+}
