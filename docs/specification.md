@@ -98,7 +98,8 @@ end. Keys whose neighbour list is not sorted are rejected.
 
 Moments must be collinear scalars. Vector moments fail validation with an
 actionable message and are never silently coerced. The moment field does not
-encode net charge or spin multiplicity.
+encode net charge or spin multiplicity. Net charge is an opt-in token field
+(§1.7).
 
 ### 1.4 Signature fields
 
@@ -170,6 +171,76 @@ threshold.
 | `F_elem_cn` | elem \| cn_sig |
 | `F_elem_cn_dmin` | elem \| cn_sig \| dmin |
 | `F_elem_cn_abin` | elem \| cn_sig \| a_bin |
+
+### 1.7 Net-charge extension (opt-in)
+
+The reference token has no charge field. `tokenizer.charge_policy` (or
+`envtok.with_net_charge(profile, policy, key=...)`) adds one. The profile is
+then named `<profile>+net-charge`, and every other setting of the profile is
+unchanged. The extension is off by default, so `reference-723696d` tokens,
+classes and fingerprints are exactly as before.
+
+| Policy | Charge field |
+|---|---|
+| `disabled` (default) | none: the reference token |
+| `net_round` | `round(q)` of the record's net charge q, ties to even, sign kept (−1.5 → −2, 2.5 → 2). A tokenised record without a charge fails with reason `missing_charge` |
+| `net_round_zero_if_missing` | as `net_round`, but a record without a charge is treated as neutral and counted as `defaulted` |
+
+**Source.** q is read from the record's scalar metadata under
+`tokenizer.charge_key` (default `charge`): `Atoms.info` for ASE iterables and
+extended XYZ, and key-value pairs or data for ASE databases and OMat24. It must
+be an integer or a float. A string or a boolean fails the record with reason
+`invalid_charge` under both enabled policies, because a present but unusable
+value is a data error, not a missing one. NaN and infinite floats never reach
+the cache (non-finite floats are dropped from metadata), so they count as
+missing. Every site of a record carries the same charge field: it describes
+the cell, not the atom.
+
+**Token.** The full token gains an eighth field after the moment, written
+`q<charge>` in the interchange string:
+`E_spin_q<charge>_nb_poly_f5_dmin_abin`, for example
+`Fe_0_q-1_Cl-O-O-O_T:4_3_1_2`. The `q` prefix cannot begin a neighbour field,
+because element symbols are capitalised, so the parser recognises the field
+unambiguously. Non-canonical spellings such as `q+1`, `q01` and `q-0` are
+rejected. The signature field `charge` has the same text (`q-1`).
+
+**Ladder.** The net-charge ladder has 12 identity levels × 3 modifier states
+= 36 rungs. Charge joins `R0` and `R1`, and a new identity level `R1q`
+(`drop_charge`, fields elem | spin | nb | poly) sits between `R1` and `R2`:
+
+| # | Rung | Signature fields |
+|---|---|---|
+| 0 | `R0_full` | elem \| spin \| charge \| nb \| poly \| f5 \| dmin \| a_bin |
+| 1 | `R1dA_drop_f5` | elem \| spin \| charge \| nb \| poly \| dmin \| a_bin |
+| 2 | `R1qdA_drop_charge` | elem \| spin \| nb \| poly \| dmin \| a_bin |
+| 3 … 11 | `R2dA_drop_spin` … `R8dA_elem` | as reference rungs 2 … 10 |
+| 12 … 23 | `R0A`, `R1A_drop_f5`, `R1qA_drop_charge`, `R2A_drop_spin` … | the same with `a_bin` only |
+| 24 … 35 | `R0`, `R1_drop_f5`, `R1q_drop_charge`, `R2_drop_spin` … | the same with no modifier |
+
+Charge is the first electronic field to be dropped. It describes the whole
+cell, so most sites of a charged supercell are otherwise bulk-like. A charge
+state supported by at least T records keeps its own classes at `R0` and
+`R1`. A rarer one merges with the other charge states of its environment
+from `R1q` onwards, instead of forcing its records into the cover. The
+presence families are unchanged. A profile whose ladder and charge policy
+disagree (a charge field that no rung uses, or a rung using `charge` without a
+charge policy) is rejected.
+
+**Charge field or protected strata.** The two answer different questions.
+`stratify_by: [charge]` (§3) fits and covers every charge state separately,
+so each state is complete against its own classes. The charge field fits
+one set of classes in which charge distinguishes environments only while
+its support allows.
+
+**Resolution and accounting.** The charge is resolved when the token index
+is built, from the metadata cached at tokenisation. Records that fail for a
+missing or invalid charge become `failed`, with a fatal `failures` row
+(stage `charge`), and their sites leave the vocabulary and the incidence.
+Records already failed or excluded keep their own status. The indexed
+`structures` table records `net_charge` (the value found), `charge` (the
+token field) and `charge_source` (`supplied`, `defaulted`, `missing`,
+`invalid`, or `disabled` for profiles without the field) for every record,
+and `envtok inspect` counts a sample by charge source before a large run.
 
 ## 2. Coverage classes
 
@@ -249,7 +320,8 @@ exposed, because it counts site multiplicities rather than distinct records.
 metadata values, then fits and selects within each stratum. The union is
 audited globally, and every stratum must be complete against its own
 classes. Geometry-only selection therefore cannot merge distinct charge
-states or methods.
+states or methods. The net-charge token field (§1.7) is the alternative
+when charge should refine the classes rather than partition the pool.
 
 ## 4. Records, adapters and eligibility
 
@@ -275,7 +347,8 @@ with `ase-db-backends` and opened read-only and lock-free. Rows go through
 Records are never skipped silently.
 
 - `failed`: unreadable records, invalid species, non-finite positions,
-  degenerate cells and noncollinear moments.
+  degenerate cells and noncollinear moments. Under a net-charge profile, a
+  record without a usable charge also fails, at index time (§1.7).
 - `excluded`: unsupported periodicity, and corpus element exclusions applied
   before geometry. The presets are `general`, with no exclusions, and
   `omat24-study`, which excludes exactly La–Lu and Ac–Lr. `exclude_z_at_least`
@@ -300,7 +373,7 @@ Close contacts and large forces are never filtered.
 | source | adapter kind; file identities (size, mtime, optional SHA-256); record options |
 | geometry | geometry settings, radius table, asymmetry λ, backend versions, implementation version |
 | corpus | element exclusions applied before geometry |
-| token | geometry fingerprint, bins, moment policy |
+| token | geometry fingerprint, bins, moment policy; the charge policy and key only when the charge field is enabled |
 | classes | index, split, invalid-record policy, stratum, ladder, presence families, T |
 | selection | classes plus every selector setting |
 
@@ -311,7 +384,8 @@ records the cache fingerprint, and a mismatching partition is rejected.
 
 **What triggers recomputation.** Changing T reuses everything up to the
 index. Changing bins or the moment policy reuses the raw per-site
-measurements, which are always stored. Changing radii or λ needs the
+measurements, which are always stored. Enabling, disabling or re-keying the
+charge field reuses them too: the charge comes from the cached metadata. Changing radii or λ needs the
 image-resolved neighbour vectors, retained when
 `cache_raw_measurements: true`, or else recomputation.
 
@@ -343,11 +417,12 @@ subset. It reports:
 - presence coverage per family;
 - resolution loss per rung, in tokens, atoms and classes;
 - processing quality: statuses, failures and fallbacks, site sources,
-  missing labels and moments, and eligibility under both policies;
+  missing labels and moments, records by charge source (charge profiles),
+  and eligibility under both policies;
 - held-out out-of-vocabulary rates;
 - input and selected distributions: elements, composition, cell size,
-  source, geometry, the CSM, compression and asymmetry bins, and label
-  summaries.
+  source, geometry, the CSM, compression and asymmetry bins, net charge
+  (charge profiles), and label summaries.
 
 Exports preserve atom order, cell, periodicity, `info`, arrays and stored
 energy, forces and stress. Every calculator is frozen to a

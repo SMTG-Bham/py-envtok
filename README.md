@@ -12,6 +12,10 @@ low-atom-cost subset of original configurations covering every class and
 every rare (element, geometry, coordination, compression, asymmetry)
 combination.
 
+An opt-in extension adds each structure's net charge to its tokens, so
+distinct charge states are separate environments for as long as their support
+allows (see [Charged structures](#charged-structures)).
+
 The default profile `reference-723696d` reproduces the method of Moerman *et
 al.*, *Atoms that Matter* (arXiv:2610.14392). It follows the reference
 implementation
@@ -96,6 +100,39 @@ OMat24 `sid` is never assumed unique. Every discovered record is accounted
 for as eligible, excluded or failed; nothing is skipped silently. The
 `omat24-study` preset reproduces the study's La–Lu/Ac–Lr exclusion. The
 default `general` preset excludes nothing.
+
+## Charged structures
+
+The reference token ignores charge. EnvTok offers two ways to keep charge
+states apart:
+
+- **Protected strata** (`selection.stratify_by: [charge]`) fit and cover each
+  charge state separately, so every state gets a complete cover of its own.
+- **The net-charge token field** adds the record's net charge, rounded with
+  its sign kept, to every site token (`Fe_0_q-1_Cl-O-O-O_T:4_3_1_2`). Charge
+  distinguishes environments at the two finest rungs. A charge state too rare
+  to support its own class merges with the other states of its environment
+  at the next rung, `R1q_drop_charge`.
+
+```yaml
+tokenizer:
+  charge_policy: net_round      # or net_round_zero_if_missing; default disabled
+  charge_key: charge            # the info / key-value key holding the net charge
+```
+
+```python
+from envtok import Tokenizer, get_profile, with_net_charge
+
+profile = with_net_charge(get_profile("reference-723696d"), "net_round", key="charge")
+cache = Tokenizer(profile).run(corpus, "runs/charged")
+```
+
+Under `net_round`, a record without a numeric charge fails with reason
+`missing_charge`; `net_round_zero_if_missing` treats it as neutral and counts
+it as defaulted. The charge is read from the cached metadata when the index
+is built, so switching the field on or off never repeats the geometry pass.
+Run `envtok inspect` first to check that the key is present. See
+[§1.7 of the specification](docs/specification.md#17-net-charge-extension-opt-in).
 
 ## Outputs
 

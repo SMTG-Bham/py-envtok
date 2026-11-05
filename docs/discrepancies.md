@@ -84,6 +84,7 @@ platforms.
 | Coarsening support | DuckDB `COUNT(DISTINCT mat_index)` | the same contract in NumPy (`memory`) or DuckDB (`duckdb`), tested equal to the reference SQL | external aggregation remains available |
 | Final prune | none after the top-up | optional `prune_after_repair` (off) preserving classes and presence | extension only |
 | `n_coverage > 1` | counts site multiplicities | not exposed; T ≥ 2 enforced | avoids presenting multiplicity as independent examples |
+| Net charge | the token has no charge field, so charge states share tokens | optional `tokenizer.charge_policy` adds the record's rounded net charge to every site token (`+net-charge` profiles, 36-rung ladder with `R1q_drop_charge`); off by default | extension only; reference tokens and fingerprints unchanged |
 
 ### Packaging notes
 

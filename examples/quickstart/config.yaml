@@ -18,6 +18,10 @@ tokenizer:
   profile: reference-723696d
   magnetic_policy: source_abs_round_zero_if_missing
   cache_raw_measurements: true
+  # Opt-in net-charge token field: net_round or net_round_zero_if_missing.
+  # 'disabled' keeps the reference token.
+  charge_policy: disabled
+  charge_key: charge
 
 coverage:
   # The fixture corpus is tiny; T=100 is the reference's OMat24 value.
