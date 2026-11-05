@@ -3,6 +3,10 @@
 EnvTok selects a smaller set of complete atomistic structures from a large
 database, with explicit, independently audited diversity guarantees.
 
+The 0.1 series is alpha software: APIs and saved-run formats may change between
+releases. See the [release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md) for the initial release's scope
+and limitations.
+
 It tokenises every atom's local chemical environment into an interpretable
 **EnvTok** token. The token records the element, the magnetic moment, the
 neighbour multiset, the ChemEnv polyhedron and its distortion, compression,
@@ -22,8 +26,8 @@ al.*, *Atoms that Matter* (arXiv:2610.14392). It follows the reference
 implementation
 [`em819/omat24-chemenv-subset@723696d`](https://github.com/em819/omat24-chemenv-subset/tree/723696de2c26584b8a907ef900690c0caf3c7b68).
 Every token of the golden fixture corpus matches that code running in its own
-pinned environment. See [`docs/specification.md`](docs/specification.md) and
-[`docs/discrepancies.md`](docs/discrepancies.md).
+pinned environment. See [`docs/specification.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md) and
+[`docs/discrepancies.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md).
 
 > A diversity cover does not preserve the sampling distribution, and it does
 > not guarantee equivalent model accuracy. EnvTok reports compression by
@@ -62,13 +66,15 @@ molecules with charge, spin and geometry protections, use the separate
 
 ## Install
 
-The supported development environment is Python 3.14 with
+Use standard CPython 3.14; CI qualifies this interpreter on Linux. Other Python
+versions, operating systems and free-threaded builds have not been qualified.
+The supported development environment uses
 [uv](https://docs.astral.sh/uv/) 0.13.6 or newer. From a source checkout:
 
 ```bash
-git clone https://github.com/LouieSlocombe/py-envtok.git
+git clone https://github.com/SMTG-Bham/py-envtok.git
 cd py-envtok
-uv sync
+uv sync --locked
 uv run envtok --version
 ```
 
@@ -85,8 +91,15 @@ uv sync --extra omat24
 
 The `molecular` extra adds RDKit and DScribe for the molecular workflow. Both
 extras can be installed together with `uv sync --extra omat24 --extra molecular`.
-An alternative [Conda setup](build_tools/README.md#conda-environment) is also
+An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment) is also
 provided.
+
+To install a built release artifact into an existing Python 3.14 environment,
+use `python -m pip install /path/to/envtok-0.1.0-py3-none-any.whl`. Optional
+backends can be requested with
+`python -m pip install '/path/to/envtok-0.1.0-py3-none-any.whl[molecular,omat24]'`.
+The examples and fixture data below live in the source checkout; they are not
+included in the installed Python package.
 
 ## Quick start
 
@@ -274,9 +287,9 @@ For a cluster, give each tokenisation task a distinct `--shard-index` from
 directory. Wait for every task before running `index`, then `select` and
 `export`.
 
-See [`examples/omat24/omat24.yaml`](examples/omat24/omat24.yaml) for a
+See [`examples/omat24/omat24.yaml`](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/omat24.yaml) for a
 complete configuration and
-[`examples/slurm/tokenize_array.sbatch`](examples/slurm/tokenize_array.sbatch)
+[`examples/slurm/tokenize_array.sbatch`](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/slurm/tokenize_array.sbatch)
 for array-job tokenisation.
 
 ## Molecules (experimental)
@@ -324,22 +337,22 @@ sharding. Its staged commands include `ingest`, `split`, `featurize`,
 `build-targets`, `select`, `audit` and `export`; use `benchmark` for budget
 comparisons rather than the reference profile's `sweep`.
 
-The bundled [OMol sample](examples/molecular/omol/README.md) contains 29 real
+The bundled [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) contains 29 real
 training configurations from a documented public mirror. It exercises the
 pipeline and selector comparisons; downstream model accuracy is unvalidated.
-See [molecular usage and data contracts](docs/molecular.md) for the Python API,
+See [molecular usage and data contracts](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md) for the Python API,
 staged CLI, supplied-graph schema, safeguards and current limitations.
 
 Benchmark defaults are intentionally small: molecular comparisons use one 25%
 atom budget and seed 0, plus a separate full-pool control. Larger sweeps are
-opt-in through `--fractions` and `--seeds`. The [periodic plan](envtok_implementation_plan.md)
-and [molecular plan](envtok_molecular_implementation_plan.md) describe the short
+opt-in through `--fractions` and `--seeds`. The [periodic plan](https://github.com/SMTG-Bham/py-envtok/blob/main/envtok_implementation_plan.md)
+and [molecular plan](https://github.com/SMTG-Bham/py-envtok/blob/main/envtok_molecular_implementation_plan.md) describe the short
 acceptance checks and remaining scientific work.
 
-The [real OMat24 sample](examples/omat24/small-sample/README.md) exercises native
+The [real OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) exercises native
 storage, geometry, restart and export on 32 records. Small molecular pair-model
 and from-scratch MACE comparisons are also runnable; see
-[benchmark commands](build_tools/README.md#small-acceptance-runs). Reports retain
+[benchmark commands](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#small-acceptance-runs). Reports retain
 failed accuracy screens and unsuitable evaluation data explicitly.
 
 ## Inputs
@@ -405,7 +418,7 @@ Under `net_round`, a record without a numeric charge fails with reason
 it as defaulted. The charge is read from the cached metadata when the index
 is built, so switching the field on or off never repeats the geometry pass.
 Run `envtok inspect` first to check that the key is present. See
-[§1.7 of the specification](docs/specification.md#17-net-charge-extension-opt-in).
+[§1.7 of the specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md#17-net-charge-extension-opt-in).
 
 ## Outputs
 
@@ -443,7 +456,7 @@ Molecular runs also write selected IDs, a manifest, resolved configuration,
 provenance and reports. Their additional artifacts are `ingestion.json`,
 `splits.json`, `targets.json` and `software-lock.json`. Reports include budget
 compliance, unmet constraints and nearest-selected geometry distances. See the
-[molecular output contract](docs/molecular.md#commands-restart-and-outputs).
+[molecular output contract](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md#commands-restart-and-outputs).
 
 ## Troubleshooting
 
@@ -458,17 +471,19 @@ compliance, unmet constraints and nearest-selected geometry distances. See the
 
 ## Documentation and examples
 
-- [Specification](docs/specification.md): token fields, coarsening ladder,
+- [Specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md): token fields, coarsening ladder,
   selection algorithm, storage, audit and execution contracts.
-- [Discrepancy log](docs/discrepancies.md): differences between the paper,
+- [Discrepancy log](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md): differences between the paper,
   reference implementation and this package.
-- [Molecular guide](docs/molecular.md): data contracts, graphs, descriptors,
+- [Molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md): data contracts, graphs, descriptors,
   safeguards and current limitations.
-- [OMat24 sample](examples/omat24/small-sample/README.md) and
-  [OMol sample](examples/molecular/omol/README.md): real-data provenance and
+- [OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) and
+  [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md): real-data provenance and
   small qualification results.
-- [Build and benchmark tools](build_tools/README.md): acceptance runs,
+- [Build and benchmark tools](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md): acceptance runs,
   accuracy screens and packaging checks.
+- [Release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md) and [release procedure](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/releasing.md):
+  supported scope, artifact checks and publishing configuration.
 
 ## Development
 
@@ -484,7 +499,7 @@ uv run pytest
 
 The test suite enforces 100% branch coverage. Golden reference fixtures are
 regenerated with the pinned reference environment described in
-[`build_tools/reference/README.md`](build_tools/reference/README.md).
+[`build_tools/reference/README.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/reference/README.md).
 To exercise the real optional molecular backends, run
 `uv run --extra molecular pytest`. CI tests Python 3.14 with the locked and
 lowest allowed direct dependency versions, plus a molecular-extra job.
@@ -502,6 +517,6 @@ implementation:
 
 ## License
 
-EnvTok is released under the [MIT License](LICENSE). Code adapted from
+EnvTok is released under the [MIT License](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSE). Code adapted from
 omat24-chemenv-subset keeps its MIT notice in
-[`LICENSES/omat24-chemenv-subset-MIT.txt`](LICENSES/omat24-chemenv-subset-MIT.txt).
+[`LICENSES/omat24-chemenv-subset-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt).

@@ -51,9 +51,9 @@ molecular = ["rdkit>=2026.9.1", "dscribe>=2.1.2"]
 envtok = "envtok.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/LouieSlocombe/py-envtok"
-Issues = "https://github.com/LouieSlocombe/py-envtok/issues"
-Repository = "https://github.com/LouieSlocombe/py-envtok"
+Homepage = "https://github.com/SMTG-Bham/py-envtok"
+Issues = "https://github.com/SMTG-Bham/py-envtok/issues"
+Repository = "https://github.com/SMTG-Bham/py-envtok"
 
 [dependency-groups]
 dev = [

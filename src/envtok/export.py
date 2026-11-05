@@ -18,7 +18,8 @@ from ase.calculators.singlepoint import SinglePointCalculator
 
 from envtok._extxyz import encode_string_metadata
 from envtok.adapters import Adapter
-from envtok.errors import ConfigError
+from envtok.errors import ConfigError, StaleCacheError
+from envtok.fingerprint import digest
 from envtok.provenance import collect
 from envtok.records import SourceRef
 from envtok.report import audit, diagnostics, render_html
@@ -223,6 +224,15 @@ def export_structures(
     adapter = (
         corpus.adapter if corpus is not None else result.classes.token_cache.adapter()
     )
+    if (
+        corpus is not None
+        and digest(adapter.source_fingerprint())
+        != result.classes.token_cache.manifest["keys"]["source"]
+    ):
+        raise StaleCacheError(
+            "the supplied corpus differs from the tokenised source; "
+            "export requires the original unchanged corpus"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_name(f".{path.name}.{uuid.uuid4().hex}{path.suffix}")
     frames = selected_structures(result, adapter, annotate=annotate)

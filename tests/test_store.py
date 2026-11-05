@@ -774,6 +774,33 @@ class TestIndex:
 
 
 class TestCorpus:
+    @pytest.mark.parametrize("kind", ["sequence", "factory", "iterator"])
+    def test_in_memory_changes_do_not_reuse_old_records(
+        self, tmp_path: Path, kind: str
+    ) -> None:
+        selected = frames([0])
+
+        def corpus() -> Corpus:
+            source = (
+                selected
+                if kind == "sequence"
+                else (lambda: iter(selected))
+                if kind == "factory"
+                else iter(selected)
+            )
+            return Corpus.from_atoms(
+                source, name="mem", revision="v1", split="train", split_key="split"
+            )
+
+        original = Tokenizer().run(corpus(), tmp_path)
+        assert original.read("structures")["has_energy"].to_pylist() == [True]
+        selected[0].info["split"] = "test"
+        selected[0].calc.results["energy"] = 3.0
+        changed = Tokenizer().run(corpus(), tmp_path)
+        assert changed.fingerprint != original.fingerprint
+        assert changed.read("structures")["split"].to_pylist() == ["test"]
+        assert changed.read("structures")["energy"].to_pylist() == [3.0]
+
     def test_from_atoms_variants(self) -> None:
         selected = frames([0, 7])
         listed = Corpus.from_atoms(selected, name="mem", split="train")

@@ -15,10 +15,17 @@ concurrency:
 permissions: {}
 
 jobs:
+  checks:
+    name: Qualify the release revision
+    uses: $/.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build:
-    name: Build distributions
+    name: Build and qualify distributions
+    needs: checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: read
 
@@ -32,6 +39,8 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
+          version: "0.13.6"
+          python-version: "3.14"
 
       - name: Check the tag matches the project version
         run: |
@@ -43,6 +52,16 @@ jobs:
 
       - name: Build the sdist and wheel
         run: uv build --no-sources
+
+      - name: Qualify the distributions that will be published
+        run: python build_tools/qualify_artifacts.py --output "$RUNNER_TEMP/artifact-qualification.json"
+
+      - name: Upload the artifact qualification report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: artifact-qualification
+          path: ${{ runner.temp }}/artifact-qualification.json
+          if-no-files-found: error
 
       - name: Upload the distributions
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

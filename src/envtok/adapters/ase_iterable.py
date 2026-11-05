@@ -8,13 +8,18 @@ when the selected structures must be exported later. Otherwise only
 manifest-only operation is available.
 """
 
+import copy
 import hashlib
+import json
+import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any, override
 
 import ase.io
 from ase import Atoms
+from ase.calculators.singlepoint import SinglePointCalculator
+from ase.io.jsonio import default as ase_json_default
 
 from envtok._extxyz import encode_string_metadata
 from envtok.adapters.base import Adapter, Locator, RecordOptions, make_record
@@ -28,11 +33,25 @@ SHARD = "memory"
 def _content_digest(frames: Iterable[Atoms]) -> str:
     digest = hashlib.sha256()
     for atoms in frames:
-        digest.update(atoms.get_atomic_numbers().tobytes())
-        digest.update(atoms.get_positions().tobytes())
-        digest.update(atoms.get_cell().array.tobytes())
-        digest.update(atoms.get_pbc().tobytes())
+        payload = {
+            "atoms": atoms.todict(),
+            "results": getattr(atoms.calc, "results", None),
+        }
+        digest.update(
+            json.dumps(payload, sort_keys=True, default=ase_json_default).encode()
+        )
+        digest.update(b"\n")
     return digest.hexdigest()
+
+
+def _copy_atoms(atoms: Atoms) -> Atoms:
+    """Copy a frame and its stored labels without retaining a live calculator."""
+    frame: Atoms = atoms.copy()
+    results = getattr(atoms.calc, "results", None)
+    if results:
+        frame.calc = SinglePointCalculator(frame)
+        frame.calc.results = copy.deepcopy(results)
+    return frame
 
 
 class AseIterableAdapter(Adapter):
@@ -53,6 +72,7 @@ class AseIterableAdapter(Adapter):
         self._factory: Callable[[], Iterable[Atoms]] | None = None
         self._once: Iterator[Atoms] | None = None
         self._one_shot = False
+        self._stream_id = uuid.uuid4().hex
         if isinstance(frames, Sequence):
             self._sequence = frames
         elif callable(frames):
@@ -109,13 +129,12 @@ class AseIterableAdapter(Adapter):
 
     @override
     def source_fingerprint(self) -> dict[str, Any]:
-        """Fingerprint the record options and, for sequences, the content."""
-        content = (
-            _content_digest(self._sequence) if self._sequence is not None else None
-        )
+        """Hash repeatable content; isolate unhashable one-shot streams by instance."""
+        content = None if self._one_shot else _content_digest(self._frames())
         return {
             "kind": self.kind,
             "content_sha256": content,
+            "stream_id": self._stream_id if self._one_shot else None,
             "options": self.options.as_dict(),
         }
 
@@ -138,13 +157,13 @@ class AseIterableAdapter(Adapter):
                 "only sequence sources support read(); stream instead"
             )
         atoms = self._sequence[int(locator.key)]
-        return make_record(atoms.copy(), locator.shard, locator.key, self.options)
+        return make_record(_copy_atoms(atoms), locator.shard, locator.key, self.options)
 
     @override
     def iter_records(self) -> Iterator[StructureRecord]:
         """Stream every frame as a record."""
         for ordinal, atoms in enumerate(self._frames()):
-            yield make_record(atoms.copy(), SHARD, str(ordinal), self.options)
+            yield make_record(_copy_atoms(atoms), SHARD, str(ordinal), self.options)
 
     @override
     def retrieve(self, refs: Sequence[SourceRef]) -> Iterator[tuple[SourceRef, Atoms]]:

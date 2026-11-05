@@ -19,7 +19,12 @@ from helpers import CORPUS
 from envtok import export, report
 from envtok.coarsen import CoverageBuilder, CoverageClasses
 from envtok.corpus import Corpus
-from envtok.errors import ConfigError, CoverageError, RetrievalUnavailableError
+from envtok.errors import (
+    ConfigError,
+    CoverageError,
+    RetrievalUnavailableError,
+    StaleCacheError,
+)
 from envtok.profiles import REFERENCE_723696D
 from envtok.provenance import collect
 from envtok.selection import Selected, SelectionResult, Selector
@@ -392,6 +397,21 @@ class TestExport:
             assert frame.info["prototype_error"] == ""
             assert frame.info["following_value"] == 1.25
             assert frame.info["source_row_key"] == "1"
+
+        chosen[0].info["charge"] = 99
+        with pytest.raises(StaleCacheError, match="original unchanged corpus"):
+            selection.export(tmp_path / "changed.extxyz", corpus=memory)
+        assert not (tmp_path / "changed.extxyz").exists()
+
+    def test_export_rejects_a_different_explicit_corpus(
+        self, result: SelectionResult, tmp_path: Path
+    ) -> None:
+        wrong = Corpus.from_atoms(load_frames(), name="different", split="train")
+        target = tmp_path / "existing.extxyz"
+        target.write_text("existing output\n")
+        with pytest.raises(StaleCacheError, match="supplied corpus differs"):
+            result.export(target, corpus=wrong)
+        assert target.read_text() == "existing output\n"
 
     def test_calculators_are_frozen(self) -> None:
         copper = bulk("Cu", "fcc", a=3.6)

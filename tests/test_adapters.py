@@ -398,6 +398,14 @@ class TestIterable:
             "fx@v1:memory:2",
         ]
         assert adapter.read(Locator(1, "memory", "1")).record_id == records[1].record_id
+        for index, record in enumerate(records):
+            assert_same(record.atoms, frames[index])
+            assert float(record.labels["energy"].value) == -(index + 1)
+            np.testing.assert_array_equal(
+                record.labels["forces"].value, frames[index].get_forces()
+            )
+            assert record.atoms.calc is not frames[index].calc
+        assert_same(adapter.read(Locator(1, "memory", "1")).atoms, frames[1])
         assert adapter.source_fingerprint()["content_sha256"]
         assert len(list(adapter.locators())) == 3
         ((_, atoms),) = list(adapter.retrieve([records[2].source_ref]))
@@ -409,11 +417,65 @@ class TestIterable:
         adapter = AseIterableAdapter(lambda: iter(frames), OPTIONS)
         assert len(list(adapter.iter_records())) == 3
         assert len(list(adapter.iter_records())) == 3
-        assert adapter.source_fingerprint()["content_sha256"] is None
+        assert adapter.source_fingerprint()["content_sha256"]
         with pytest.raises(UnsupportedInputError, match="only sequence"):
             adapter.read(Locator(0, "memory", "0"))
         ref = SourceRef("fx", "v1", "memory", "1")
         assert_same(next(adapter.retrieve([ref]))[1], frames[1])
+
+    @pytest.mark.parametrize("factory", [False, True])
+    @pytest.mark.parametrize("changed", ["moments", "metadata", "labels", "arrays"])
+    def test_fingerprint_tracks_non_geometry_inputs(
+        self, frames: list[Atoms], factory: bool, changed: str
+    ) -> None:
+        adapter = AseIterableAdapter(
+            (lambda: iter(frames)) if factory else frames, OPTIONS
+        )
+        original = adapter.source_fingerprint()
+        if changed == "moments":
+            frames[0].set_initial_magnetic_moments([1.0] * len(frames[0]))
+        elif changed == "metadata":
+            frames[0].info.update(charge=1, split="validation", nested={"v": [1]})
+        elif changed == "labels":
+            frames[0].calc.results["energy"] = -9.0
+        else:
+            frames[0].new_array("weights", np.ones(len(frames[0])))
+        assert adapter.source_fingerprint() != original
+
+    def test_unlabelled_frames_and_one_shot_cache_identity(self) -> None:
+        atoms = Atoms("H")
+        sequence = AseIterableAdapter([atoms], OPTIONS)
+        assert next(sequence.iter_records()).labels == {}
+        assert sequence.source_fingerprint()["content_sha256"]
+        first = AseIterableAdapter(iter([atoms]), OPTIONS)
+        second = AseIterableAdapter(iter([atoms]), OPTIONS)
+        fingerprint = first.source_fingerprint()
+        assert fingerprint["content_sha256"] is None
+        assert first.source_fingerprint() == fingerprint
+        assert second.source_fingerprint() != fingerprint
+        assert len(list(first.iter_records())) == 1
+
+    def test_custom_stored_labels_are_copied_without_calculation(
+        self, frames: list[Atoms], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        atoms = frames[0]
+        values = np.ones((len(atoms), 3))
+        atoms.calc.results["custom_forces"] = values
+
+        def forbid_calculation(*_args: object, **_kwargs: object) -> None:
+            pytest.fail("the adapter must never request a calculator property")
+
+        monkeypatch.setattr(atoms.calc, "get_property", forbid_calculation)
+        options = RecordOptions(
+            dataset="custom",
+            revision="v1",
+            label_sources={"forces": "calc:custom_forces"},
+        )
+        adapter = AseIterableAdapter([atoms], options)
+        record = next(adapter.iter_records())
+        np.testing.assert_array_equal(record.labels["forces"].value, values)
+        atoms.calc.results["custom_forces"][0, 0] = 9
+        assert record.atoms.calc.results["custom_forces"][0, 0] == 1
 
     def test_one_shot_source_explains_retrieval_limits(
         self, frames: list[Atoms]

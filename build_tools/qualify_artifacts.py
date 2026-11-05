@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import time
+import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -32,9 +33,19 @@ prefix = Path(sys.prefix).resolve()
 package = Path(envtok.__file__).resolve()
 if sys.prefix == sys.base_prefix or not package.is_relative_to(prefix):
     raise RuntimeError('package was not imported from the isolated environment')
+distribution = importlib.metadata.distribution('envtok')
+if distribution.version != sys.argv[1] or envtok.__version__ != sys.argv[1]:
+    raise RuntimeError('installed version does not match the project version')
+if not (package.parent / 'py.typed').is_file():
+    raise RuntimeError('installed package is missing py.typed')
+for license_file in ('LICENSE', 'LICENSES/omat24-chemenv-subset-MIT.txt'):
+    if not distribution.read_text('licenses/' + license_file):
+        raise RuntimeError('installed distribution is missing ' + license_file)
 print(json.dumps({
     'python': sys.version.split()[0],
+    'version': distribution.version,
     'installed_package_in_isolated_environment': True,
+    'typing_marker_and_licenses': 'passed',
     'dependencies': dict(sorted(
         (item.metadata['Name'], item.version)
         for item in importlib.metadata.distributions()
@@ -43,30 +54,47 @@ print(json.dumps({
 """
 
 
-def _run(command: list[str], environment: dict[str, str]) -> str:
+def _run(command: list[str], environment: dict[str, str], workspace: Path) -> str:
     """Run one bounded acceptance command and retain its diagnostics on error."""
     result = subprocess.run(  # noqa: S603 - argument lists; no shell expansion
         command,
-        cwd=ROOT,
+        cwd=workspace,
         env=environment,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
         timeout=600,
     )
+    if result.returncode:
+        raise RuntimeError(
+            f"Command failed ({result.returncode}): {command!r}\n"
+            f"{result.stdout}\n{result.stderr}"
+        )
     return result.stdout
 
 
 def qualify(
-    artifact: Path, workspace: Path, uv: str, python: str, *, offline: bool
+    artifact: Path,
+    workspace: Path,
+    uv: str,
+    python: str,
+    *,
+    offline: bool,
+    expected_version: str,
 ) -> dict[str, Any]:
     """Install one artifact and verify the public pipeline outside the checkout."""
     environment = dict(os.environ)
+    for key in ("PYTHONPATH", "PYTHONHOME"):
+        environment.pop(key, None)
     environment["MPLCONFIGDIR"] = str(workspace / "matplotlib")
     virtualenv = workspace / "venv"
     uv_command = [uv, "--offline"] if offline else [uv]
     started = time.perf_counter()
-    _run([*uv_command, "venv", "--python", python, str(virtualenv)], environment)
+    _run(
+        [*uv_command, "venv", "--python", python, str(virtualenv)],
+        environment,
+        workspace,
+    )
     config = (virtualenv / "pyvenv.cfg").read_text()
     if "include-system-site-packages = false" not in config:
         raise RuntimeError("artifact check must not inherit system-site-packages")
@@ -76,9 +104,28 @@ def qualify(
     _run(
         [*uv_command, "pip", "install", "--python", str(executable), str(artifact)],
         environment,
+        workspace,
+    )
+    _run(
+        [*uv_command, "pip", "check", "--python", str(executable)],
+        environment,
+        workspace,
     )
     installed = time.perf_counter()
-    probe = json.loads(_run([str(executable), "-I", "-c", PROBE], environment))
+    probe = json.loads(
+        _run(
+            [str(executable), "-I", "-c", PROBE, expected_version],
+            environment,
+            workspace,
+        )
+    )
+    cli = virtualenv / ("Scripts/envtok.exe" if os.name == "nt" else "bin/envtok")
+    for command in (
+        [str(cli), "--version"],
+        [str(executable), "-I", "-m", "envtok", "--version"],
+    ):
+        if _run(command, environment, workspace).strip() != expected_version:
+            raise RuntimeError("installed CLI version does not match the project")
     output = workspace / "quickstart"
     _run(
         [
@@ -89,6 +136,7 @@ def qualify(
             str(output),
         ],
         environment,
+        workspace,
     )
     coverage = json.loads((output / "selection" / "coverage.json").read_text())
     return {
@@ -96,6 +144,8 @@ def qualify(
         "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
         "status": "passed",
         "include_system_site_packages": False,
+        "dependency_check": "passed",
+        "cli_entrypoints": "passed",
         **probe,
         "structures": coverage["structures"],
         "atoms": coverage["atoms"],
@@ -120,6 +170,7 @@ def main() -> None:
         "--output", type=Path, default=ROOT / "runs" / "artifact-qualification.json"
     )
     args = parser.parse_args()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     uv = shutil.which(args.uv)
     if uv is None:
         parser.error("uv is unavailable; install it or pass --uv /path/to/uv")
@@ -134,7 +185,12 @@ def main() -> None:
         print(f"Checking {artifact.name} in a fresh environment", flush=True)
         with TemporaryDirectory(prefix="envtok-artifact-") as temporary:
             result = qualify(
-                artifact, Path(temporary), uv, args.python, offline=args.offline
+                artifact,
+                Path(temporary),
+                uv,
+                args.python,
+                offline=args.offline,
+                expected_version=project["version"],
             )
         results.append(result)
     report = {

@@ -2,9 +2,9 @@
   "checked_date": "2026-11-05",
   "distribution": "envtok",
   "github_environment_check": {
-    "endpoint": "https://api.github.com/repos/LouieSlocombe/py-envtok/environments",
-    "http_status": 404,
-    "interpretation": "Not accessible through the unauthenticated public API; environment existence is unverified."
+    "endpoint": "https://api.github.com/repos/SMTG-Bham/py-envtok/environments",
+    "status": "unverified",
+    "interpretation": "The configured Git origin is SMTG-Bham/py-envtok. The previous public API check targeted LouieSlocombe/py-envtok and does not verify this repository's environment."
   },
   "publication_attempted": false,
   "pypi_name_check": {
@@ -14,7 +14,7 @@
   },
   "required_publisher_configuration": {
     "environment": "pypi",
-    "owner": "LouieSlocombe",
+    "owner": "SMTG-Bham",
     "project": "envtok",
     "repository": "py-envtok",
     "workflow_filename": "release.yml"
