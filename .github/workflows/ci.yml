@@ -84,6 +84,21 @@ jobs:
           uv run --locked --extra molecular --no-default-groups --group test python -c "from dscribe.descriptors import SOAP; from rdkit import Chem"
           uv run --locked --extra molecular --no-default-groups --group test pytest
 
+      - name: Qualify the bundled real periodic sample
+        if: matrix.resolution == 'locked' && matrix.extras == 'base'
+        run: |
+          uv run --locked --no-default-groups --group test python build_tools/qualify_periodic.py \
+            --source examples/omat24/small-sample/train.aselmdb \
+            --revision local-1M-shard-d7be82771964f041 \
+            --source-provenance examples/omat24/small-sample/provenance.json \
+            --output "$RUNNER_TEMP/periodic-qualification.json"
+
+      - name: Qualify the bundled molecular workflow
+        if: matrix.extras == 'molecular'
+        run: |
+          uv run --locked --extra molecular --no-default-groups --group test python build_tools/qualify_molecular.py \
+            --output "$RUNNER_TEMP/molecular-qualification.json"
+
       - name: Test with the oldest allowed dependencies
         if: matrix.resolution == 'lowest-direct'
         run: uv run --resolution lowest-direct --no-default-groups --group test pytest
@@ -107,11 +122,8 @@ jobs:
       - name: Build the sdist and wheel
         run: uv build --no-sources
 
-      - name: Smoke test the wheel
-        run: uv run --isolated --no-project --with dist/*.whl envtok --version
-
-      - name: Smoke test the sdist
-        run: uv run --isolated --no-project --with dist/*.tar.gz python -m envtok --version
+      - name: Qualify wheel and sdist in fresh dependency environments
+        run: python build_tools/qualify_artifacts.py
 
   all-green:
     name: All checks passed

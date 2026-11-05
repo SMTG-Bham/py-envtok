@@ -1,0 +1,28 @@
+{
+  "checked_date": "2026-11-05",
+  "distribution": "envtok",
+  "github_environment_check": {
+    "endpoint": "https://api.github.com/repos/LouieSlocombe/py-envtok/environments",
+    "http_status": 404,
+    "interpretation": "Not accessible through the unauthenticated public API; environment existence is unverified."
+  },
+  "publication_attempted": false,
+  "pypi_name_check": {
+    "endpoint": "https://pypi.org/pypi/envtok/json",
+    "http_status": 404,
+    "interpretation": "No public project found. This does not reserve the name or guarantee registration acceptance."
+  },
+  "required_publisher_configuration": {
+    "environment": "pypi",
+    "owner": "LouieSlocombe",
+    "project": "envtok",
+    "repository": "py-envtok",
+    "workflow_filename": "release.yml"
+  },
+  "schema_version": 1,
+  "status": "local_artifacts_qualified_remote_publishing_setup_unverified",
+  "trusted_publisher_check": "Account-specific pending publisher configuration was not inspected or changed.",
+  "trusted_publisher_documentation": "https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/",
+  "workflow": ".github/workflows/release.yml",
+  "workflow_tag_requirement": "v0.1.0 for the currently declared package version"
+}
