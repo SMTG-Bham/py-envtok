@@ -1,11 +1,20 @@
 """The net-charge token field: profile, token grammar, bins and resolution."""
 
 import dataclasses
+import json
+from pathlib import Path
+from typing import Any
 
+import ase.io
 import numpy as np
+import pyarrow.parquet as pq
 import pytest
+from ase import Atoms
+from helpers import CORPUS
 
-from envtok.errors import ConfigError, UnsupportedInputError
+from envtok import CoverageBuilder, TokenCache, Tokenizer
+from envtok.corpus import Corpus
+from envtok.errors import ConfigError, StaleCacheError, UnsupportedInputError
 from envtok.fingerprint import digest, token_payload
 from envtok.profiles import (
     NET_CHARGE_LADDER,
@@ -15,6 +24,7 @@ from envtok.profiles import (
     ChargePolicy,
     with_net_charge,
 )
+from envtok.store.cache import _charged_sites, _record_charges, site_keys
 from envtok.tokenizer.bins import charge_bin, charge_bins
 from envtok.tokenizer.charge import (
     MAX_ABS_CHARGE,
@@ -302,3 +312,242 @@ class TestSiteToken:
     def test_charged_profiles_need_the_net_charge(self) -> None:
         with pytest.raises(ConfigError, match="pass the record's net charge"):
             site_token(site_row(), CHARGED)
+
+
+# --- Index-time derivation -------------------------------------------------
+
+NACL_PRIM, NACL_COMPRESSED = 0, 3
+CHARGES: list[tuple[int, object]] = [
+    (NACL_PRIM, 0),
+    (NACL_PRIM, -1),
+    (NACL_PRIM, 1.5),  # rounds to 2
+    (NACL_PRIM, None),  # no charge in info
+    (NACL_PRIM, "neutral"),  # present but unusable
+    (NACL_COMPRESSED, -1),
+]
+
+
+def record_id(index: int) -> str:
+    return f"fx@v1:charged.extxyz:{index}"
+
+
+@pytest.fixture(scope="module")
+def charged_corpus(tmp_path_factory: pytest.TempPathFactory) -> Corpus:
+    loaded = ase.io.read(CORPUS, index=":", format="extxyz")
+    assert isinstance(loaded, list)
+    written: list[Atoms] = []
+    for fixture, charge in CHARGES:
+        atoms = loaded[fixture].copy()
+        atoms.info.pop("charge")
+        if charge is not None:
+            atoms.info["charge"] = charge
+        written.append(atoms)
+    molecule = loaded[NACL_PRIM].copy()
+    molecule.pbc = False  # excluded before geometry, and has no charge
+    molecule.info.pop("charge")
+    written.append(molecule)
+    path = tmp_path_factory.mktemp("charged") / "charged.extxyz"
+    ase.io.write(path, written, format="extxyz")
+    return Corpus.from_extxyz(path, dataset="fx", revision="v1", split="train")
+
+
+@pytest.fixture(scope="module")
+def workdir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("charged-work")
+
+
+@pytest.fixture(scope="module")
+def plain(charged_corpus: Corpus, workdir: Path) -> TokenCache:
+    return Tokenizer().run(charged_corpus, workdir, batch_size=3)
+
+
+@pytest.fixture(scope="module")
+def strict(plain: TokenCache, workdir: Path) -> TokenCache:
+    return Tokenizer(CHARGED).index(plain.cache_dir, workdir)
+
+
+@pytest.fixture(scope="module")
+def lenient(plain: TokenCache, workdir: Path) -> TokenCache:
+    return Tokenizer(LENIENT).index(plain.cache_dir, workdir)
+
+
+def by_record(cache: TokenCache, *columns: str) -> dict[str, tuple[Any, ...]]:
+    table = cache.read("structures", ["record_id", *columns]).to_pylist()
+    return {row["record_id"]: tuple(row[c] for c in columns) for row in table}
+
+
+class TestIndex:
+    def test_the_charge_field_reuses_the_geometry_pass(
+        self, plain: TokenCache, strict: TokenCache, lenient: TokenCache
+    ) -> None:
+        assert strict.cache_dir == lenient.cache_dir == plain.cache_dir
+        assert len({plain.token_dir, strict.token_dir, lenient.token_dir}) == 3
+        assert len(list(plain.partitions_dir.glob("part-*"))) == 3
+        assert not list(strict.token_dir.glob("_*"))
+        assert strict.profile is CHARGED
+
+    def test_reference_index_is_unchanged(self, plain: TokenCache) -> None:
+        assert "charge" not in plain.summary
+        rows = by_record(plain, "status", "net_charge", "charge", "charge_source")
+        assert {row[1:] for row in rows.values()} == {(None, None, "disabled")}
+        assert set(plain.read("tokens")["charge"].to_pylist()) == {None}
+        assert not any("_q" in k for k in plain.read("tokens")["token_key"].to_pylist())
+
+    def test_strict_policy_fails_records_without_a_usable_charge(
+        self, strict: TokenCache
+    ) -> None:
+        rows = by_record(
+            strict, "status", "status_reason", "net_charge", "charge", "charge_source"
+        )
+        assert rows == {
+            record_id(0): ("ok", None, 0.0, 0, "supplied"),
+            record_id(1): ("ok", None, -1.0, -1, "supplied"),
+            record_id(2): ("ok", None, 1.5, 2, "supplied"),
+            record_id(3): ("failed", "missing_charge", None, None, "missing"),
+            record_id(4): ("failed", "invalid_charge", None, None, "invalid"),
+            record_id(5): ("ok", None, -1.0, -1, "supplied"),
+            record_id(6): (
+                "excluded",
+                "unsupported_periodicity",
+                None,
+                None,
+                "missing",
+            ),
+        }
+        assert strict.summary["ok"] == 4
+        assert strict.summary["failed"] == 2
+        assert strict.summary["excluded"] == 1
+        assert strict.summary["sites"] == 8
+        assert strict.summary["charge"] == {
+            "policy": "net_round",
+            "key": "charge",
+            "records_by_source": {"invalid": 1, "missing": 2, "supplied": 4},
+            "failed_records": 2,
+        }
+        failures = [
+            row
+            for row in strict.read("failures").to_pylist()
+            if row["stage"] == "charge"
+        ]
+        assert [(f["record_id"], f["category"], f["fatal"]) for f in failures] == [
+            (record_id(3), "missing_charge", True),
+            (record_id(4), "invalid_charge", True),
+        ]
+        assert "net_round_zero_if_missing" in failures[0]["message"]
+        assert "'neutral'" in failures[1]["message"]
+        failed = {record_id(3), record_id(4)}
+        for table in ("site_tokens", "structure_tokens"):
+            assert failed.isdisjoint(strict.read(table)["record_id"].to_pylist())
+
+    def test_lenient_policy_defaults_missing_charges_to_neutral(
+        self, lenient: TokenCache
+    ) -> None:
+        rows = by_record(lenient, "status", "net_charge", "charge", "charge_source")
+        assert rows[record_id(3)] == ("ok", None, 0, "defaulted")
+        assert rows[record_id(4)] == ("failed", None, None, "invalid")
+        assert lenient.summary["ok"] == 5
+        # The excluded record resolves too, but keeps its own status.
+        assert rows[record_id(6)] == ("excluded", None, 0, "defaulted")
+        assert lenient.summary["charge"]["records_by_source"] == {
+            "defaulted": 2,
+            "invalid": 1,
+            "supplied": 4,
+        }
+
+    def test_tokens_carry_the_rounded_charge(
+        self, strict: TokenCache, lenient: TokenCache
+    ) -> None:
+        tokens = strict.read("tokens").to_pylist()
+        assert all(t["charge"] is not None for t in tokens)
+        sodium = sorted(
+            (t["charge"], t["token_key"], t["n_records"])
+            for t in tokens
+            if t["token_key"].startswith("Na_") and t["n_records"] == 1
+        )
+        assert [s[0] for s in sodium] == [-1, -1, 0, 2]
+        for charge, key, _ in sodium:
+            assert SiteToken.from_key(key).charge == charge
+            assert key.startswith(f"Na_0_q{charge}_")
+        site_records = lenient.read("site_tokens")["record_id"].to_pylist()
+        assert record_id(3) in site_records
+        keys = dict(
+            zip(
+                lenient.read("tokens")["token_id"].to_pylist(),
+                lenient.read("tokens")["token_key"].to_pylist(),
+                strict=True,
+            )
+        )
+        neutral = {
+            keys[row["token_id"]]
+            for row in lenient.read("site_tokens").to_pylist()
+            if row["record_id"] in {record_id(0), record_id(3)}
+        }
+        assert all("_q0_" in key for key in neutral)
+        assert len(neutral) == 2  # Na and Cl, shared by the two neutral records
+
+    def test_vectorised_keys_match_scalar_tokens(self, strict: TokenCache) -> None:
+        structures = {
+            row["record_id"]: json.loads(row["metadata_json"])
+            for row in strict.read("structures").to_pylist()
+        }
+        for profile in (CHARGED, LENIENT):
+            for partition in sorted(strict.partitions_dir.glob("part-*")):
+                charges = _record_charges(
+                    pq.read_table(partition / "structures.parquet"), profile
+                )
+                sites, net = _charged_sites(
+                    pq.read_table(partition / "sites.parquet"), charges
+                )
+                expected = []
+                for row in sites.to_pylist():
+                    resolved = resolve_net_charge(structures[row["record_id"]], profile)
+                    expected.append(
+                        site_token(SiteRow(**row), profile, resolved.value).key()
+                    )
+                assert site_keys(sites, profile, net).to_pylist() == expected
+
+    def test_charged_keys_need_one_charge_per_site(self, strict: TokenCache) -> None:
+        part = min(strict.partitions_dir.glob("part-*"))
+        sites = pq.read_table(part / "sites.parquet")
+        with pytest.raises(ConfigError, match="one net charge per site"):
+            site_keys(sites, CHARGED)
+        with pytest.raises(ConfigError, match="one net charge per site"):
+            site_keys(sites, CHARGED, np.zeros(sites.num_rows + 1))
+        assert site_keys(sites, REFERENCE_723696D, np.zeros(3)) == site_keys(
+            sites, REFERENCE_723696D
+        )
+
+    def test_reopening_needs_the_charged_profile(self, strict: TokenCache) -> None:
+        assert TokenCache.open(strict.token_dir, CHARGED).summary == strict.summary
+        with pytest.raises(StaleCacheError, match="does not match"):
+            TokenCache.open(strict.token_dir, LENIENT)
+        with pytest.raises(StaleCacheError, match="does not match"):
+            TokenCache.open(strict.token_dir, REFERENCE_723696D)
+
+
+class TestClasses:
+    @pytest.mark.parametrize("backend", ["memory", "duckdb"])
+    def test_rare_charge_states_merge_at_the_drop_charge_rung(
+        self, strict: TokenCache, backend: str
+    ) -> None:
+        classes = CoverageBuilder(CHARGED, 2, backend=backend).fit(strict)
+        assert classes.ladder == NET_CHARGE_LADDER
+        keys = classes.pool.token_keys
+        prim = [
+            i
+            for i, key in enumerate(keys)
+            if key.startswith("Na_") and "_q-1_" not in key
+        ]
+        # Na of the q0 and q2 primitive cells: one record each at R0 and R1.
+        rungs = {
+            classes.rung_name(int(classes.class_rung[classes.token_class[i]]))
+            for i in prim
+        }
+        assert rungs == {"R1qdA_drop_charge"}
+        assert len({int(classes.token_class[i]) for i in prim}) == 1
+
+    def test_backends_agree(self, strict: TokenCache) -> None:
+        memory = CoverageBuilder(CHARGED, 2, backend="memory").fit(strict)
+        duck = CoverageBuilder(CHARGED, 2, backend="duckdb").fit(strict)
+        assert memory.class_signature == duck.class_signature
+        assert memory.token_class.tolist() == duck.token_class.tolist()

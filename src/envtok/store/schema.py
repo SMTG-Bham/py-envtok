@@ -100,6 +100,7 @@ TOKENS = pa.schema(
         ("token_key", pa.string()),
         ("element", pa.string()),
         ("moment", pa.int64()),
+        ("charge", pa.int64()),
         (
             "neighbours",
             pa.list_(pa.struct([("element", pa.string()), ("count", pa.int64())])),
@@ -113,6 +114,25 @@ TOKENS = pa.schema(
         ("n_records", pa.int64()),
     ]
 )
+
+
+CHARGES = pa.schema(
+    [
+        ("record_id", pa.string()),
+        ("net_charge", pa.float64()),
+        ("charge", pa.int64()),
+        ("charge_source", pa.string()),
+        ("charge_failure", pa.string()),
+        ("charge_message", pa.string()),
+    ]
+)
+"""Per-record net charges resolved at index time (charge profiles only).
+
+The indexed ``structures`` table gains ``net_charge`` (the value found in the
+metadata), ``charge`` (the rounded token field) and ``charge_source``
+columns. They are null, null and ``disabled`` for profiles without a charge
+field.
+"""
 
 
 def rows_to_table(rows: Sequence[Any], schema: pa.Schema) -> pa.Table:

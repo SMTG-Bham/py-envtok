@@ -63,9 +63,16 @@ from envtok.store.executor import (
     plan_batches,
 )
 from envtok.store.partitions import committed_partitions, remove_temporary
-from envtok.store.schema import SCHEMA_VERSION, TOKENS
-from envtok.tokenizer.bins import csm_bins, digitize_array, moment_bins
-from envtok.tokenizer.tokens import SiteToken
+from envtok.store.schema import CHARGES, SCHEMA_VERSION, TOKENS
+from envtok.tokenizer.bins import (
+    charge_bin,
+    charge_bins,
+    csm_bins,
+    digitize_array,
+    moment_bins,
+)
+from envtok.tokenizer.charge import resolve_net_charge
+from envtok.tokenizer.tokens import CHARGE_PREFIX, SiteToken
 
 CACHE_FILE = "cache.json"
 PLAN_FILE = "plan.json"
@@ -136,7 +143,9 @@ def cache_keys(
     return CacheKeys(source, geometry, corpus, token, cache)
 
 
-def site_keys(sites: pa.Table, profile: Profile) -> pa.Array:
+def site_keys(
+    sites: pa.Table, profile: Profile, net_charges: np.ndarray | None = None
+) -> pa.Array:
     """Derive the canonical token key of every site from raw measurements.
 
     This vectorised path must agree exactly with
@@ -144,10 +153,15 @@ def site_keys(sites: pa.Table, profile: Profile) -> pa.Array:
 
     Args:
         sites: Table with the ``sites`` schema.
-        profile: Scientific profile (bins and moment policy).
+        profile: Scientific profile (bins, moment and charge policies).
+        net_charges: Resolved net charge of each site's record, aligned with
+            ``sites``; required when the profile has a charge field.
 
     Returns:
-        String array of reference token keys.
+        String array of token keys.
+
+    Raises:
+        ConfigError: If the profile has a charge field and no charges are given.
     """
     bins = profile.bins
     n = sites.num_rows
@@ -160,6 +174,21 @@ def site_keys(sites: pa.Table, profile: Profile) -> pa.Array:
         profile.magnetic_policy,
     )
     spin = pa.array(["NA"] * n, pa.string()) if moments is None else text(moments)
+    rounded = None
+    if profile.charge_enabled:
+        if net_charges is None or len(net_charges) != n:
+            raise ConfigError(
+                f"profile {profile.name!r} has a charge field; pass one net charge "
+                "per site"
+            )
+        rounded = charge_bins(
+            np.asarray(net_charges, np.float64), profile.charge_policy
+        )
+    charge = (
+        []
+        if rounded is None
+        else [pc.binary_join_element_wise(CHARGE_PREFIX, text(rounded), "")]
+    )
     csm_column = sites["csm"]
     defined = pc.invert(pc.is_null(csm_column)).to_numpy(zero_copy_only=False)
     csm = pc.fill_null(csm_column, np.nan).to_numpy(zero_copy_only=False)
@@ -168,6 +197,7 @@ def site_keys(sites: pa.Table, profile: Profile) -> pa.Array:
     return pc.binary_join_element_wise(
         sites["element"],
         spin,
+        *charge,
         sites["neighbours"],
         sites["geometry"],
         text(csm_bins(csm.astype(np.float64), defined.astype(bool), bins)),
@@ -192,6 +222,7 @@ def _typed_tokens(vocabulary: pa.Table) -> pa.Table:
         columns["token_key"].append(key)
         columns["element"].append(token.element)
         columns["moment"].append(token.moment)
+        columns["charge"].append(token.charge)
         columns["neighbours"].append(
             None
             if token.neighbours is None
@@ -529,6 +560,56 @@ def _parquet_list(paths: list[Path], name: str) -> str:
     return "[" + ", ".join(sql_literal(p / f"{name}.parquet") for p in paths) + "]"
 
 
+def _record_charges(structures: pa.Table, profile: Profile) -> pa.Table:
+    """Resolve the net charge of every record of one partition.
+
+    Only records that reached the geometry pass (status ``ok``) can fail for
+    a missing or unusable charge; the others keep their own status.
+    """
+    columns: dict[str, list[Any]] = {name: [] for name in CHARGES.names}
+    for record_id, status, metadata in zip(
+        structures["record_id"].to_pylist(),
+        structures["status"].to_pylist(),
+        structures["metadata_json"].to_pylist(),
+        strict=True,
+    ):
+        resolved = resolve_net_charge(json.loads(metadata), profile)
+        failure = resolved.failure if status == "ok" else None
+        columns["record_id"].append(record_id)
+        columns["net_charge"].append(resolved.raw)
+        columns["charge"].append(
+            None
+            if resolved.value is None
+            else charge_bin(resolved.value, profile.charge_policy)
+        )
+        columns["charge_source"].append(resolved.source.value)
+        columns["charge_failure"].append(failure)
+        columns["charge_message"].append(None if failure is None else resolved.message)
+    return pa.table(columns, schema=CHARGES)
+
+
+def _charged_sites(sites: pa.Table, charges: pa.Table) -> tuple[pa.Table, np.ndarray]:
+    """Keep the sites of records with a usable charge, with that charge per site.
+
+    Rounding is idempotent, so the rounded record charge can stand in for
+    the raw value when :func:`site_keys` rounds it again.
+    """
+    usable = charges.filter(pc.is_valid(charges["charge"]))
+    position = pc.index_in(sites["record_id"], value_set=usable["record_id"])
+    keep = pc.is_valid(position)
+    rows = position.filter(keep).to_numpy(zero_copy_only=False)
+    per_record = usable["charge"].to_numpy(zero_copy_only=False).astype(np.float64)
+    return sites.filter(keep), per_record[rows]
+
+
+_CHARGE_FAILURES = (
+    "SELECT record_id, CAST(NULL AS BIGINT) AS atom_index, 'charge' AS stage, "
+    "charge_failure AS category, charge_message AS message, 'none' AS fallback, "
+    "true AS fatal, CAST(NULL AS VARCHAR) AS retry_outcome FROM charges "
+    "WHERE charge_failure IS NOT NULL"
+)
+
+
 def _merge(
     partitions: list[Path],
     out: Path,
@@ -538,13 +619,28 @@ def _merge(
 ) -> dict[str, Any]:
     keys_dir = out / "_keys"
     keys_dir.mkdir()
+    charges_dir = out / "_charges"
+    charged = profile.charge_enabled
+    if charged:
+        charges_dir.mkdir()
     for path in partitions:
         sites = pq.read_table(path / "sites.parquet")
+        net_charges = None
+        if charged:
+            charges = _record_charges(
+                pq.read_table(
+                    path / "structures.parquet",
+                    columns=["record_id", "status", "metadata_json"],
+                ),
+                profile,
+            )
+            pq.write_table(charges, charges_dir / f"{path.name}.parquet")
+            sites, net_charges = _charged_sites(sites, charges)
         keyed = pa.table(
             {
                 "record_id": sites["record_id"],
                 "atom_index": sites["atom_index"],
-                "token_key": site_keys(sites, profile),
+                "token_key": site_keys(sites, profile, net_charges),
             }
         )
         pq.write_table(keyed, keys_dir / f"{path.name}.parquet")
@@ -564,6 +660,28 @@ def _merge(
                 + ", ".join(f"{rid!r} x{n}" for rid, n in duplicates)
                 + "; use id_policy namespaced_source_record or a unique native key"
             )
+        failures = (
+            f"SELECT * FROM read_parquet({_parquet_list(partitions, 'failures')})"
+        )
+        if charged:
+            charge_glob = sql_literal((charges_dir / "*.parquet").as_posix())
+            connection.execute(
+                f"CREATE VIEW charges AS SELECT * FROM read_parquet({charge_glob})"
+            )
+            connection.execute(
+                "CREATE VIEW structures AS SELECT s.* REPLACE ("
+                "CASE WHEN c.charge_failure IS NULL THEN s.status ELSE 'failed' END "
+                "AS status, coalesce(c.charge_failure, s.status_reason) "
+                "AS status_reason), c.net_charge, c.charge, c.charge_source "
+                "FROM structures_raw s JOIN charges c USING (record_id)"
+            )
+            failures += f" UNION ALL {_CHARGE_FAILURES}"
+        else:
+            connection.execute(
+                "CREATE VIEW structures AS SELECT *, "
+                "CAST(NULL AS DOUBLE) AS net_charge, CAST(NULL AS BIGINT) AS charge, "
+                "'disabled' AS charge_source FROM structures_raw"
+            )
         key_glob = sql_literal((keys_dir / "*.parquet").as_posix())
         connection.execute(
             f"CREATE VIEW keys AS SELECT * FROM read_parquet({key_glob})"
@@ -576,7 +694,7 @@ def _merge(
         )
         _copy(
             connection,
-            "SELECT * FROM structures_raw ORDER BY record_id",
+            "SELECT * FROM structures ORDER BY record_id",
             out / "structures.parquet",
         )
         _copy(
@@ -597,7 +715,7 @@ def _merge(
         )
         _copy(
             connection,
-            f"SELECT * FROM read_parquet({_parquet_list(partitions, 'failures')}) "
+            f"SELECT * FROM ({failures}) "
             "ORDER BY record_id, stage, category, atom_index NULLS FIRST, message",
             out / "failures.parquet",
         )
@@ -607,20 +725,29 @@ def _merge(
         ).to_arrow_table()
         counts = dict(
             connection.execute(
-                "SELECT status, count(*) FROM structures_raw GROUP BY status"
+                "SELECT status, count(*) FROM structures GROUP BY status"
             ).fetchall()
         )
         (ok_atoms,) = connection.execute(
-            "SELECT coalesce(sum(natoms), 0) FROM structures_raw WHERE status = 'ok'"
+            "SELECT coalesce(sum(natoms), 0) FROM structures WHERE status = 'ok'"
         ).fetchall()[0]
         (n_sites,) = connection.execute("SELECT count(*) FROM keys").fetchall()[0]
+        sources = (
+            connection.execute(
+                "SELECT charge_source, count(*), count(charge_failure) FROM charges "
+                "GROUP BY 1 ORDER BY 1"
+            ).fetchall()
+            if charged
+            else []
+        )
     finally:
         connection.close()
     pq.write_table(
         _typed_tokens(vocabulary), out / "tokens.parquet", compression="zstd"
     )
     shutil.rmtree(keys_dir)
-    return {
+    shutil.rmtree(charges_dir, ignore_errors=True)
+    summary = {
         "discovered": int(sum(counts.values())),
         "ok": int(counts.get("ok", 0)),
         "excluded": int(counts.get("excluded", 0)),
@@ -630,3 +757,11 @@ def _merge(
         "tokens": vocabulary.num_rows,
         "undefined_sentinel": UNDEFINED_SENTINEL,
     }
+    if charged:
+        summary["charge"] = {
+            "policy": profile.charge_policy.value,
+            "key": profile.charge_key,
+            "records_by_source": {source: int(n) for source, n, _ in sources},
+            "failed_records": int(sum(failed for _, _, failed in sources)),
+        }
+    return summary
