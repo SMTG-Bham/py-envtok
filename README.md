@@ -153,6 +153,25 @@ and labels against the source:
 uv run python examples/quickstart/quickstart.py
 ```
 
+### Real OMat24 compression example
+
+The [OMat24 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/README.md)
+uses 1,024 real structures from distinct parent materials. At T=100, it retains
+755 structures and 5,077 of 6,705 atoms: **24.3% fewer atoms**, with every fitted
+class and required presence signature covered. Detailed full-token coverage
+is 76.7%; downstream model accuracy has not been tested.
+
+Follow the example's sampling command to prepare the input from an existing
+local OMat24 archive, then run:
+
+```bash
+uv run --extra omat24 envtok run --config examples/omat24/compression-demo/config.yaml
+```
+
+The example includes a threshold sweep, equal-atom random comparisons, saved
+results and export checks. The [bundled 32-record sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md)
+also runs without an archive, but shows no compression.
+
 ## Configure your dataset
 
 Save a configuration such as `dataset.yaml` next to your `data/` directory:
@@ -343,6 +362,16 @@ pipeline and selector comparisons; downstream model accuracy is unvalidated.
 See [molecular usage and data contracts](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md) for the Python API,
 staged CLI, supplied-graph schema, safeguards and current limitations.
 
+The [native OMol25 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md)
+starts from 512 real configurations / 10,938 atoms. Unbudgeted cover mode
+retains 146 configurations / 3,276 atoms (**70.0% fewer atoms**), covering
+all 44 mandatory element/state targets and 517 modeled SOAP regions.
+However, 91.3% of source environments fall outside the fitted prototype
+radii; this is not complete geometric coverage. A finer 64-prototype check
+retains 6,122 atoms (44.0% fewer). The example includes random and budget
+comparisons, source/export checks, saved results and reproduction commands
+for an existing local archive. It provides no downstream accuracy evidence.
+
 Benchmark defaults are intentionally small: molecular comparisons use one 25%
 atom budget and seed 0, plus a separate full-pool control. Larger sweeps are
 opt-in through `--fractions` and `--seeds`. The [periodic plan](https://github.com/SMTG-Bham/py-envtok/blob/main/envtok_implementation_plan.md)
@@ -477,6 +506,10 @@ compliance, unmet constraints and nearest-selected geometry distances. See the
   reference implementation and this package.
 - [Molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md): data contracts, graphs, descriptors,
   safeguards and current limitations.
+- [OMat24 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/README.md):
+  1,024 real structures, measured compression, coverage audits and random comparisons.
+- [OMol25 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md):
+  512 native molecular configurations, cover and budget comparisons, and geometry limits.
 - [OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) and
   [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md): real-data provenance and
   small qualification results.

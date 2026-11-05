@@ -44,6 +44,22 @@ accuracy check reports missing development elements and excessive vocabulary
 before training, rather than quietly reducing the holdout. A supplied suitable
 small-chemistry source can run the periodic model comparison.
 
+For measured compression, the [larger OMat24 example](../examples/omat24/compression-demo/README.md)
+uses `sample_omat24.py` to retain 1,024 distinct-parent structures from a local
+archive. At T=100 it keeps 755 structures and 5,077 of 6,705 atoms, a 24.3%
+atom reduction with complete class and required-presence coverage. The example
+documents sampling, the threshold sweep, random comparisons and verified
+exports; it does not establish downstream model accuracy.
+
+The [native OMol25 example](../examples/molecular/omol/compression-demo/README.md)
+uses `sample_omol.py` to retain 512 finite CHNO configurations from a local
+4M archive. Its unbudgeted cover keeps 3,276 of 10,938 atoms (70.0% fewer),
+covering all mandatory element/state targets and modeled geometry regions.
+Prototype overflow remains substantial and is reported alongside a finer
+geometry check, random baselines and budget comparisons. Native-source and
+export checks preserve metadata, charge/spin, atom ordering and labels; this
+is a selection demonstration, not evidence of model accuracy retention.
+
 The optional MACE runner uses a separate installed MACE interpreter, keeping
 PyTorch out of the selection dependencies. It trains four fresh CPU models for
 200 fixed steps at a single 50% atom ceiling; it records initial/final errors,
