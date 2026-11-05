@@ -12,7 +12,7 @@ import pytest
 from ase import Atoms
 from helpers import CORPUS
 
-from envtok import CoverageBuilder, TokenCache, Tokenizer
+from envtok import CoverageBuilder, Selector, TokenCache, Tokenizer
 from envtok.config import load_config
 from envtok.corpus import Corpus
 from envtok.errors import ConfigError, StaleCacheError, UnsupportedInputError
@@ -552,6 +552,22 @@ class TestClasses:
         }
         assert rungs == {"R1qdA_drop_charge"}
         assert len({int(classes.token_class[i]) for i in prim}) == 1
+
+    def test_a_single_charge_state_selects_the_reference_subset(
+        self, tmp_path: Path
+    ) -> None:
+        # Every fixture record is neutral, so the charge field splits nothing.
+        corpus = Corpus.from_extxyz(CORPUS, dataset="fx", revision="v1", split="train")
+        plain = Tokenizer().run(corpus, tmp_path, batch_size=5)
+        charged = Tokenizer(CHARGED).index(plain.cache_dir, tmp_path)
+        for threshold in (2, 5):
+            reference = CoverageBuilder(REFERENCE_723696D, threshold).fit(plain)
+            extended = CoverageBuilder(CHARGED, threshold).fit(charged)
+            assert extended.n_classes == reference.n_classes
+            assert (
+                Selector().select(extended).record_ids
+                == Selector().select(reference).record_ids
+            )
 
     def test_backends_agree(self, strict: TokenCache) -> None:
         memory = CoverageBuilder(CHARGED, 2, backend="memory").fit(strict)
