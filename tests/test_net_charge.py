@@ -13,9 +13,11 @@ from ase import Atoms
 from helpers import CORPUS
 
 from envtok import CoverageBuilder, TokenCache, Tokenizer
+from envtok.config import load_config
 from envtok.corpus import Corpus
 from envtok.errors import ConfigError, StaleCacheError, UnsupportedInputError
 from envtok.fingerprint import digest, token_payload
+from envtok.pipeline import Pipeline, load_selection
 from envtok.profiles import (
     NET_CHARGE_LADDER,
     REFERENCE_723696D,
@@ -332,7 +334,7 @@ def record_id(index: int) -> str:
 
 
 @pytest.fixture(scope="module")
-def charged_corpus(tmp_path_factory: pytest.TempPathFactory) -> Corpus:
+def charged_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     loaded = ase.io.read(CORPUS, index=":", format="extxyz")
     assert isinstance(loaded, list)
     written: list[Atoms] = []
@@ -348,7 +350,12 @@ def charged_corpus(tmp_path_factory: pytest.TempPathFactory) -> Corpus:
     written.append(molecule)
     path = tmp_path_factory.mktemp("charged") / "charged.extxyz"
     ase.io.write(path, written, format="extxyz")
-    return Corpus.from_extxyz(path, dataset="fx", revision="v1", split="train")
+    return path
+
+
+@pytest.fixture(scope="module")
+def charged_corpus(charged_path: Path) -> Corpus:
+    return Corpus.from_extxyz(charged_path, dataset="fx", revision="v1", split="train")
 
 
 @pytest.fixture(scope="module")
@@ -551,3 +558,135 @@ class TestClasses:
         duck = CoverageBuilder(CHARGED, 2, backend="duckdb").fit(strict)
         assert memory.class_signature == duck.class_signature
         assert memory.token_class.tolist() == duck.token_class.tolist()
+
+
+# --- Configuration, pipeline and report ------------------------------------
+
+
+def pipeline_config(path: Path, workdir: Path, **tokenizer: Any) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "source": {
+            "adapter": "extxyz",
+            "path": str(path),
+            "name": "fx",
+            "revision": "v1",
+            "split": "train",
+        },
+        "tokenizer": tokenizer,
+        "coverage": {"min_structure_support": 2},
+        "execution": {"workdir": str(workdir), "batch_size": 3},
+        "output": {"format": "none"},
+    }
+
+
+class TestConfig:
+    def test_charge_variants(self, tmp_path: Path) -> None:
+        def profile(**tokenizer: Any) -> Any:
+            return load_config(
+                pipeline_config(tmp_path / "x.extxyz", tmp_path, **tokenizer)
+            ).profile()
+
+        assert profile() is REFERENCE_723696D
+        charged = profile(charge_policy="net_round")
+        assert charged.name == "reference-723696d+net-charge"
+        assert charged.ladder == NET_CHARGE_LADDER
+        assert charged.charge_policy is ChargePolicy.NET_ROUND
+        both = profile(
+            charge_policy="net_round_zero_if_missing",
+            charge_key="total_charge",
+            magnetic_policy="disabled",
+        )
+        assert both.name == "reference-723696d+geometry-only+net-charge"
+        assert both.charge_key == "total_charge"
+        assert profile(charge_key="ignored") is REFERENCE_723696D
+
+    def test_invalid_charge_settings(self, tmp_path: Path) -> None:
+        document = pipeline_config(tmp_path / "x.extxyz", tmp_path, charge_policy="q")
+        with pytest.raises(ConfigError, match=r"tokenizer\.charge_policy must be"):
+            load_config(document)
+        document["tokenizer"] = {"charge_policy": "net_round", "charge_key": ""}
+        with pytest.raises(ConfigError, match="non-empty metadata key"):
+            load_config(document).profile()
+
+    def test_resolved_configuration_records_the_charge_settings(
+        self, tmp_path: Path
+    ) -> None:
+        resolved = load_config(
+            pipeline_config(tmp_path / "x.extxyz", tmp_path)
+        ).resolved()
+        assert resolved["tokenizer"]["charge_policy"] == "disabled"
+        assert resolved["tokenizer"]["charge_key"] == "charge"
+
+
+class TestPipeline:
+    def test_inspect_counts_charge_sources(
+        self, charged_path: Path, tmp_path: Path
+    ) -> None:
+        strict = Pipeline(
+            pipeline_config(charged_path, tmp_path, charge_policy="net_round")
+        )
+        assert strict.inspect()["net_charge_sources"] == {
+            "supplied": 4,
+            "missing": 2,
+            "invalid": 1,
+        }
+        plain = Pipeline(pipeline_config(charged_path, tmp_path))
+        assert plain.inspect()["net_charge_sources"] == {"disabled": 7}
+
+    def test_selection_with_the_charge_field(
+        self, charged_path: Path, tmp_path: Path
+    ) -> None:
+        pipeline = Pipeline(
+            pipeline_config(charged_path, tmp_path / "w", charge_policy="net_round")
+        )
+        result, directory = pipeline.select()
+        selected = set(result.record_ids)
+        assert selected.isdisjoint({record_id(3), record_id(4), record_id(6)})
+        report = json.loads((directory / "coverage.json").read_text())
+        assert report["profile"] == "reference-723696d+net-charge"
+        assert report["classes"]["covered"] == report["classes"]["required"]
+        assert [r["name"] for r in report["resolution"][:3]] == [
+            "R0_full",
+            "R1dA_drop_f5",
+            "R1qdA_drop_charge",
+        ]
+        processing = report["processing"]
+        assert processing["charge"] == {
+            "policy": "net_round",
+            "key": "charge",
+            "records_by_source": [
+                {"source": "invalid", "count": 1},
+                {"source": "missing", "count": 2},
+                {"source": "supplied", "count": 4},
+            ],
+        }
+        statuses = {
+            (row["status"], row["reason"]): row["count"]
+            for row in processing["records_by_status"]
+        }
+        assert statuses[("failed", "invalid_charge")] == 1
+        assert statuses[("failed", "missing_charge")] == 1
+        charges = report["diagnostics"]["net_charge_structures"]
+        assert [row["value"] for row in charges] == [-1, 0, 2]
+        assert [row["eligible"] for row in charges] == [2, 1, 1]
+        assert sum(row["selected"] for row in charges) == len(selected)
+        html = (directory / "report.html").read_text()
+        assert "Net charge (key charge, policy net_round)" in html
+        assert "net_charge_structures" in html
+        reloaded, again = load_selection(directory)
+        assert reloaded.profile.charge_enabled
+        assert again.record_ids == result.record_ids
+
+    def test_reference_reports_have_no_charge_sections(
+        self, charged_path: Path, tmp_path: Path
+    ) -> None:
+        _, directory = Pipeline(pipeline_config(charged_path, tmp_path)).select()
+        report = json.loads((directory / "coverage.json").read_text())
+        assert report["processing"]["charge"] == {
+            "policy": "disabled",
+            "key": None,
+            "records_by_source": [],
+        }
+        assert "net_charge_structures" not in report["diagnostics"]
+        assert "Net charge" not in (directory / "report.html").read_text()

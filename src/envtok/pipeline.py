@@ -29,6 +29,7 @@ from envtok.selection import (
 )
 from envtok.store.cache import CACHE_FILE, TokenCache, cache_keys
 from envtok.tokenization import Tokenizer
+from envtok.tokenizer.charge import resolve_net_charge
 
 LOGGER = logging.getLogger("envtok")
 RUN_FILE = "run.json"
@@ -132,6 +133,7 @@ class Pipeline:
         labels: dict[str, int] = {}
         splits: dict[str, int] = {}
         moments = 0
+        charges: dict[str, int] = {}
         for count, record in enumerate(self.corpus.adapter.iter_records()):
             if count >= sample:
                 break
@@ -140,6 +142,8 @@ class Pipeline:
             natoms.append(record.natoms)
             elements.update(record.atoms.get_chemical_symbols())
             moments += bool(record.atoms.has("initial_magmoms"))
+            source = resolve_net_charge(record.metadata, self.profile).source.value
+            charges[source] = charges.get(source, 0) + 1
             splits[record.split.value] = splits.get(record.split.value, 0) + 1
             for name in record.labels:
                 labels[name] = labels.get(name, 0) + 1
@@ -157,6 +161,7 @@ class Pipeline:
             "labels": labels,
             "splits": splits,
             "records_with_initial_moments": moments,
+            "net_charge_sources": charges,
             "issues": issues,
             "supports_retrieval": self.corpus.adapter.supports_retrieval,
             "source_fingerprint": self.corpus.adapter.source_fingerprint(),

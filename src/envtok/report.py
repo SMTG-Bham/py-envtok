@@ -227,6 +227,14 @@ def processing_quality(classes: CoverageClasses) -> dict[str, Any]:
             "AND n_invalid_sites = 0) "
             f"FROM read_parquet({structures})"
         ).fetchall()[0]
+        charge_sources = (
+            connection.execute(
+                "SELECT charge_source, count(*) FROM read_parquet("
+                f"{structures}) GROUP BY 1 ORDER BY 1"
+            ).fetchall()
+            if classes.profile.charge_enabled
+            else []
+        )
     finally:
         connection.close()
     return {
@@ -249,6 +257,15 @@ def processing_quality(classes: CoverageClasses) -> dict[str, Any]:
         "symmetry_fallback_records": int(records[0]),
         "chemenv_failed_records": int(records[1]),
         "defaulted_moment_records": int(records[2]),
+        "charge": {
+            "policy": classes.profile.charge_policy.value,
+            "key": classes.profile.charge_key
+            if classes.profile.charge_enabled
+            else None,
+            "records_by_source": [
+                {"source": source, "count": int(n)} for source, n in charge_sources
+            ],
+        },
         "records_missing_energy": int(records[3]),
         "records_missing_forces": int(records[4]),
         "eligible_by_policy": {
@@ -384,6 +401,11 @@ def diagnostics(classes: CoverageClasses, record_ids: list[str]) -> dict[str, An
                 "ORDER BY 1 LIMIT 50",
             ),
         }
+        if classes.profile.charge_enabled:
+            tables["net_charge_structures"] = _distribution(
+                connection,
+                f"SELECT charge, {counts} FROM records GROUP BY 1 ORDER BY 1",
+            )
         labels = {}
         for column in ("energy / natoms", "fmax", "stress_max"):
             row = connection.execute(
@@ -557,6 +579,15 @@ def render_html(report: dict[str, Any], diagnostics_tables: dict[str, Any]) -> s
         ),
         _table(report["processing"]["sites"], ["status", "neighbour_source", "count"]),
     ]
+    charge = report["processing"]["charge"]
+    if charge["records_by_source"]:
+        sections += [
+            (
+                f"<h2>Net charge (key {html.escape(str(charge['key']))}, policy "
+                f"{html.escape(charge['policy'])})</h2>"
+            ),
+            _table(charge["records_by_source"], ["source", "count"]),
+        ]
     for name, rows in diagnostics_tables.items():
         if name == "labels":
             continue

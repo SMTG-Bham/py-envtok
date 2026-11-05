@@ -17,7 +17,14 @@ import yaml
 from envtok.corpus import Corpus
 from envtok.errors import ConfigError
 from envtok.execution import ExecutionSettings, parse_size
-from envtok.profiles import MagneticPolicy, Profile, corpus_policy, get_profile
+from envtok.profiles import (
+    ChargePolicy,
+    MagneticPolicy,
+    Profile,
+    corpus_policy,
+    get_profile,
+    with_net_charge,
+)
 from envtok.records import Split
 
 SCHEMA_VERSION = 1
@@ -63,6 +70,8 @@ class TokenizerConfig:
     magnetic_policy: str = MagneticPolicy.SOURCE_ABS_ROUND_ZERO_IF_MISSING.value
     cache_raw_measurements: bool = True
     use_symmetry: bool = True
+    charge_policy: str = ChargePolicy.DISABLED.value
+    charge_key: str = "charge"
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +179,12 @@ class EnvTokConfig:
             )
         if self.output.format not in {"extxyz", "asedb", "none"}:
             raise ConfigError("output.format must be extxyz, asedb or none")
+        charge_policies = [policy.value for policy in ChargePolicy]
+        if self.tokenizer.charge_policy not in charge_policies:
+            raise ConfigError(
+                f"tokenizer.charge_policy must be one of {charge_policies}, "
+                f"got {self.tokenizer.charge_policy!r}"
+            )
 
     def resolve(self, path: str) -> Path:
         """Resolve a configured path against :attr:`base_dir`."""
@@ -225,7 +240,12 @@ class EnvTokConfig:
         )
 
     def profile(self) -> Profile:
-        """Resolve the profile and apply the documented tokenizer variants."""
+        """Resolve the profile and apply the documented tokenizer variants.
+
+        The variants are named by suffixes: ``+geometry-only`` (moment field
+        disabled), ``+all-sites`` (no symmetry reuse) and ``+net-charge``
+        (charge field enabled).
+        """
         profile = get_profile(self.tokenizer.profile)
         policy = MagneticPolicy(self.tokenizer.magnetic_policy)
         suffixes = []
@@ -240,6 +260,9 @@ class EnvTokConfig:
             suffixes.append("all-sites")
         if suffixes:
             profile = replace(profile, name="+".join([profile.name, *suffixes]))
+        charge = ChargePolicy(self.tokenizer.charge_policy)
+        if charge is not ChargePolicy.DISABLED:
+            profile = with_net_charge(profile, charge, key=self.tokenizer.charge_key)
         return profile
 
     def execution_settings(self) -> ExecutionSettings:
