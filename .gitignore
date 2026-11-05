@@ -39,3 +39,10 @@ htmlcov/
 
 # EnvTok run directories
 runs/
+
+# Local coding-agent instructions and Claude Code state, not part of the repository
+CLAUDE.md
+AGENTS.md
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
