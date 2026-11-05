@@ -1,0 +1,467 @@
+{
+  "checks_passed": {
+    "committed_partition_reused_after_interruption": true,
+    "independent_coverage_and_export_round_trip": true,
+    "no_duplicate_completed_records": true,
+    "serial_parallel_restart_records_and_tokens_equal": true,
+    "serial_parallel_restart_selected_ids_equal": true
+  },
+  "dependencies": {
+    "ase": "3.29.0",
+    "ase-db-backends": "0.11.0",
+    "duckdb": "2.0.0",
+    "lmdb": "3.0.0",
+    "numpy": "2.4.6",
+    "pyarrow": "26.0.1",
+    "pymatgen": "2026.10.24",
+    "pymatgen-core": "2026.10.31",
+    "pyyaml": "6.0.3",
+    "scipy": "1.18.1",
+    "spglib": "2.8.0"
+  },
+  "interruption_seconds": 5.582,
+  "memory_measurement_scope": "Parent process lifetime high-water mark; excludes worker RSS.",
+  "min_structure_support": 2,
+  "parent_process_peak_rss_bytes": 405794816,
+  "platform": "Linux-7.3.0-10-generic-x86_64-with-glibc2.44",
+  "profile": "reference-723696d",
+  "purpose": "small periodic engineering qualification; downstream accuracy unvalidated",
+  "python": "3.14.10",
+  "runs": {
+    "parallel": {
+      "atoms": {
+        "eligible": 237,
+        "retention": 1.0,
+        "selected": 237
+      },
+      "cache": {
+        "discovered": 32,
+        "excluded": 0,
+        "failed": 0,
+        "ok": 32,
+        "ok_atoms": 237,
+        "sites": 237,
+        "tokens": 195,
+        "undefined_sentinel": 999
+      },
+      "classes": {
+        "covered": 75,
+        "fraction": 1.0,
+        "missing_examples": [],
+        "required": 75
+      },
+      "disk_bytes": 402934,
+      "exported_frames_checked": 32,
+      "presence": {
+        "F_elem_cn": {
+          "covered": 139,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 139
+        },
+        "F_elem_cn_abin": {
+          "covered": 163,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 163
+        },
+        "F_elem_cn_dmin": {
+          "covered": 150,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 150
+        },
+        "F_elem_poly": {
+          "covered": 112,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 112
+        }
+      },
+      "processing": {
+        "charge": {
+          "key": null,
+          "policy": "disabled",
+          "records_by_source": []
+        },
+        "chemenv_failed_records": 0,
+        "defaulted_moment_records": 32,
+        "eligible_by_policy": {
+          "active": "quarantine",
+          "quarantine": 32,
+          "reference": 32
+        },
+        "failures": [],
+        "records_by_status": [
+          {
+            "count": 32,
+            "reason": null,
+            "status": "ok"
+          }
+        ],
+        "records_missing_energy": 0,
+        "records_missing_forces": 0,
+        "sites": [
+          {
+            "count": 203,
+            "neighbour_source": "chemenv-default",
+            "status": "ok"
+          },
+          {
+            "count": 34,
+            "neighbour_source": "chemenv-extended",
+            "status": "ok"
+          }
+        ],
+        "symmetry_fallback_records": 0
+      },
+      "seconds": {
+        "audit_manifest_export_check": 0.218,
+        "coarsen_and_select": 0.006,
+        "tokenize_and_index": 25.354,
+        "total": 25.578
+      },
+      "selected_ids": [
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:1",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:10",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:11",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:13",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:14",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:15",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:17",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:18",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:2",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:21",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:22",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:24",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:27",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:28",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:29",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:3",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:30",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:4",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:5",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:6",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:7",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:9",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:12",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:25",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:20",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:16",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:31",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:32",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:8",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:23",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:19",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:26"
+      ],
+      "structures": {
+        "eligible": 32,
+        "retention": 1.0,
+        "selected": 32
+      },
+      "workers": 2
+    },
+    "resumed": {
+      "atoms": {
+        "eligible": 237,
+        "retention": 1.0,
+        "selected": 237
+      },
+      "cache": {
+        "discovered": 32,
+        "excluded": 0,
+        "failed": 0,
+        "ok": 32,
+        "ok_atoms": 237,
+        "sites": 237,
+        "tokens": 195,
+        "undefined_sentinel": 999
+      },
+      "classes": {
+        "covered": 75,
+        "fraction": 1.0,
+        "missing_examples": [],
+        "required": 75
+      },
+      "disk_bytes": 402929,
+      "exported_frames_checked": 32,
+      "presence": {
+        "F_elem_cn": {
+          "covered": 139,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 139
+        },
+        "F_elem_cn_abin": {
+          "covered": 163,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 163
+        },
+        "F_elem_cn_dmin": {
+          "covered": 150,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 150
+        },
+        "F_elem_poly": {
+          "covered": 112,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 112
+        }
+      },
+      "processing": {
+        "charge": {
+          "key": null,
+          "policy": "disabled",
+          "records_by_source": []
+        },
+        "chemenv_failed_records": 0,
+        "defaulted_moment_records": 32,
+        "eligible_by_policy": {
+          "active": "quarantine",
+          "quarantine": 32,
+          "reference": 32
+        },
+        "failures": [],
+        "records_by_status": [
+          {
+            "count": 32,
+            "reason": null,
+            "status": "ok"
+          }
+        ],
+        "records_missing_energy": 0,
+        "records_missing_forces": 0,
+        "sites": [
+          {
+            "count": 203,
+            "neighbour_source": "chemenv-default",
+            "status": "ok"
+          },
+          {
+            "count": 34,
+            "neighbour_source": "chemenv-extended",
+            "status": "ok"
+          }
+        ],
+        "symmetry_fallback_records": 0
+      },
+      "seconds": {
+        "audit_manifest_export_check": 0.241,
+        "coarsen_and_select": 0.007,
+        "tokenize_and_index": 26.021,
+        "total": 26.268
+      },
+      "selected_ids": [
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:1",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:10",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:11",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:13",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:14",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:15",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:17",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:18",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:2",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:21",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:22",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:24",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:27",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:28",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:29",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:3",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:30",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:4",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:5",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:6",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:7",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:9",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:12",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:25",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:20",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:16",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:31",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:32",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:8",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:23",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:19",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:26"
+      ],
+      "structures": {
+        "eligible": 32,
+        "retention": 1.0,
+        "selected": 32
+      },
+      "workers": 2
+    },
+    "serial": {
+      "atoms": {
+        "eligible": 237,
+        "retention": 1.0,
+        "selected": 237
+      },
+      "cache": {
+        "discovered": 32,
+        "excluded": 0,
+        "failed": 0,
+        "ok": 32,
+        "ok_atoms": 237,
+        "sites": 237,
+        "tokens": 195,
+        "undefined_sentinel": 999
+      },
+      "classes": {
+        "covered": 75,
+        "fraction": 1.0,
+        "missing_examples": [],
+        "required": 75
+      },
+      "disk_bytes": 402926,
+      "exported_frames_checked": 32,
+      "presence": {
+        "F_elem_cn": {
+          "covered": 139,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 139
+        },
+        "F_elem_cn_abin": {
+          "covered": 163,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 163
+        },
+        "F_elem_cn_dmin": {
+          "covered": 150,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 150
+        },
+        "F_elem_poly": {
+          "covered": 112,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 112
+        }
+      },
+      "processing": {
+        "charge": {
+          "key": null,
+          "policy": "disabled",
+          "records_by_source": []
+        },
+        "chemenv_failed_records": 0,
+        "defaulted_moment_records": 32,
+        "eligible_by_policy": {
+          "active": "quarantine",
+          "quarantine": 32,
+          "reference": 32
+        },
+        "failures": [],
+        "records_by_status": [
+          {
+            "count": 32,
+            "reason": null,
+            "status": "ok"
+          }
+        ],
+        "records_missing_energy": 0,
+        "records_missing_forces": 0,
+        "sites": [
+          {
+            "count": 203,
+            "neighbour_source": "chemenv-default",
+            "status": "ok"
+          },
+          {
+            "count": 34,
+            "neighbour_source": "chemenv-extended",
+            "status": "ok"
+          }
+        ],
+        "symmetry_fallback_records": 0
+      },
+      "seconds": {
+        "audit_manifest_export_check": 0.227,
+        "coarsen_and_select": 0.007,
+        "tokenize_and_index": 45.37,
+        "total": 45.604
+      },
+      "selected_ids": [
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:1",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:10",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:11",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:13",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:14",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:15",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:17",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:18",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:2",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:21",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:22",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:24",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:27",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:28",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:29",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:3",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:30",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:4",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:5",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:6",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:7",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:9",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:12",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:25",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:20",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:16",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:31",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:32",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:8",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:23",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:19",
+        "periodic-check@local-1M-shard-d7be82771964f041:train.aselmdb:26"
+      ],
+      "structures": {
+        "eligible": 32,
+        "retention": 1.0,
+        "selected": 32
+      },
+      "workers": 1
+    }
+  },
+  "schema_version": 1,
+  "source": {
+    "acquisition": {
+      "archive_sha256": "789ecc1306575a1652806b339265d7659c57282eeb1b3e3b54ba0e1154938b81",
+      "dataset": "OMat24",
+      "member": "./train/rattled-relax/train.aselmdb",
+      "member_sha256": "d7be82771964f04109b97619ff6d7010c79ce7b2c55b69c298b73eba4ed7e138",
+      "official_download_url": "https://dl.fbaipublicfiles.com/opencatalystproject/data/omat/251210/omat24_1M_251210.tar.gz",
+      "sampling": {
+        "development": 8,
+        "development_split": "held out inside official training; not official validation",
+        "excluded_elements": "La-Lu and Ac-Lr (OMat24 study preset)",
+        "group_key": "parent_id",
+        "limitation": "small ordered sample; no representative or production accuracy claim",
+        "max_atoms": 20,
+        "max_rows_scanned": 1000,
+        "order": "ascending native row key; first eligible distinct parents",
+        "parent_overlap": 0,
+        "rows_read": 59,
+        "skipped": {
+          "study_f_block_exclusion": 19
+        },
+        "source_split": "train for both outputs",
+        "train": 32
+      },
+      "upstream_archive_checksum_verified": false
+    },
+    "kind": "user_supplied_lmdb",
+    "native_adapter": "omat24",
+    "path": "/home/louie/skunkworks/py-envtok/examples/omat24/small-sample/train.aselmdb",
+    "real_omat24_claim": true,
+    "revision": "local-1M-shard-d7be82771964f041"
+  }
+}

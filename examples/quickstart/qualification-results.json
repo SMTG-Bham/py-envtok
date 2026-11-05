@@ -1,0 +1,433 @@
+{
+  "checks_passed": {
+    "committed_partition_reused_after_interruption": true,
+    "independent_coverage_and_export_round_trip": true,
+    "no_duplicate_completed_records": true,
+    "serial_parallel_restart_records_and_tokens_equal": true,
+    "serial_parallel_restart_selected_ids_equal": true
+  },
+  "dependencies": {
+    "ase": "3.29.0",
+    "ase-db-backends": "0.11.0",
+    "duckdb": "2.0.0",
+    "lmdb": "3.0.0",
+    "numpy": "2.4.6",
+    "pyarrow": "26.0.1",
+    "pymatgen": "2026.10.24",
+    "pymatgen-core": "2026.10.31",
+    "pyyaml": "6.0.3",
+    "scipy": "1.18.1",
+    "spglib": "2.8.0"
+  },
+  "interruption_seconds": 0.689,
+  "memory_measurement_scope": "Parent process lifetime high-water mark; excludes worker RSS.",
+  "min_structure_support": 2,
+  "parent_process_peak_rss_bytes": 372723712,
+  "platform": "Linux-7.3.0-10-generic-x86_64-with-glibc2.44",
+  "profile": "reference-723696d",
+  "purpose": "small periodic engineering qualification; downstream accuracy unvalidated",
+  "python": "3.14.10",
+  "runs": {
+    "parallel": {
+      "atoms": {
+        "eligible": 76,
+        "retention": 0.7368421052631579,
+        "selected": 56
+      },
+      "cache": {
+        "discovered": 20,
+        "excluded": 0,
+        "failed": 0,
+        "ok": 20,
+        "ok_atoms": 76,
+        "sites": 76,
+        "tokens": 33,
+        "undefined_sentinel": 999
+      },
+      "classes": {
+        "covered": 26,
+        "fraction": 1.0,
+        "missing_examples": [],
+        "required": 26
+      },
+      "disk_bytes": 180804,
+      "exported_frames_checked": 16,
+      "presence": {
+        "F_elem_cn": {
+          "covered": 22,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 22
+        },
+        "F_elem_cn_abin": {
+          "covered": 25,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 25
+        },
+        "F_elem_cn_dmin": {
+          "covered": 27,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 27
+        },
+        "F_elem_poly": {
+          "covered": 22,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 22
+        }
+      },
+      "processing": {
+        "charge": {
+          "key": null,
+          "policy": "disabled",
+          "records_by_source": []
+        },
+        "chemenv_failed_records": 1,
+        "defaulted_moment_records": 18,
+        "eligible_by_policy": {
+          "active": "quarantine",
+          "quarantine": 20,
+          "reference": 20
+        },
+        "failures": [
+          {
+            "category": "QhullError",
+            "count": 1,
+            "fallback": "crystalnn",
+            "fatal": false,
+            "stage": "chemenv"
+          }
+        ],
+        "records_by_status": [
+          {
+            "count": 20,
+            "reason": null,
+            "status": "ok"
+          }
+        ],
+        "records_missing_energy": 0,
+        "records_missing_forces": 0,
+        "sites": [
+          {
+            "count": 71,
+            "neighbour_source": "chemenv-default",
+            "status": "ok"
+          },
+          {
+            "count": 3,
+            "neighbour_source": "chemenv-extended",
+            "status": "ok"
+          },
+          {
+            "count": 2,
+            "neighbour_source": "crystalnn",
+            "status": "recovered"
+          }
+        ],
+        "symmetry_fallback_records": 0
+      },
+      "seconds": {
+        "audit_manifest_export_check": 0.204,
+        "coarsen_and_select": 0.003,
+        "tokenize_and_index": 2.536,
+        "total": 2.743
+      },
+      "selected_ids": [
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:11",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:12",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:13",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:17",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:18",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:19",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:20",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:7",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:8",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:15",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:4",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:10",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:3",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:9",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:14",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:5"
+      ],
+      "structures": {
+        "eligible": 20,
+        "retention": 0.8,
+        "selected": 16
+      },
+      "workers": 2
+    },
+    "resumed": {
+      "atoms": {
+        "eligible": 76,
+        "retention": 0.7368421052631579,
+        "selected": 56
+      },
+      "cache": {
+        "discovered": 20,
+        "excluded": 0,
+        "failed": 0,
+        "ok": 20,
+        "ok_atoms": 76,
+        "sites": 76,
+        "tokens": 33,
+        "undefined_sentinel": 999
+      },
+      "classes": {
+        "covered": 26,
+        "fraction": 1.0,
+        "missing_examples": [],
+        "required": 26
+      },
+      "disk_bytes": 180801,
+      "exported_frames_checked": 16,
+      "presence": {
+        "F_elem_cn": {
+          "covered": 22,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 22
+        },
+        "F_elem_cn_abin": {
+          "covered": 25,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 25
+        },
+        "F_elem_cn_dmin": {
+          "covered": 27,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 27
+        },
+        "F_elem_poly": {
+          "covered": 22,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 22
+        }
+      },
+      "processing": {
+        "charge": {
+          "key": null,
+          "policy": "disabled",
+          "records_by_source": []
+        },
+        "chemenv_failed_records": 1,
+        "defaulted_moment_records": 18,
+        "eligible_by_policy": {
+          "active": "quarantine",
+          "quarantine": 20,
+          "reference": 20
+        },
+        "failures": [
+          {
+            "category": "QhullError",
+            "count": 1,
+            "fallback": "crystalnn",
+            "fatal": false,
+            "stage": "chemenv"
+          }
+        ],
+        "records_by_status": [
+          {
+            "count": 20,
+            "reason": null,
+            "status": "ok"
+          }
+        ],
+        "records_missing_energy": 0,
+        "records_missing_forces": 0,
+        "sites": [
+          {
+            "count": 71,
+            "neighbour_source": "chemenv-default",
+            "status": "ok"
+          },
+          {
+            "count": 3,
+            "neighbour_source": "chemenv-extended",
+            "status": "ok"
+          },
+          {
+            "count": 2,
+            "neighbour_source": "crystalnn",
+            "status": "recovered"
+          }
+        ],
+        "symmetry_fallback_records": 0
+      },
+      "seconds": {
+        "audit_manifest_export_check": 0.206,
+        "coarsen_and_select": 0.004,
+        "tokenize_and_index": 2.048,
+        "total": 2.257
+      },
+      "selected_ids": [
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:11",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:12",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:13",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:17",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:18",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:19",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:20",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:7",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:8",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:15",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:4",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:10",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:3",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:9",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:14",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:5"
+      ],
+      "structures": {
+        "eligible": 20,
+        "retention": 0.8,
+        "selected": 16
+      },
+      "workers": 2
+    },
+    "serial": {
+      "atoms": {
+        "eligible": 76,
+        "retention": 0.7368421052631579,
+        "selected": 56
+      },
+      "cache": {
+        "discovered": 20,
+        "excluded": 0,
+        "failed": 0,
+        "ok": 20,
+        "ok_atoms": 76,
+        "sites": 76,
+        "tokens": 33,
+        "undefined_sentinel": 999
+      },
+      "classes": {
+        "covered": 26,
+        "fraction": 1.0,
+        "missing_examples": [],
+        "required": 26
+      },
+      "disk_bytes": 180798,
+      "exported_frames_checked": 16,
+      "presence": {
+        "F_elem_cn": {
+          "covered": 22,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 22
+        },
+        "F_elem_cn_abin": {
+          "covered": 25,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 25
+        },
+        "F_elem_cn_dmin": {
+          "covered": 27,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 27
+        },
+        "F_elem_poly": {
+          "covered": 22,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 22
+        }
+      },
+      "processing": {
+        "charge": {
+          "key": null,
+          "policy": "disabled",
+          "records_by_source": []
+        },
+        "chemenv_failed_records": 1,
+        "defaulted_moment_records": 18,
+        "eligible_by_policy": {
+          "active": "quarantine",
+          "quarantine": 20,
+          "reference": 20
+        },
+        "failures": [
+          {
+            "category": "QhullError",
+            "count": 1,
+            "fallback": "crystalnn",
+            "fatal": false,
+            "stage": "chemenv"
+          }
+        ],
+        "records_by_status": [
+          {
+            "count": 20,
+            "reason": null,
+            "status": "ok"
+          }
+        ],
+        "records_missing_energy": 0,
+        "records_missing_forces": 0,
+        "sites": [
+          {
+            "count": 71,
+            "neighbour_source": "chemenv-default",
+            "status": "ok"
+          },
+          {
+            "count": 3,
+            "neighbour_source": "chemenv-extended",
+            "status": "ok"
+          },
+          {
+            "count": 2,
+            "neighbour_source": "crystalnn",
+            "status": "recovered"
+          }
+        ],
+        "symmetry_fallback_records": 0
+      },
+      "seconds": {
+        "audit_manifest_export_check": 0.191,
+        "coarsen_and_select": 0.003,
+        "tokenize_and_index": 2.481,
+        "total": 2.675
+      },
+      "selected_ids": [
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:11",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:12",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:13",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:17",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:18",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:19",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:20",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:7",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:8",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:15",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:4",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:10",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:3",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:9",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:14",
+        "periodic-check@703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634:generated.aselmdb:5"
+      ],
+      "structures": {
+        "eligible": 20,
+        "retention": 0.8,
+        "selected": 16
+      },
+      "workers": 1
+    }
+  },
+  "schema_version": 1,
+  "source": {
+    "kind": "generated_reference_fixture",
+    "native_adapter": "omat24",
+    "path": "tests/fixtures/corpus.extxyz",
+    "real_omat24_claim": false,
+    "revision": "703de847767878219b72f5e48ff9ae4d29c5c60f1eb5afcee5ca696410f4a634"
+  }
+}

@@ -1,0 +1,352 @@
+{
+  "data_gate": {
+    "issues": [],
+    "limits": {
+      "model_features": 512,
+      "training_species": 6
+    },
+    "missing_development_species": [],
+    "overlapping_parent_ids": [],
+    "passed": true,
+    "required_model_features": 8,
+    "training_atomic_numbers": [
+      29
+    ],
+    "training_species": [
+      "Cu"
+    ]
+  },
+  "development_configurations": 2,
+  "elapsed_seconds": 1.515,
+  "limitations": [
+    "Small development screen; no test-set or production accuracy claim.",
+    "Radial pairs omit angular, many-body and magnetic physics; not MACE.",
+    "Random structures share the selected-atom ceiling and may underfill it."
+  ],
+  "min_structure_support": 2,
+  "model": {
+    "centres_angstrom": [
+      0.7,
+      1.1,
+      1.5,
+      2.0,
+      2.6,
+      3.3,
+      4.1
+    ],
+    "cutoff_angstrom": 5.0,
+    "intercepts": "unpenalized element counts fitted on each training subset",
+    "loss": "per-record squared per-atom energy error plus mean squared force-component error",
+    "name": "periodic_linear_radial_pairs_v1",
+    "ridge": 0.0001,
+    "species": [
+      29
+    ],
+    "width_angstrom": 0.5
+  },
+  "random_atom_ceiling": 4,
+  "runs": [
+    {
+      "coefficients": [
+        0.12488381168932478,
+        0.1633307367752352,
+        0.9234028845010316,
+        1.9478932083479241,
+        -0.5001925990375984,
+        -0.16521879898681033,
+        0.5369189850780048,
+        -0.40018518240204315
+      ],
+      "coverage": {
+        "atoms": {
+          "eligible": 16,
+          "retention": 1.0,
+          "selected": 16
+        },
+        "classes": {
+          "covered": 2,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 2
+        },
+        "full_tokens": {
+          "covered": 2,
+          "eligible": 2,
+          "fraction": 1.0,
+          "frequency_weighted": 1.0
+        },
+        "presence": {
+          "F_elem_cn": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          },
+          "F_elem_cn_abin": {
+            "covered": 2,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 2
+          },
+          "F_elem_cn_dmin": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          },
+          "F_elem_poly": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          }
+        },
+        "structures": {
+          "eligible": 4,
+          "retention": 1.0,
+          "selected": 4
+        }
+      },
+      "development": {
+        "energy_mae_eV": 0.022142195170519186,
+        "energy_rmse_eV": 0.022209535889615717,
+        "force_mae_eV_per_Ang": 0.008355288562267487,
+        "force_rmse_eV_per_Ang": 0.011475617875722365
+      },
+      "fit_seconds": 0.021,
+      "mandatory_coverage_complete": true,
+      "selected_ids": [
+        "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:0",
+        "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:1",
+        "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:2",
+        "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:3"
+      ],
+      "selector": "full_pool",
+      "training": {
+        "element_count_rank": 1,
+        "parameters": 8,
+        "regularized_design_rank": 8,
+        "ridge": 0.0001,
+        "training_atoms": 16,
+        "training_configurations": 4
+      }
+    },
+    {
+      "coefficients": [
+        3.790905187738093,
+        0.05927908703619089,
+        0.37216775070060354,
+        0.955509060244131,
+        0.06530973652078698,
+        -1.4657475201153516,
+        0.12776971428711587,
+        -0.017644003919512652
+      ],
+      "coverage": {
+        "atoms": {
+          "eligible": 16,
+          "retention": 0.25,
+          "selected": 4
+        },
+        "classes": {
+          "covered": 2,
+          "fraction": 1.0,
+          "missing_examples": [],
+          "required": 2
+        },
+        "full_tokens": {
+          "covered": 2,
+          "eligible": 2,
+          "fraction": 1.0,
+          "frequency_weighted": 1.0
+        },
+        "presence": {
+          "F_elem_cn": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          },
+          "F_elem_cn_abin": {
+            "covered": 2,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 2
+          },
+          "F_elem_cn_dmin": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          },
+          "F_elem_poly": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          }
+        },
+        "structures": {
+          "eligible": 4,
+          "retention": 0.25,
+          "selected": 1
+        }
+      },
+      "development": {
+        "energy_mae_eV": 0.33540335924340725,
+        "energy_rmse_eV": 0.4531595138929789,
+        "force_mae_eV_per_Ang": 0.06795157592596301,
+        "force_rmse_eV_per_Ang": 0.10028383846222806
+      },
+      "engineering_screen_pass": false,
+      "fit_seconds": 0.005,
+      "force_rmse_ratio_to_full": 8.738861780539674,
+      "mandatory_coverage_complete": true,
+      "selected_ids": [
+        "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:0"
+      ],
+      "selector": "envtok",
+      "training": {
+        "element_count_rank": 1,
+        "parameters": 8,
+        "regularized_design_rank": 8,
+        "ridge": 0.0001,
+        "training_atoms": 4,
+        "training_configurations": 1
+      }
+    },
+    {
+      "coefficients": [
+        1.0415905159866352,
+        0.006004887246196133,
+        0.05597893034202033,
+        0.23145071427434546,
+        0.26549120821665095,
+        -0.5277433493589824,
+        0.03020178989750061,
+        0.02420867190738591
+      ],
+      "coverage": {
+        "atoms": {
+          "eligible": 16,
+          "retention": 0.25,
+          "selected": 4
+        },
+        "classes": {
+          "covered": 1,
+          "fraction": 0.5,
+          "missing_examples": [
+            "__CATCHALL__|Cu"
+          ],
+          "required": 2
+        },
+        "full_tokens": {
+          "covered": 1,
+          "eligible": 2,
+          "fraction": 0.5,
+          "frequency_weighted": 0.9375
+        },
+        "presence": {
+          "F_elem_cn": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          },
+          "F_elem_cn_abin": {
+            "covered": 1,
+            "fraction": 0.5,
+            "missing_examples": [
+              "Cu|12|1"
+            ],
+            "required": 2
+          },
+          "F_elem_cn_dmin": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          },
+          "F_elem_poly": {
+            "covered": 1,
+            "fraction": 1.0,
+            "missing_examples": [],
+            "required": 1
+          }
+        },
+        "structures": {
+          "eligible": 4,
+          "retention": 0.25,
+          "selected": 1
+        }
+      },
+      "development": {
+        "energy_mae_eV": 0.283305043046129,
+        "energy_rmse_eV": 0.29219065632061536,
+        "force_mae_eV_per_Ang": 0.04136784210917565,
+        "force_rmse_eV_per_Ang": 0.07252811982749766
+      },
+      "engineering_screen_pass": false,
+      "fit_seconds": 0.007,
+      "force_rmse_ratio_to_full": 6.320193005113651,
+      "mandatory_coverage_complete": false,
+      "selected_ids": [
+        "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:2"
+      ],
+      "selector": "random",
+      "training": {
+        "element_count_rank": 1,
+        "parameters": 8,
+        "regularized_design_rank": 8,
+        "ridge": 0.0001,
+        "training_atoms": 4,
+        "training_configurations": 1
+      }
+    }
+  ],
+  "selection_seed": 0,
+  "software": {
+    "ase": "3.29.0",
+    "duckdb": "2.0.0",
+    "numpy": "2.4.6",
+    "pyarrow": "26.0.1",
+    "pymatgen": "2026.10.24",
+    "pymatgen-core": "2026.10.31",
+    "pyyaml": "6.0.3",
+    "scipy": "1.18.1",
+    "spglib": "2.8.0"
+  },
+  "source_description": "Generated Cu cells with ASE EMT energy and force labels, from tests/test_periodic_accuracy_screen.py::_sources; not OMat24 or DFT.",
+  "source_sha256": {
+    "development": "8f79126a2cbc5dbfef506fca3e3e34f65c2c3399c0a59136135d6c75a8b44f6b",
+    "train": "b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938"
+  },
+  "split_manifest": {
+    "periodic-accuracy@8f79126a2cbc5dbfef506fca3e3e34f65c2c3399c0a59136135d6c75a8b44f6b:validation.extxyz:0": {
+      "parent_id": "validation-parent-0",
+      "split": "validation"
+    },
+    "periodic-accuracy@8f79126a2cbc5dbfef506fca3e3e34f65c2c3399c0a59136135d6c75a8b44f6b:validation.extxyz:1": {
+      "parent_id": "validation-parent-1",
+      "split": "validation"
+    },
+    "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:0": {
+      "parent_id": "train-parent-0",
+      "split": "train"
+    },
+    "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:1": {
+      "parent_id": "train-parent-1",
+      "split": "train"
+    },
+    "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:2": {
+      "parent_id": "train-parent-2",
+      "split": "train"
+    },
+    "periodic-accuracy@b2f9055647329b056a2d71f3dbf95b9e46a2d11aa3aa06d75e0a6290e7d74938:train.extxyz:3": {
+      "parent_id": "train-parent-3",
+      "split": "train"
+    }
+  },
+  "status": "engineering_accuracy_screen_only",
+  "training_configurations": 4
+}

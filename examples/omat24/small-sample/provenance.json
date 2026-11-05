@@ -1,0 +1,367 @@
+{
+  "archive_bytes": 2274568000,
+  "archive_name": "omat24_1M.tar.gz",
+  "archive_sha256": "789ecc1306575a1652806b339265d7659c57282eeb1b3e3b54ba0e1154938b81",
+  "citation": "https://arxiv.org/abs/2410.12771",
+  "dataset": "OMat24",
+  "dataset_card": "https://huggingface.co/datasets/facebook/OMAT24",
+  "files_sha256": {
+    "development.aselmdb": "9f4f3d9733b80347e5ce998456e3705455627e5d85579f4e2c28ba40e7b4615d",
+    "development.extxyz": "3175a0a2d48ee57e5840c99118212583de5ba6c237dbb406ef23a4fe986d7761",
+    "train.aselmdb": "a143d8110b0b0cc36b5ca317f913a485cf0999888a6546564df7689caf9d221f",
+    "train.extxyz": "c419ca8bef16ea8ad3cda89dd68497e8b17ab2303e336b110232c24d1bda26af"
+  },
+  "labels": {
+    "energy": "eV",
+    "forces": "eV/Ang",
+    "stress": "eV/Ang^3"
+  },
+  "license": "CC-BY-4.0",
+  "member": "./train/rattled-relax/train.aselmdb",
+  "member_bytes": 201736192,
+  "member_sha256": "d7be82771964f04109b97619ff6d7010c79ce7b2c55b69c298b73eba4ed7e138",
+  "official_download_url": "https://dl.fbaipublicfiles.com/opencatalystproject/data/omat/251210/omat24_1M_251210.tar.gz",
+  "origin": "existing local OMat24 1M archive; native rattled-relax training shard",
+  "records": [
+    {
+      "natoms": 3,
+      "parent_id": "agm004242068_ABC_0_spg216",
+      "partition": "train",
+      "sid": "agm004242068_ABC_0_spg216_0_rattled-relax_khvfi7_1",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:1",
+      "source_row_key": "1"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm002631536_ABC2_3_spg225",
+      "partition": "train",
+      "sid": "agm002631536_ABC2_3_spg225_0_rattled-relax_wk5ice_29",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:2",
+      "source_row_key": "2"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm004093183_ABC2_6852_spg99",
+      "partition": "train",
+      "sid": "agm004093183_ABC2_6852_spg99_0_rattled-relax_bghbrg_12",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:3",
+      "source_row_key": "3"
+    },
+    {
+      "natoms": 18,
+      "parent_id": "agm003499856_AB2C6_147_spg15",
+      "partition": "train",
+      "sid": "agm003499856_AB2C6_147_spg15_0_rattled-relax_6aiqwm_2",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:4",
+      "source_row_key": "4"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm001690198_ABCD2_2_spg123",
+      "partition": "train",
+      "sid": "agm001690198_ABCD2_2_spg123_0_rattled-relax_v7q6wj_6",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:7",
+      "source_row_key": "7"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002545683_ABC3_0_spg221",
+      "partition": "train",
+      "sid": "agm002545683_ABC3_0_spg221_0_rattled-relax_1cz5xh_22",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:8",
+      "source_row_key": "8"
+    },
+    {
+      "natoms": 12,
+      "parent_id": "agm004880434_ABC2D8_848_spg82",
+      "partition": "train",
+      "sid": "agm004880434_ABC2D8_848_spg82_0_rattled-relax_s8ro9b_20",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:10",
+      "source_row_key": "10"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm003190493_AB_2_spg227",
+      "partition": "train",
+      "sid": "agm003190493_AB_2_spg227_0_rattled-relax_rdjgcc_14",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:11",
+      "source_row_key": "11"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm001674339_ABCD2_2_spg123",
+      "partition": "train",
+      "sid": "agm001674339_ABCD2_2_spg123_0_rattled-relax_1nq7ke_71",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:12",
+      "source_row_key": "12"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm004158615_ABC2_6962_spg99",
+      "partition": "train",
+      "sid": "agm004158615_ABC2_6962_spg99_0_rattled-relax_5xumpv_5",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:13",
+      "source_row_key": "13"
+    },
+    {
+      "natoms": 19,
+      "parent_id": "agm003688113_AB6C12_0_spg204",
+      "partition": "train",
+      "sid": "agm003688113_AB6C12_0_spg204_0_rattled-relax_kxoixd_3",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:15",
+      "source_row_key": "15"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002526403_ABC3_0_spg221",
+      "partition": "train",
+      "sid": "agm002526403_ABC3_0_spg221_0_rattled-relax_dqmzow_28",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:17",
+      "source_row_key": "17"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm002707836_ABC2_3_spg225",
+      "partition": "train",
+      "sid": "agm002707836_ABC2_3_spg225_0_rattled-relax_1u2909_1",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:18",
+      "source_row_key": "18"
+    },
+    {
+      "natoms": 19,
+      "parent_id": "agm003371007_A2B5C12_45_spg12",
+      "partition": "train",
+      "sid": "agm003371007_A2B5C12_45_spg12_0_rattled-relax_xk063b_32",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:20",
+      "source_row_key": "20"
+    },
+    {
+      "natoms": 10,
+      "parent_id": "agm006032059_AB4C5_22_spg123",
+      "partition": "train",
+      "sid": "agm006032059_AB4C5_22_spg123_0_rattled-relax_skjtqd_21",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:21",
+      "source_row_key": "21"
+    },
+    {
+      "natoms": 12,
+      "parent_id": "agm005235490_ABC4_762_spg63",
+      "partition": "train",
+      "sid": "agm005235490_ABC4_762_spg63_0_rattled-relax_u6ijw3_8",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:24",
+      "source_row_key": "24"
+    },
+    {
+      "natoms": 16,
+      "parent_id": "agm003555444_AB3C4_603_spg31",
+      "partition": "train",
+      "sid": "agm003555444_AB3C4_603_spg31_0_rattled-relax_icrb19_23",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:26",
+      "source_row_key": "26"
+    },
+    {
+      "natoms": 10,
+      "parent_id": "agm003067604_ABC3_1397_spg119",
+      "partition": "train",
+      "sid": "agm003067604_ABC3_1397_spg119_0_rattled-relax_z9v1r9_12",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:27",
+      "source_row_key": "27"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm002644787_ABC2_3_spg225",
+      "partition": "train",
+      "sid": "agm002644787_ABC2_3_spg225_0_rattled-relax_ayogpn_17",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:28",
+      "source_row_key": "28"
+    },
+    {
+      "natoms": 10,
+      "parent_id": "agm004485949_ABC2D6_1_spg225",
+      "partition": "train",
+      "sid": "agm004485949_ABC2D6_1_spg225_0_rattled-relax_w531kt_11",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:29",
+      "source_row_key": "29"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm004367035_ABC2_6844_spg8",
+      "partition": "train",
+      "sid": "agm004367035_ABC2_6844_spg8_0_rattled-relax_uf1o2u_3",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:30",
+      "source_row_key": "30"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm004047286_ABC2_6850_spg6",
+      "partition": "train",
+      "sid": "agm004047286_ABC2_6850_spg6_0_rattled-relax_yyphep_21",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:31",
+      "source_row_key": "31"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002081707_ABCD2_1018_spg1",
+      "partition": "train",
+      "sid": "agm002081707_ABCD2_1018_spg1_0_rattled-relax_xwn8yj_65",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:34",
+      "source_row_key": "34"
+    },
+    {
+      "natoms": 3,
+      "parent_id": "agm003277967_AB2_86_spg71",
+      "partition": "train",
+      "sid": "agm003277967_AB2_86_spg71_0_rattled-relax_wde3ul_2",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:35",
+      "source_row_key": "35"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm001747980_ABCD2_45_spg123",
+      "partition": "train",
+      "sid": "agm001747980_ABCD2_45_spg123_0_rattled-relax_o0j7vw_3",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:36",
+      "source_row_key": "36"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002550055_ABC3_0_spg221",
+      "partition": "train",
+      "sid": "agm002550055_ABC3_0_spg221_0_rattled-relax_u23ngy_0",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:38",
+      "source_row_key": "38"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm002638287_ABC2_3_spg225",
+      "partition": "train",
+      "sid": "agm002638287_ABC2_3_spg225_0_rattled-relax_n0inv3_3",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:40",
+      "source_row_key": "40"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm001429125_ABCD2_2_spg123",
+      "partition": "train",
+      "sid": "agm001429125_ABCD2_2_spg123_0_rattled-relax_u1j7uu_22",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:42",
+      "source_row_key": "42"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002076246_ABCDE_842_spg8",
+      "partition": "train",
+      "sid": "agm002076246_ABCDE_842_spg8_0_rattled-relax_mex2dg_16",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:43",
+      "source_row_key": "43"
+    },
+    {
+      "natoms": 10,
+      "parent_id": "agm003205763_ABC2D6_1_spg225",
+      "partition": "train",
+      "sid": "agm003205763_ABC2D6_1_spg225_0_rattled-relax_kroy12_10",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:44",
+      "source_row_key": "44"
+    },
+    {
+      "natoms": 6,
+      "parent_id": "agm005903160_ABC4_144_spg191",
+      "partition": "train",
+      "sid": "agm005903160_ABC4_144_spg191_0_rattled-relax_tv7tr8_11",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:45",
+      "source_row_key": "45"
+    },
+    {
+      "natoms": 8,
+      "parent_id": "agm002813048_ABC2_234_spg122",
+      "partition": "train",
+      "sid": "agm002813048_ABC2_234_spg122_0_rattled-relax_7dg9o5_6",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:46",
+      "source_row_key": "46"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm001495636_ABCD2_2_spg123",
+      "partition": "development",
+      "sid": "agm001495636_ABCD2_2_spg123_0_rattled-relax_uvhs2j_28",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:47",
+      "source_row_key": "47"
+    },
+    {
+      "natoms": 4,
+      "parent_id": "agm002689310_ABC2_3_spg225",
+      "partition": "development",
+      "sid": "agm002689310_ABC2_3_spg225_0_rattled-relax_65sf97_2",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:48",
+      "source_row_key": "48"
+    },
+    {
+      "natoms": 6,
+      "parent_id": "agm005429281_AB_1605_spg8",
+      "partition": "development",
+      "sid": "agm005429281_AB_1605_spg8_0_rattled-relax_69oz8m_6",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:50",
+      "source_row_key": "50"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002545990_ABC3_0_spg221",
+      "partition": "development",
+      "sid": "agm002545990_ABC3_0_spg221_0_rattled-relax_1swdbc_3",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:51",
+      "source_row_key": "51"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm002512482_ABC3_0_spg221",
+      "partition": "development",
+      "sid": "agm002512482_ABC3_0_spg221_0_rattled-relax_76r2zx_31",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:52",
+      "source_row_key": "52"
+    },
+    {
+      "natoms": 6,
+      "parent_id": "agm002049787_ABC_529_spg44",
+      "partition": "development",
+      "sid": "agm002049787_ABC_529_spg44_0_rattled-relax_5m89zh_10",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:53",
+      "source_row_key": "53"
+    },
+    {
+      "natoms": 6,
+      "parent_id": "agm005474387_AB2_2140_spg194",
+      "partition": "development",
+      "sid": "agm005474387_AB2_2140_spg194_0_rattled-relax_07uovk_17",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:56",
+      "source_row_key": "56"
+    },
+    {
+      "natoms": 5,
+      "parent_id": "agm001695979_ABCD2_2_spg123",
+      "partition": "development",
+      "sid": "agm001695979_ABCD2_2_spg123_0_rattled-relax_4yq0ax_22",
+      "source_record_id": "omat24@local-1M-shard-d7be82771964f041:train/rattled-relax/train.aselmdb:59",
+      "source_row_key": "59"
+    }
+  ],
+  "revision": "local-1M-shard-d7be82771964f041",
+  "sampling": {
+    "development": 8,
+    "development_split": "held out inside official training; not official validation",
+    "excluded_elements": "La-Lu and Ac-Lr (OMat24 study preset)",
+    "group_key": "parent_id",
+    "limitation": "small ordered sample; no representative or production accuracy claim",
+    "max_atoms": 20,
+    "max_rows_scanned": 1000,
+    "order": "ascending native row key; first eligible distinct parents",
+    "parent_overlap": 0,
+    "rows_read": 59,
+    "skipped": {
+      "study_f_block_exclusion": 19
+    },
+    "source_split": "train for both outputs",
+    "train": 32
+  },
+  "schema_version": 1,
+  "upstream_archive_checksum_verified": false
+}
