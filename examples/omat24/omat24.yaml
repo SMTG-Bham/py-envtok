@@ -1,4 +1,5 @@
 # Pilot configuration for OMat24 ASE-LMDB shards (resource values illustrative).
+# For the measured 1,024-structure compression example, see compression-demo/README.md.
 # Install the LMDB backend first:  uv pip install "envtok[omat24]"
 schema_version: 1
 source:

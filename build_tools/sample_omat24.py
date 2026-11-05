@@ -1,10 +1,12 @@
-"""Extract a tiny, traceable OMat24 sample from an existing local archive.
+"""Extract a bounded, traceable OMat24 sample from an existing local archive.
 
 No data are downloaded. Only one bounded native shard is staged temporarily;
 32 training records and eight disjoint-parent development records are retained
 by default. The development records come from the source training partition,
-not the official validation partition. Ordered sampling is an engineering
-convenience and does not establish a representative accuracy benchmark.
+not the official validation partition. Larger counts can be requested for
+compression demonstrations, up to 2048 retained records. Ordered small-cell
+sampling is an engineering convenience and does not establish a representative
+compression or accuracy benchmark.
 
 Usage::
 
@@ -36,7 +38,8 @@ SOURCE_URL = (
     "omat24_1M_251210.tar.gz"
 )
 MAX_MEMBER_BYTES = 512 * 2**20
-MAX_RETAINED = 96
+MAX_RETAINED = 2048
+MAX_ROWS_SCANNED = 10_000
 
 
 def sha256(path: Path) -> str:
@@ -83,7 +86,7 @@ def sample(
     parents: set[str] = set()
     try:
         for scanned, record in enumerate(adapter.iter_records(), start=1):
-            if scanned > 1000:  # noqa: PLR2004 - deliberately bounded acquisition
+            if scanned > MAX_ROWS_SCANNED:
                 break
             parent = record.metadata.get("parent_id")
             reason = None
@@ -164,7 +167,7 @@ def write_sample(frames: dict[str, list[Atoms]], directory: Path) -> dict[str, s
 
 
 def main() -> None:
-    """Create reproducible acquisition provenance and a tiny fixed sample."""
+    """Create reproducible acquisition provenance and a bounded fixed sample."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument(
@@ -180,7 +183,10 @@ def main() -> None:
         min(args.train, args.development, args.max_atoms) < 1
         or args.train + args.development > MAX_RETAINED
     ):
-        parser.error("counts and max-atoms must be positive; retain at most 96 records")
+        parser.error(
+            "counts and max-atoms must be positive; "
+            f"retain at most {MAX_RETAINED} records"
+        )
     with TemporaryDirectory(prefix="envtok-omat24-sample-") as temporary:
         directory = Path(temporary)
         shard = directory / "source.aselmdb"
@@ -211,7 +217,7 @@ def main() -> None:
                 "train": args.train,
                 "development": args.development,
                 "max_atoms": args.max_atoms,
-                "max_rows_scanned": 1000,
+                "max_rows_scanned": MAX_ROWS_SCANNED,
                 "rows_read": len(lineage) + sum(skipped.values()),
                 "excluded_elements": "La-Lu and Ac-Lr (OMat24 study preset)",
                 "skipped": skipped,
@@ -222,7 +228,7 @@ def main() -> None:
                     "held out inside official training; not official validation"
                 ),
                 "limitation": (
-                    "small ordered sample; "
+                    "ordered small-cell sample; "
                     "no representative or production accuracy claim"
                 ),
             },

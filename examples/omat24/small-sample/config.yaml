@@ -1,0 +1,36 @@
+# Run the bundled real OMat24 sample without downloading the full dataset:
+#   python -m envtok run --config examples/omat24/small-sample/config.yaml
+# Paths are relative to this file. This tiny sample is not a compression benchmark.
+schema_version: 1
+source:
+  adapter: omat24
+  path: train.aselmdb
+  name: omat24-small
+  revision: local-1M-shard-d7be82771964f041
+  split: train
+
+corpus:
+  preset: omat24-study
+  invalid_record_policy: quarantine
+
+tokenizer:
+  profile: reference-723696d
+
+coverage:
+  min_structure_support: 2
+  split: train
+
+selection:
+  mode: cover
+  cost: atoms
+  presence_constraints: reference
+
+execution:
+  workdir: ../../../runs/omat24-small-demo
+  workers: 2
+  batch_size: 8
+  resume: true
+
+output:
+  format: extxyz
+  preserve_labels: true

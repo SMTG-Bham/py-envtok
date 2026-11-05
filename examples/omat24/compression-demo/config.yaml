@@ -1,0 +1,37 @@
+# Run after sampling 1024 training records from the local OMat24 archive.
+# Paths are relative to this file; the sampled data and outputs stay in runs/.
+schema_version: 1
+source:
+  adapter: omat24
+  path: ../../../runs/omat24-compression-demo/data/train.aselmdb
+  name: omat24-compression
+  revision: local-1M-shard-d7be82771964f041
+  split: train
+
+corpus:
+  preset: omat24-study
+  invalid_record_policy: quarantine
+
+tokenizer:
+  profile: reference-723696d
+
+coverage:
+  min_structure_support: 100
+  split: train
+
+selection:
+  mode: cover
+  cost: atoms
+  presence_constraints: reference
+
+execution:
+  workdir: ../../../runs/omat24-compression-demo/pipeline
+  workers: 8
+  batch_size: 8
+  max_inflight_batches: 16
+  threads_per_worker: 1
+  resume: true
+
+output:
+  format: extxyz
+  preserve_labels: true

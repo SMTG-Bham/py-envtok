@@ -39,6 +39,31 @@ sample-file hashes, retained row IDs, exclusions, units and grouping. The
 upstream archive checksum has not been independently verified. The dataset
 identity follows the existing local archive and its native record metadata.
 
+## Run a small example
+
+From the repository root, run the complete pipeline on the bundled native
+training shard; no dataset download is needed:
+
+```bash
+uv run --extra omat24 envtok run --config examples/omat24/small-sample/config.yaml
+```
+
+With EnvTok and its OMat24 dependencies already installed, the equivalent
+command is `python -m envtok run --config examples/omat24/small-sample/config.yaml`.
+The configuration uses support threshold **T = 2** to suit this tiny pool:
+support is counted in distinct source structures and controls coarsening,
+not the number of structures selected.
+
+Expect **32 structures / 237 atoms selected**, covering **75 of 75 classes**
+and every required presence signature. This heterogeneous sample shows
+**no compression**. Open `report.html` in the printed selection directory,
+`runs/omat24-small-demo/selection-T2-<fingerprint>/`, to inspect the audit.
+The same directory contains `subset.extxyz` with the selected original
+structures and labels. Repeating the command reuses completed tokenisation.
+
+For a larger run that demonstrates compression, see the
+[1,024-structure example](../compression-demo/README.md).
+
 Recreate the sample from an existing archive:
 
 ```bash
