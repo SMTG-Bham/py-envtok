@@ -6,7 +6,7 @@ estimate resources before a pilot, then confirm on real data.
 
 Usage::
 
-    uv run python build_tools/benchmark_selection.py --records 200000 --tokens 20000
+    uv run python build_tools/benchmark_selection.py
 """
 
 import argparse
@@ -73,9 +73,9 @@ def peak_mib() -> float:
 def main() -> None:
     """Run the benchmark and print a JSON summary."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--records", type=int, default=100_000)
-    parser.add_argument("--tokens", type=int, default=10_000)
-    parser.add_argument("--threshold", type=int, default=100)
+    parser.add_argument("--records", type=int, default=1_000)
+    parser.add_argument("--tokens", type=int, default=200)
+    parser.add_argument("--threshold", type=int, default=5)
     parser.add_argument("--backend", choices=["memory", "duckdb"], default="memory")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()

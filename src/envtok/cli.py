@@ -44,6 +44,13 @@ def build_parser() -> argparse.ArgumentParser:
         sub = with_config(stage, f"molecular profile: {stage}")
         if stage == "benchmark":
             sub.add_argument("--seeds", type=int, nargs="+", default=[0])
+            sub.add_argument(
+                "--fractions",
+                type=float,
+                nargs="+",
+                default=[0.25],
+                help="atom fractions (default: 0.25; full pool is always included)",
+            )
     tokenize = with_config("tokenize", "compute (or resume) the token cache")
     tokenize.add_argument("--shard-index", type=int, default=0)
     tokenize.add_argument("--num-shards", type=int, default=1)
@@ -69,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--output", type=Path, default=None)
     baseline = commands.add_parser("baseline", help="equal-atom random baselines")
     baseline.add_argument("--run", required=True, type=Path, help="selection directory")
-    baseline.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    baseline.add_argument("--seeds", type=int, nargs="+", default=[0])
     return parser
 
 

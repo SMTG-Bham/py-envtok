@@ -106,7 +106,11 @@ def dispatch(arguments: argparse.Namespace) -> Any:  # noqa: PLR0911 - stage dis
     if command in {"benchmark", "baseline"}:
         from envtok.molecular.benchmarks import compare_selectors  # noqa: PLC0415 - optional stage
 
-        summary = compare_selectors(pipeline, seeds=tuple(arguments.seeds))
+        summary = compare_selectors(
+            pipeline,
+            fractions=tuple(getattr(arguments, "fractions", (0.25,))),
+            seeds=tuple(arguments.seeds),
+        )
         destination = pipeline.directory / "benchmarks.json"
         destination.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
         return {"summary": destination}

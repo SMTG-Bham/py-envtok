@@ -304,11 +304,35 @@ def test_benchmark_cli_and_unsupported_stage(
     pipeline = MolecularPipeline(path)
     pipeline.select()
     for args in (
-        ["benchmark", "--config", str(path), "--seeds", "0", "1"],
-        ["baseline", "--run", str(pipeline.directory), "--seeds", "1"],
+        ["benchmark", "--config", str(path)],
+        ["baseline", "--run", str(pipeline.directory)],
     ):
         assert main(args) == 0
         summary = Path(json.loads(capsys.readouterr().out)["summary"])
-        assert json.loads(summary.read_text())["status"] == "model_accuracy_pending"
+        report = json.loads(summary.read_text())
+        assert report["status"] == "model_accuracy_pending"
+        assert len(report["runs"]) == 3
+        assert {row["fraction"] for row in report["runs"]} == {0.25}
+        assert {row["selection_seed"] for row in report["runs"]} == {0}
+    assert (
+        main(
+            [
+                "benchmark",
+                "--config",
+                str(path),
+                "--fractions",
+                "0.5",
+                "1",
+                "--seeds",
+                "0",
+                "1",
+            ]
+        )
+        == 0
+    )
+    summary = Path(json.loads(capsys.readouterr().out)["summary"])
+    report = json.loads(summary.read_text())
+    assert len(report["runs"]) == 12
+    assert {row["fraction"] for row in report["runs"]} == {0.5, 1.0}
     with pytest.raises(ConfigError, match="not supported"):
         dispatch(argparse.Namespace(command="future", config=path))

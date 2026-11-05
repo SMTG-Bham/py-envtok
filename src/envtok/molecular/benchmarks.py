@@ -103,7 +103,7 @@ def _write_run(
 def compare_selectors(
     pipeline: MolecularPipeline,
     *,
-    fractions: Sequence[float] = (0.05, 0.10, 0.25, 1.0),
+    fractions: Sequence[float] = (0.25,),
     seeds: Sequence[int] = (0,),
     export_subsets: bool = False,
 ) -> dict[str, Any]:
@@ -112,7 +112,8 @@ def compare_selectors(
     All methods have the same state/namespace/size strata. The token-only method
     uses a chemical core followed by random background to fill its atom budget.
     Every run reports chemical violations, achieved atoms and selected IDs; the
-    full training pool is included separately as the model reference. This writes
+    full training pool is included separately as the model reference. Defaults
+    run one 25% budget and one seed; larger sweeps are opt-in. This writes
     reproducible manifests, optionally materializing intact training subsets.
     """
     from envtok.molecular.pipeline import audit_selection  # noqa: PLC0415 - avoid pipeline cycle
