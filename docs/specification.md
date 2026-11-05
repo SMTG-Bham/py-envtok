@@ -447,7 +447,19 @@ for Python and NumPy, and spills within `temporary_disk_budget`. Before
 building its incidence, selection estimates its working state and refuses to
 run above `memory_budget`.
 
-### 7.1 Measured scale (synthetic pools, geometry excluded)
+### 7.1 Small acceptance check and historical scale measurements
+
+The default selection benchmark now uses 1,000 synthetic records, 200 possible
+tokens and T=5. Large runs are opt-in. The separate
+[`qualify_periodic.py`](../build_tools/qualify_periodic.py) check exercises the
+full geometry path on 20 generated fixtures through native ASE-LMDB storage.
+Its [recorded result](../examples/quickstart/qualification-results.json) verifies
+serial/two-worker/interrupted-restart agreement, complete coverage and intact
+exports. It is not a real OMat24 measurement. Reported peak RSS covers the parent
+process only and does not certify a total parallel memory bound.
+
+The earlier synthetic measurements below remain historical context; repeating
+them is not a prerequisite for the small acceptance checks.
 
 `build_tools/benchmark_selection.py` builds a synthetic eligible pool with a
 Zipf-like token frequency and 2–30 sites per record. It then times

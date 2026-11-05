@@ -95,8 +95,8 @@ Unknown state is never silently converted to neutral/singlet.
 
 ```bash
 uv sync --extra molecular
-uv run envtok run --config examples/molecular/omol/config.yaml
-uv run envtok benchmark --config examples/molecular/omol/config.yaml --seeds 0 1 2
+uv run --extra molecular envtok run --config examples/molecular/omol/config.yaml
+uv run --extra molecular envtok benchmark --config examples/molecular/omol/config.yaml
 ```
 
 The bundled [OMol sample](examples/molecular/omol/README.md) contains 29 real
@@ -104,6 +104,18 @@ training configurations from a documented public mirror. It exercises the
 pipeline and selector comparisons; downstream model accuracy is unvalidated.
 See [molecular usage and data contracts](docs/molecular.md) for the Python API,
 staged CLI, supplied-graph schema, safeguards and current limitations.
+
+Benchmark defaults are intentionally small: molecular comparisons use one 25%
+atom budget and seed 0, plus a separate full-pool control. Larger sweeps are
+opt-in through `--fractions` and `--seeds`. The [periodic plan](envtok_implementation_plan.md)
+and [molecular plan](envtok_molecular_implementation_plan.md) describe the short
+acceptance checks and remaining scientific work.
+
+The [real OMat24 sample](examples/omat24/small-sample/README.md) exercises native
+storage, geometry, restart and export on 32 records. Small molecular pair-model
+and from-scratch MACE comparisons are also runnable; see
+[benchmark commands](build_tools/README.md#small-acceptance-runs). Reports retain
+failed accuracy screens and unsuitable evaluation data explicitly.
 
 ## Inputs
 

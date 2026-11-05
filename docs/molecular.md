@@ -6,11 +6,11 @@ whole original configurations, with explicit charge/spin protections, chemical
 coverage and optional geometry refinement. It uses a separate pipeline from
 `reference-723696d`; the periodic reference profile keeps its existing behavior.
 
-The implementation is intended for measured pilot pools. Selection coverage
-and descriptor distances do not establish preserved model accuracy. The model
-training, learning curves and application acceptance criteria in milestone 4
-remain scientific validation work. Full-scale sharding (milestone 5) and broader
-chemistry profiles (milestone 6) are not implemented by this pilot pipeline.
+The implementation is intended for small measured pools. The simplified plan
+starts with the bundled 29-record sample, one 25% atom budget and one seed.
+Selection coverage and descriptor distances do not establish preserved model
+accuracy. Application validation, full-scale sharding and broader chemistry
+profiles remain follow-up work.
 
 ## Run the engineering example
 
@@ -36,8 +36,10 @@ A [real OMol25 smoke sample](../examples/molecular/omol/README.md) also contains
 29 finite CHNO configurations and 650 atoms from the public ColabFit training
 mirror. It is an ordered snapshot filtered from the first 100 source rows,
 with the exact response saved and hashed. It is not a random or representative
-scientific pilot, and no model has been trained on it. Its README documents the
-source fields, units, attribution, and reproduction command.
+scientific pilot. Its README documents source fields, units, attribution, and
+the reproduction command. A separate tiny CPU training/evaluation screen is
+available in `build_tools/benchmark_molecular_accuracy.py`; its linear pair model
+is an engineering baseline, not a qualified molecular potential.
 
 Use `selection.mode: budget` with either `atom_fraction: 0.25` or an integer
 `atom_budget` to impose a hard cap. Remove both fields for `mode: cover`.
@@ -213,6 +215,11 @@ All stages accept `--config` and `profile: molecular_v1`:
 | `run` | Select, audit and optionally export. |
 | `benchmark` | Produce selector comparisons; these are diagnostic, not model accuracy. |
 
+`benchmark` defaults to the three selectors at `--fractions 0.25 --seeds 0`,
+with the full training pool included once as a separate control. To opt into a
+larger comparison, pass e.g. `--fractions 0.25 0.5 --seeds 0 1`. The source
+configuration defines the pool; the command does not silently subsample it.
+
 For an existing run, use its saved directory rather than recomputing a directory
 from the current software environment. Replace `<fingerprint>` with the run's
 actual directory suffix:
@@ -254,9 +261,12 @@ Runs retain `selected_ids.txt`, `selected_manifest.parquet`,
 lineage, graph/fallback status, distributions, prototype overflow, selection
 reasons and preprocessing/selection timings.
 
-Milestone 4 remains incomplete: the scientific pilot needs a declared training
-pool beyond the small ordered OMol snapshot, protected development/test
-partitions, a model that consumes the relevant state inputs, matched-budget
-selector comparisons, training seeds, force/energy errors,
-state/conformer/interaction panels, and declared acceptance tolerances.
-Compression claims should wait for those measurements.
+Small from-scratch pair-model and MACE screens are now available in
+`build_tools/benchmark_molecular_accuracy.py` and `build_tools/benchmark_mace.py`.
+Both use a grouped development holdout. The pair runner supports a declared
+budget and supplied source capped at 128 records; MACE uses the bundled neutral
+singlets, a fixed 50% budget and a separate installed training interpreter.
+The [sample report](../examples/molecular/omol/README.md) records the results and
+limitations. Mixed-state models must consume the relevant state inputs. Wider
+datasets, model convergence, repeated seeds, application panels and declared
+tolerances remain necessary before general compression or accuracy claims.
