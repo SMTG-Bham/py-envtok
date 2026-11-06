@@ -54,12 +54,21 @@ jobs:
       matrix:
         # Python 3.15 and the free-threaded 3.14t build are not tested:
         # pymatgen-core (required for ChemEnv) publishes no wheels for them.
-        python-version: ["3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
         # "lowest-direct" tests the oldest dependency versions allowed by
         # pyproject.toml.
         resolution: [locked, lowest-direct]
         extras: [base]
         include:
+          - python-version: "3.11"
+            resolution: locked
+            extras: molecular
+          - python-version: "3.12"
+            resolution: locked
+            extras: molecular
+          - python-version: "3.13"
+            resolution: locked
+            extras: molecular
           - python-version: "3.14"
             resolution: locked
             extras: molecular
