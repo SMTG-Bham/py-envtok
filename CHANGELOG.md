@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0a1 — unreleased
 
 Initial alpha release. Public APIs and saved-run formats may change in later
 versions; keep the source data and resolved configuration needed to rerun a job.
