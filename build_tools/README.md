@@ -51,6 +51,13 @@ atom reduction with complete class and required-presence coverage. The example
 documents sampling, the threshold sweep, random comparisons and verified
 exports; it does not establish downstream model accuracy.
 
+The [OMat24 MACE training comparison](../examples/omat24/compression-demo/training.md)
+uses `benchmark_omat_compression_training.py` with a separate installed MACE
+interpreter. It freezes a parent-disjoint holdout before tokenisation and
+selection, then trains full-pool, T=2, T=100 and matched-budget random models
+with three model seeds. The periodic worker preserves cells and image
+neighbors and reports force/energy errors, training time and processed atoms.
+
 The [native OMol25 example](../examples/molecular/omol/compression-demo/README.md)
 uses `sample_omol.py` to retain 512 finite CHNO configurations from a local
 4M archive. Its unbudgeted cover keeps 3,276 of 10,938 atoms (70.0% fewer),

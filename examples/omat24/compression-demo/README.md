@@ -11,6 +11,10 @@ with a previously retained parent. Eight additional development records have
 disjoint parents and are unused by this demonstration. They come from the
 official training partition, not the official validation set.
 
+For actual model fitting, see the [periodic MACE training comparison](training.md).
+It makes a parent-disjoint development split before selecting training
+subsets, then compares full-pool, compressed and random-subset models.
+
 ## Measured results
 
 The default T=100 run retained **755 of 1,024 structures** and **5,077 of

@@ -5,6 +5,9 @@ see EnvTok reduce a real OMat24 pool from **1,024 to 755 structures** and
 **6,705 to 5,077 atoms**. At T=100 this removes 24.3% of the atoms while
 covering every fitted class and required presence signature. The example
 includes a threshold sweep, random comparisons and checked exports.
+The [MACE training comparison](compression-demo/training.md) measures training
+time and held-out prediction errors after making a parent-disjoint split of
+that sample.
 
 From the repository root, prepare the sample from an existing local archive
 and run the supplied configuration:
@@ -26,6 +29,7 @@ contains the selected original structures and labels.
 | Example | Input | Purpose |
 |---|---|---|
 | [Compression demonstration](compression-demo/README.md) | 1,024 structures sampled from a local OMat24 archive | Measured compression, coverage and random comparisons |
+| [MACE training comparison](compression-demo/training.md) | 823 training structures and 201 parent-disjoint holdouts | Full-pool, compressed and random-subset training with three model seeds |
 | [Small sample](small-sample/README.md) | 32 bundled structures; no archive needed | Fast ingestion, tokenisation and export example; no compression |
 | [Full-dataset configuration](omat24.yaml) | Your native OMat24 shards | Template for larger runs; edit source paths, revision and resources |
 
