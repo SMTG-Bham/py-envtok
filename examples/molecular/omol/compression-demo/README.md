@@ -15,7 +15,9 @@ complete geometric fidelity or retained model accuracy.
 This native-archive sample is separate from the [29-record ColabFit smoke
 sample](../README.md), rather than an extension of its row ordering. The
 earlier accuracy screens and their limitations still apply to those earlier
-experiments; this demonstration does not train a model.
+experiments. For actual model fitting on a split of this native sample, see the
+[MACE training comparison](training.md), which evaluates the full training pool,
+two EnvTok covers and a random subset on the same held-out configurations.
 
 ## Measured results
 

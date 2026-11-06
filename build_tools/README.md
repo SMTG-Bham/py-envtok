@@ -60,8 +60,17 @@ geometry check, random baselines and budget comparisons. Native-source and
 export checks preserve metadata, charge/spin, atom ordering and labels; this
 is a selection demonstration, not evidence of model accuracy retention.
 
-The optional MACE runner uses a separate installed MACE interpreter, keeping
-PyTorch out of the selection dependencies. It trains four fresh CPU models for
+The [native OMol training comparison](../examples/molecular/omol/compression-demo/training.md)
+uses `benchmark_omol_compression_training.py` with a separate installed MACE
+interpreter. It freezes a composition-grouped neutral-singlet holdout before
+selection, then trains 12 small CPU models: full pool, two EnvTok covers and
+matched-budget random selection, each with three model seeds and 1,000 fixed
+full-batch epochs. It records prediction errors alongside training time and
+processed atoms; coverage alone is not the accuracy criterion.
+
+The older bundled-sample `benchmark_mace.py` runner uses a separate installed
+MACE interpreter, keeping PyTorch out of the selection dependencies. It trains
+four fresh CPU models for
 200 fixed steps at a single 50% atom ceiling; it records initial/final errors,
 zero-force error and training losses. The run proves the training workflow, not
 convergence, a model advantage, or simulation accuracy. The pair-model runner

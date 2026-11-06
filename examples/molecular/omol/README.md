@@ -4,7 +4,9 @@ For a larger compression case, see the
 [512-configuration native OMol25 example](compression-demo/README.md), with
 unbudgeted cover, random/budget comparisons and explicit geometry limits.
 It uses a separate native archive; the mirror sample and accuracy screens
-below remain available.
+below remain available. Its [MACE training comparison](compression-demo/training.md)
+fits full-pool, compressed and random-subset models on a frozen development
+split of the larger native sample.
 
 This is a real, deliberately small OMol25 sample: **29 finite CHNO
 configurations and 650 atoms**, filtered from the first 100 rows of the public
