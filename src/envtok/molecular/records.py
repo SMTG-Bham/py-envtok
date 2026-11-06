@@ -3,7 +3,7 @@
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from ase import Atoms, units
@@ -18,7 +18,7 @@ from envtok.records import (
     validate_record,
 )
 
-type StateKey = tuple[str, float | None, int | None, str | None]
+StateKey: TypeAlias = tuple[str, float | None, int | None, str | None]
 
 
 @dataclass(frozen=True, slots=True)

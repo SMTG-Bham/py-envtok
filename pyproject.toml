@@ -7,7 +7,7 @@ name = "envtok"
 version = "0.1.0a1"
 description = "Interpretable local-environment tokens and coverage-guaranteed subset selection for atomistic datasets."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11,<3.15"
 license = "MIT"
 license-files = ["LICENSE", "LICENSES/*"]
 authors = [
@@ -26,6 +26,9 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Chemistry",
   "Topic :: Scientific/Engineering :: Physics",
@@ -39,6 +42,7 @@ dependencies = [
   "pymatgen>=2026.9.23",
   "pyyaml>=6.0.3",
   "spglib>=2.7.0",
+  "typing-extensions>=4.4.0",
 ]
 
 [project.optional-dependencies]
@@ -175,7 +179,7 @@ max-args = 10
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.14"
+python_version = "3.11"
 strict = true
 warn_unreachable = true
 enable_error_code = [

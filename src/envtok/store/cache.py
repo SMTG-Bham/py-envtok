@@ -21,6 +21,8 @@ Token IDs are ranks of the sorted canonical token keys over the whole cache:
 they do not depend on partitioning, worker count or completion order.
 """
 
+from __future__ import annotations
+
 import json
 import shutil
 import uuid

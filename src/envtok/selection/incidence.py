@@ -6,6 +6,8 @@ atomic multiplicity), with 64-bit row offsets and an index width chosen from
 the number of items. No Python object is created per atom or edge.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 

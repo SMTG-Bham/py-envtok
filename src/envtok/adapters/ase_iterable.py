@@ -14,12 +14,13 @@ import json
 import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import Any, override
+from typing import Any
 
 import ase.io
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io.jsonio import default as ase_json_default
+from typing_extensions import override
 
 from envtok._extxyz import encode_string_metadata
 from envtok.adapters.base import Adapter, Locator, RecordOptions, make_record

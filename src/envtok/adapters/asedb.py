@@ -13,11 +13,12 @@ without a lock file. The version-sensitive calls are confined to
 
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, cast, override
+from typing import Any, ClassVar, cast
 
 import ase.db
 import numpy as np
 from ase import Atoms
+from typing_extensions import override
 
 from envtok.adapters.base import (
     Adapter,

@@ -21,6 +21,8 @@ Records outside the fit split, and failed, excluded or quarantined records,
 never influence the classes.
 """
 
+from __future__ import annotations
+
 import json
 import tempfile
 from collections.abc import Callable, Iterable, Mapping, Sequence

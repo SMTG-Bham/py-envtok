@@ -8,6 +8,8 @@ modifies a record: it reports :class:`ValidationIssue` objects, and the caller
 decides between exclusion and failure.
 """
 
+from __future__ import annotations
+
 import enum
 import json
 import math

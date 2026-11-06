@@ -1,5 +1,7 @@
 """A corpus: one source adapter plus its eligibility policy."""
 
+from __future__ import annotations
+
 import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field

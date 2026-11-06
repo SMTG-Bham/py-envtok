@@ -8,6 +8,7 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import ase.db
 import ase.io
@@ -517,7 +518,7 @@ class TestIterable:
         for index in range(3):
             target = tmp_path / f"spool-{index}.extxyz"
             spool_atoms([current], target)
-            current = ase.io.read(target)
+            current = cast("Atoms", ase.io.read(target))
             assert isinstance(current.info["empty_adjustments"], np.ndarray)
             np.testing.assert_array_equal(current.info["empty_adjustments"], empty)
             assert current.info["correction_warnings"] == warnings

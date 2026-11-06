@@ -7,6 +7,8 @@ the reason it was selected. Selection never edits structures: the output is a
 subset of original configurations.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path

@@ -3,7 +3,7 @@
 import os
 import runpy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import ase.io
 import numpy as np
@@ -44,7 +44,7 @@ def _source(path: Path) -> list[Atoms]:
         )
         frames.append(atoms)
     spool_atoms(frames, path)
-    return ase.io.read(path, index=":")
+    return cast("list[Atoms]", ase.io.read(path, index=":"))
 
 
 def _check_exports(experiment: dict[str, Any], originals: list[Atoms]) -> None:

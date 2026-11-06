@@ -22,10 +22,11 @@ import lzma
 import shutil
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import IO, Any, cast, override
+from typing import IO, Any, cast
 
 import ase.io
 from ase import Atoms
+from typing_extensions import override
 
 from envtok.adapters.base import (
     Adapter,

@@ -1,5 +1,7 @@
 """Provenance records written next to every selection."""
 
+from __future__ import annotations
+
 import platform
 import sys
 from datetime import UTC, datetime

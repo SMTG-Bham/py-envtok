@@ -11,6 +11,8 @@ are reported, along with atom- and structure-based retention, per-rung
 resolution loss and processing quality.
 """
 
+from __future__ import annotations
+
 import html
 import json
 from typing import TYPE_CHECKING, Any

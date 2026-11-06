@@ -10,7 +10,7 @@ configuration with every default filled in, which is written as
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import yaml
 
@@ -28,6 +28,7 @@ from envtok.profiles import (
 from envtok.records import Split
 
 SCHEMA_VERSION = 1
+T = TypeVar("T")
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +124,7 @@ class OutputConfig:
     annotate: bool = True
 
 
-def _section[T](cls: type[T], data: object, name: str) -> T:
+def _section(cls: type[T], data: object, name: str) -> T:
     if data is None:
         data = {}
     if not isinstance(data, Mapping):

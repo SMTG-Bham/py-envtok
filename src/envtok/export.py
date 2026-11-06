@@ -1,5 +1,7 @@
 """Manifest writing and source-preserving structure export."""
 
+from __future__ import annotations
+
 import json
 import uuid
 from collections.abc import Iterator, Mapping

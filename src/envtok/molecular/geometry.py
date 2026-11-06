@@ -10,6 +10,7 @@ import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import TypeAlias
 
 import numpy as np
 import numpy.typing as npt
@@ -17,9 +18,9 @@ import numpy.typing as npt
 from envtok.errors import ConfigError
 from envtok.molecular.selection import _positive_integer
 
-type Descriptor = tuple[str, npt.NDArray[np.float64]]
-type DescriptorRows = Mapping[str, Sequence[Descriptor]]
-type EnvironmentRef = tuple[str, int, npt.NDArray[np.float64]]
+Descriptor: TypeAlias = tuple[str, npt.NDArray[np.float64]]
+DescriptorRows: TypeAlias = Mapping[str, Sequence[Descriptor]]
+EnvironmentRef: TypeAlias = tuple[str, int, npt.NDArray[np.float64]]
 
 
 @dataclass(frozen=True, slots=True)

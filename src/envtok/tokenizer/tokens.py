@@ -22,6 +22,8 @@ field (element symbols are capitalised), so the two grammars never collide,
 and a token without a charge field keeps the reference string exactly.
 """
 
+from __future__ import annotations
+
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass

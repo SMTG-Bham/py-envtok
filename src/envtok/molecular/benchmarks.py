@@ -4,6 +4,8 @@ Coverage comparisons are engineering diagnostics. They do not constitute the
 scientific model-training pilot and report accuracy as pending.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import math

@@ -4,6 +4,8 @@ This implementation is intended for measured pilot pools. Records and incidence
 are held in memory; full-dataset sharding is a separate scaling milestone.
 """
 
+from __future__ import annotations
+
 import hashlib
 import html
 import json
