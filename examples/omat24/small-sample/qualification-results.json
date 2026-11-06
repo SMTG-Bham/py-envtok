@@ -460,7 +460,7 @@
     },
     "kind": "user_supplied_lmdb",
     "native_adapter": "omat24",
-    "path": "/home/louie/skunkworks/py-envtok/examples/omat24/small-sample/train.aselmdb",
+    "path": "examples/omat24/small-sample/train.aselmdb",
     "real_omat24_claim": true,
     "revision": "local-1M-shard-d7be82771964f041"
   }

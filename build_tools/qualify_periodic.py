@@ -43,6 +43,12 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "corpus.extxyz"
 
 
+def relative(path: Path) -> str:
+    """Use repository-relative paths in portable reports when possible."""
+    path = path.resolve()
+    return str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path)
+
+
 def _fixture_shard(directory: Path) -> Path:
     """Write generated structures, metadata and labels to one native shard."""
     path = directory / "generated.aselmdb"
@@ -295,7 +301,7 @@ def main() -> None:
             "kind": "user_supplied_lmdb"
             if args.source
             else "generated_reference_fixture",
-            "path": str(args.source.resolve())
+            "path": relative(args.source)
             if args.source
             else "tests/fixtures/corpus.extxyz",
             "revision": revision,
