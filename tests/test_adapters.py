@@ -499,3 +499,32 @@ class TestIterable:
         np.testing.assert_allclose(
             spooled[1].labels["forces"].value, frames[1].get_forces()
         )
+
+    def test_repeated_spooling_preserves_empty_array_and_adjacent_metadata(
+        self, tmp_path: Path, frames: list[Atoms]
+    ) -> None:
+        atoms = frames[0]
+        empty = np.empty(0)
+        warnings = ["A warning with spaces and punctuation."]
+        values = np.asarray([1.5, 2.5])
+        atoms.info.update(
+            empty_adjustments=empty,
+            correction_warnings=warnings,
+            adjustment_values=values,
+            source_row_key="001",
+        )
+        current = atoms
+        for index in range(3):
+            target = tmp_path / f"spool-{index}.extxyz"
+            spool_atoms([current], target)
+            current = ase.io.read(target)
+            assert isinstance(current.info["empty_adjustments"], np.ndarray)
+            np.testing.assert_array_equal(current.info["empty_adjustments"], empty)
+            assert current.info["correction_warnings"] == warnings
+            np.testing.assert_array_equal(current.info["adjustment_values"], values)
+            assert current.info["source_row_key"] == "001"
+            assert current.get_potential_energy() == atoms.get_potential_energy()
+            np.testing.assert_array_equal(current.get_forces(), atoms.get_forces())
+        assert atoms.info["empty_adjustments"] is empty
+        assert atoms.info["correction_warnings"] is warnings
+        assert atoms.info["adjustment_values"] is values
