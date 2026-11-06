@@ -1,4 +1,9 @@
-# Conda environment
+# Build and benchmark tools
+
+Standalone scripts for acceptance runs, accuracy screens, dataset sampling and
+packaging checks. They are not part of the installed package.
+
+## Conda environment
 
 uv is the recommended way to work on this project (see the root `README.md`).
 If you prefer Conda, create and activate the optional environment from the
@@ -77,9 +82,8 @@ processed atoms; coverage alone is not the accuracy criterion.
 
 The older bundled-sample `benchmark_mace.py` runner uses a separate installed
 MACE interpreter, keeping PyTorch out of the selection dependencies. It trains
-four fresh CPU models for
-200 fixed steps at a single 50% atom ceiling; it records initial/final errors,
-zero-force error and training losses. The run proves the training workflow, not
+four fresh CPU models for 200 fixed steps at a single 50% atom ceiling; it
+records initial/final errors, zero-force error and training losses. The run proves the training workflow, not
 convergence, a model advantage, or simulation accuracy. The pair-model runner
 also accepts `--source`, `--label-namespace` and a maximum of 128 records.
 
