@@ -8,7 +8,8 @@ package and CLI read the version from installed distribution metadata.
 ## Qualify the candidate
 
 Run these commands from a clean checkout of the candidate commit, using
-standard CPython 3.14 and uv 0.13.6 or newer:
+the default development interpreter, standard CPython 3.14, and uv 0.13.6 or
+newer. The package supports standard CPython 3.11–3.14:
 
 ```bash
 uv sync --locked
@@ -28,10 +29,12 @@ dependency integrity, and runs the full periodic quickstart with export checks.
 Its JSON report is written to `runs/artifact-qualification.json` and records the
 artifact hashes. Keep that report with the candidate's verification results.
 
-The [CI workflow](../.github/workflows/ci.yml) also tests the lowest allowed
-direct dependencies and qualifies the bundled real periodic and molecular
-samples. All jobs must pass on the candidate commit. Inspect the change from the
-previous release and confirm the release notes reflect the resulting behavior.
+The [CI workflow](../.github/workflows/ci.yml) covers Python 3.11, 3.12, 3.13 and
+3.14 with locked and lowest allowed direct dependencies, plus the locked
+molecular extra. It also qualifies the bundled real periodic and molecular
+samples on each interpreter. All jobs must pass on the candidate commit.
+Inspect the change from the previous release and confirm the release notes
+reflect the resulting behavior.
 For the first release, change the changelog's `unreleased` label to the actual
 release date before tagging.
 

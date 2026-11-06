@@ -22,7 +22,7 @@ versions; keep the source data and resolved configuration needed to rerun a job.
 
 ### Supported scope and known limits
 
-- Standard CPython 3.14 on Linux is the CI qualification target. Python 3.15,
+- Standard CPython 3.11–3.14 on Linux are the CI qualification targets. Python 3.15,
   free-threaded builds and other operating systems are unqualified.
 - Coverage is defined over fitted classes and presence constraints in the
   eligible training pool. It does not imply complete full-token coverage,

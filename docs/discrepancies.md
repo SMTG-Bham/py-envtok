@@ -89,8 +89,9 @@ platforms.
 
 ### Packaging notes
 
-- Python 3.15 and free-threaded 3.14t are not tested in CI. pymatgen-core,
-  which ChemEnv needs, publishes no wheels for them.
+- The supported range is standard CPython 3.11–3.14, with a Linux CI matrix
+  covering each interpreter. Python 3.15 and free-threaded builds are outside
+  the qualification scope.
 - `duckdb>=2.0` is required because the Arrow result API changed between
   1.4 and 2.0.
 - `lmdb>=1.7.5` is required with `ase-db-backends`. Older releases have no

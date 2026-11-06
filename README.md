@@ -66,8 +66,9 @@ molecules with charge, spin and geometry protections, use the separate
 
 ## Install
 
-Use standard CPython 3.14; CI qualifies this interpreter on Linux. Other Python
-versions, operating systems and free-threaded builds have not been qualified.
+Use standard CPython 3.11–3.14; the CI matrix covers these interpreters on Linux.
+Other Python versions, operating systems and free-threaded builds are outside
+the qualification scope.
 The supported development environment uses
 [uv](https://docs.astral.sh/uv/) 0.13.6 or newer. From a source checkout:
 
@@ -81,6 +82,9 @@ uv run envtok --version
 The commands below assume you are in the repository root. Use `uv sync --locked`
 to require the committed dependency lockfile. The default sync also installs
 the development tools; add `--no-dev` if you only need to run the package.
+The checkout defaults to Python 3.14 via `.python-version`. To use another
+supported interpreter, pass it explicitly to uv, for example
+`uv sync --locked --python 3.11` and `uv run --python 3.11 envtok --version`.
 
 To read OMat24 ASE-LMDB shards, install the LMDB backend. fairchem and torch
 are not needed.
@@ -94,7 +98,7 @@ extras can be installed together with `uv sync --extra omat24 --extra molecular`
 An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment) is also
 provided.
 
-To install a built release artifact into an existing Python 3.14 environment,
+To install a built release artifact into an existing Python 3.11–3.14 environment,
 use `python -m pip install /path/to/envtok-0.1.0a1-py3-none-any.whl`. Optional
 backends can be requested with
 `python -m pip install '/path/to/envtok-0.1.0a1-py3-none-any.whl[molecular,omat24]'`.
@@ -534,8 +538,9 @@ The test suite enforces 100% branch coverage. Golden reference fixtures are
 regenerated with the pinned reference environment described in
 [`build_tools/reference/README.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/reference/README.md).
 To exercise the real optional molecular backends, run
-`uv run --extra molecular pytest`. CI tests Python 3.14 with the locked and
-lowest allowed direct dependency versions, plus a molecular-extra job.
+`uv run --extra molecular pytest`. The CI matrix covers Python 3.11, 3.12, 3.13
+and 3.14 with the locked and lowest allowed direct dependency versions, plus a
+locked molecular-extra job for each interpreter.
 
 ## Citing
 
