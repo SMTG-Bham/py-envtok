@@ -378,8 +378,8 @@ for an existing local archive. It provides no downstream accuracy evidence.
 
 Benchmark defaults are intentionally small: molecular comparisons use one 25%
 atom budget and seed 0, plus a separate full-pool control. Larger sweeps are
-opt-in through `--fractions` and `--seeds`. The [periodic plan](https://github.com/SMTG-Bham/py-envtok/blob/main/envtok_implementation_plan.md)
-and [molecular plan](https://github.com/SMTG-Bham/py-envtok/blob/main/envtok_molecular_implementation_plan.md) describe the short
+opt-in through `--fractions` and `--seeds`. The [periodic plan](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/periodic-plan.md)
+and [molecular plan](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular-plan.md) describe the short
 acceptance checks and remaining scientific work.
 
 The [real OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) exercises native

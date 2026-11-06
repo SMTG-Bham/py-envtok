@@ -1,7 +1,7 @@
 # Experimental finite-molecule profile
 
 `molecular_v1` implements the data, representation and selection stages of
-[the molecular plan](../envtok_molecular_implementation_plan.md). It selects
+[the molecular plan](molecular-plan.md). It selects
 whole original configurations, with explicit charge/spin protections, chemical
 coverage and optional geometry refinement. It uses a separate pipeline from
 `reference-723696d`; the periodic reference profile keeps its existing behavior.

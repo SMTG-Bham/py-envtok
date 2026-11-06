@@ -2,7 +2,7 @@
 
 Updated: 5 November 2026. This replaces the 20k–50k training pilot and 100k/1M
 scaling targets with a small development screen. Detailed contracts and supported
-settings live in [molecular usage](docs/molecular.md).
+settings live in [molecular usage](molecular.md).
 
 ## Goal and current state
 
@@ -11,7 +11,7 @@ chemical identity and useful geometry. Data validation/export, graph and fallbac
 tokens, SOAP, hierarchy, hard budgets, refinement, independent audits and restart
 manifests are implemented. The bundled real OMol sample contains 29 configurations
 and 650 atoms; it is an ordered engineering sample, not a representative dataset.
-See its [provenance](examples/molecular/omol/README.md).
+See its [provenance](../examples/molecular/omol/README.md).
 
 Keep unknown states explicit, preserve source splits and labels, fit all selection
 representations only on training data, and report unmet constraints. A smaller
@@ -52,27 +52,27 @@ It uses one fixed small architecture and 200 CPU training steps for every method
 
 ## Acceptance and next actions
 
-The [recorded CPU screen](examples/molecular/omol/small-accuracy-results.json)
+The [recorded CPU screen](../examples/molecular/omol/small-accuracy-results.json)
 used 17 training and 4 composition-disjoint held-out neutral singlets. All three
 subsets covered 7/7 targets, but force RMSE rose by 53% (random), 54% (token-only)
 and 30% (combined) relative to the full pool. All failed the 10% regression screen.
 Keep the full tiny training pool as the accuracy reference; this result supports
 no 25% compression claim.
 
-The [50% pair-model follow-up](examples/molecular/omol/half-budget-accuracy-results.json)
+The [50% pair-model follow-up](../examples/molecular/omol/half-budget-accuracy-results.json)
 keeps the same split and settings. Combined selection improves to about 12% higher
 force RMSE than the full-pool reference, still above the 10% screen threshold.
 The larger budget is explicit; the default remains one 25% run.
 
 ## Implemented checks and remaining interpretation
 
-- [Workflow qualification](examples/molecular/omol/qualification-results.json)
+- [Workflow qualification](../examples/molecular/omol/qualification-results.json)
   checks the actual 29-record sample, saved-run auditing, reused features, stable
   IDs and original state/label/atom alignment on export. CI repeats this check.
 - The configurable pair-model runner accepts a supplied source of at most 128
   records, refuses an oversized pool, and keeps its development split independent
   of budget changes. Empty selections and uncovered targets remain visible.
-- [Actual MACE training](examples/molecular/omol/mace-small-results.json) uses the
+- [Actual MACE training](../examples/molecular/omol/mace-small-results.json) uses the
   same 17 training and 4 held-out neutral singlets, one 50% budget and seed 0.
   Four fresh CPU models use the same architecture, optimizer and step count;
   only training records fit elemental references. The report retains initial and

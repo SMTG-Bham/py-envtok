@@ -2,8 +2,8 @@
 
 Updated: 5 November 2026. This replaces the original large-corpus roadmap with
 small, reproducible acceptance checks. Algorithm details live in the
-[specification](docs/specification.md), [discrepancy log](docs/discrepancies.md)
-and [reference-fixture guide](build_tools/reference/README.md).
+[specification](specification.md), [discrepancy log](discrepancies.md)
+and [reference-fixture guide](../build_tools/reference/README.md).
 
 ## Goal and current state
 
@@ -47,13 +47,13 @@ checks expose a reason to do so. CI runs the installed-package quickstart.
 
 ## Implementation status
 
-- The [native fixture check](examples/quickstart/qualification-results.json) passed:
+- The [native fixture check](../examples/quickstart/qualification-results.json) passed:
   20 structures, 16 selected, 56/76 atoms, 26/26 classes, identical worker/restart
   results and preserved exports.
-- The [installed-artifact check](examples/quickstart/artifact-qualification-results.json)
+- The [installed-artifact check](../examples/quickstart/artifact-qualification-results.json)
   installs wheel and sdist with their dependencies in separate fresh environments.
   Both full quickstarts passed. CI runs the same acceptance command.
-- A [real OMat24 sample](examples/omat24/small-sample/README.md) now contains
+- A [real OMat24 sample](../examples/omat24/small-sample/README.md) now contains
   32 training and 8 parent-disjoint development records from a local official 1M
   archive. Native row IDs, original labels, hashes, exclusions and licence survive.
   Its real native-storage/restart/export check passed with 75/75 classes and zero
@@ -66,7 +66,7 @@ checks expose a reason to do so. CI runs the installed-package quickstart.
   broad vocabulary. The bundled heterogeneous sample has unseen Ba/Cr and cannot
   qualify this small model; retain that explicit data gate instead of dropping
   held-out records. A suitable narrow-chemistry sample is still needed for errors.
-- [Publication readiness](examples/quickstart/publication-readiness.json) records
+- [Publication readiness](../examples/quickstart/publication-readiness.json) records
   the public name check and expected workflow settings. Account-specific trusted
   publisher/environment configuration remains unverified. Nothing is published.
 

@@ -101,7 +101,7 @@ exclude_also = [
 ]
 
 [tool.ruff]
-extend-exclude = ["build_tools/reference/vendored_*.py", "envtok_implementation_plan.md"]
+extend-exclude = ["build_tools/reference/vendored_*.py"]
 force-exclude = true
 
 [tool.ruff.format]
