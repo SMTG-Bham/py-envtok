@@ -6,17 +6,45 @@ packaging checks. They are not part of the installed package.
 ## Conda environment
 
 uv is the recommended way to work on this project (see the root `README.md`).
-If you prefer Conda, create and activate the optional environment from the
-repository root, then install the package and its development tools with pip:
+If you prefer Conda, two environment files are provided. Conda supplies Python
+from conda-forge and pip installs this checkout in editable mode.
+
+For development, create `envtok-dev` from the repository root. It includes the
+`omat24` and `molecular` extras, so the full test suite runs, and the `dev`
+dependency group (pytest, mypy, ruff and prek):
+
+```bash
+conda env create -f build_tools/environment_dev.yml
+conda activate envtok-dev
+python -m pip install --group dev
+```
+
+The last step is separate because pip cannot install a dependency group from
+an environment file; run it from the repository root, where it reads
+`pyproject.toml`. Then run the same checks as CI without the `uv run` prefix:
+
+```bash
+prek install
+prek run --all-files
+mypy
+pytest
+```
+
+To only run EnvTok from the checkout, without extras or development tools:
 
 ```bash
 conda env create -f build_tools/environment.yml
 conda activate envtok
-python -m pip install --group dev -e .
 ```
 
-This path resolves the latest versions allowed by `pyproject.toml` rather than
-the exact versions pinned in `uv.lock`.
+Add an extra later with, for example, `python -m pip install -e '.[molecular]'`.
+Both environments resolve the latest versions allowed by `pyproject.toml`
+rather than the exact versions pinned in `uv.lock`; the development file also
+keeps NumPy below 2.5, whose deprecation warnings from ASE fail the test suite.
+In an activated environment,
+drop the `uv run` prefix and its `--extra` options from the commands below, for
+example `python build_tools/benchmark_selection.py`. `uv build` and
+`qualify_artifacts.py` still need uv on PATH.
 
 ## Small acceptance runs
 

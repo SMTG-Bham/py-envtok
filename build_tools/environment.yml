@@ -1,3 +1,8 @@
+# EnvTok from this checkout, without the optional extras or development tools.
+# Run from the repository root:
+#
+#   conda env create -f build_tools/environment.yml
+#   conda activate envtok
 name: envtok
 
 channels:
@@ -6,4 +11,7 @@ channels:
 
 dependencies:
   - python>=3.11,<3.15
-  - pip>=25.1
+  - pip
+  - pip:
+      # conda runs pip from this file's directory, so .. is the repository root.
+      - -e ..

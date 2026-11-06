@@ -1,0 +1,26 @@
+# Development environment: this checkout with the omat24 and molecular extras,
+# plus the dev dependency group (pytest, mypy, ruff, prek). Run from the
+# repository root:
+#
+#   conda env create -f build_tools/environment_dev.yml
+#   conda activate envtok-dev
+#   python -m pip install --group dev
+#
+# pip's requirements files cannot name a dependency group, so the dev group is
+# the separate last step; it reads pyproject.toml from the current directory.
+name: envtok-dev
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - python>=3.11,<3.15
+  # 25.1 is the first pip with --group.
+  - pip>=25.1
+  - pip:
+      # conda runs pip from this file's directory, so .. is the repository root.
+      - -e ..[omat24,molecular]
+      # NumPy 2.5 deprecates setting ndarray.shape, which ASE 3.29 still does;
+      # the test suite turns that warning into errors. uv.lock pins 2.4.
+      - numpy<2.5

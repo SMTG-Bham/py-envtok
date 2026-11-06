@@ -95,8 +95,8 @@ uv sync --extra omat24
 
 The `molecular` extra adds RDKit and DScribe for the molecular workflow. Both
 extras can be installed together with `uv sync --extra omat24 --extra molecular`.
-An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment) is also
-provided.
+An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment), with
+separate run and development environments, is also provided.
 
 To install a built release artifact into an existing Python 3.11–3.14 environment,
 use `python -m pip install /path/to/envtok-0.1.0a1-py3-none-any.whl`. Optional
@@ -533,6 +533,10 @@ uv run prek run --all-files
 uv run mypy
 uv run pytest
 ```
+
+To use Conda instead, create the `envtok-dev` environment described in the
+[Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment) and run the same
+commands without `uv run`.
 
 The test suite enforces 100% branch coverage. Golden reference fixtures are
 regenerated with the pinned reference environment described in
