@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0a1 — unreleased
+## 0.1.0a1 — 2026-11-24
 
 Initial alpha release. Public APIs and saved-run formats may change in later
 versions; keep the source data and resolved configuration needed to rerun a job.
