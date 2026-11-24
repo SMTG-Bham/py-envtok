@@ -74,7 +74,7 @@ confirm both in the authenticated PyPI and GitHub settings before publishing.
 
 1. Commit the final version, lockfile, release notes and fixes. Ensure CI passes
    for that exact commit.
-2. Create and push the matching tag (`v0.1.0a1` for this release), then prepare a
+2. Create and push the matching tag (`v0.1.0a2` for this release), then prepare a
    GitHub release against that tag with the changelog's release notes.
 3. Publishing the GitHub release starts the Release workflow. It checks the tag
    against the package version, reruns the complete CI workflow on the tagged
@@ -88,7 +88,7 @@ confirm both in the authenticated PyPI and GitHub settings before publishing.
 
    ```bash
    uv venv --python 3.14 /tmp/envtok-release-check
-   uv pip install --python /tmp/envtok-release-check/bin/python 'envtok==0.1.0a1'
+   uv pip install --python /tmp/envtok-release-check/bin/python 'envtok==0.1.0a2'
    /tmp/envtok-release-check/bin/envtok --version
    /tmp/envtok-release-check/bin/python -m envtok --help
    ```

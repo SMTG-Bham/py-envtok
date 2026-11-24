@@ -99,9 +99,9 @@ An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/bu
 separate run and development environments, is also provided.
 
 To install a built release artifact into an existing Python 3.11–3.14 environment,
-use `python -m pip install /path/to/envtok-0.1.0a1-py3-none-any.whl`. Optional
+use `python -m pip install /path/to/envtok-0.1.0a2-py3-none-any.whl`. Optional
 backends can be requested with
-`python -m pip install '/path/to/envtok-0.1.0a1-py3-none-any.whl[molecular,omat24]'`.
+`python -m pip install '/path/to/envtok-0.1.0a2-py3-none-any.whl[molecular,omat24]'`.
 The examples and fixture data below live in the source checkout; they are not
 included in the installed Python package.
 
