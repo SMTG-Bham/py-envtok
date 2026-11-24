@@ -11,6 +11,7 @@ simpler, angle-blind smoke-test backend and is not a substitute for validation
 with SOAP. All descriptors have one row per original atom.
 """
 
+import functools
 import importlib
 import itertools
 import json
@@ -140,9 +141,17 @@ class SignatureRegistry:
 class _Graph:
     labels: tuple[tuple[Any, ...], ...]
     edges: dict[tuple[int, int], str]
+    adjacency: dict[int, dict[int, str]] = field(init=False)
 
-    def neighbors(self, atom: int) -> list[int]:
-        return [j if i == atom else i for i, j in self.edges if atom in (i, j)]
+    def __post_init__(self) -> None:
+        adjacency: dict[int, dict[int, str]] = {}
+        for (i, j), bond in self.edges.items():
+            adjacency.setdefault(i, {})[j] = bond
+            adjacency.setdefault(j, {})[i] = bond
+        object.__setattr__(self, "adjacency", adjacency)
+
+    def neighbors(self, atom: int) -> dict[int, str]:
+        return self.adjacency.get(atom, {})
 
 
 def _atom_fields(graph: dict[str, Any], count: int) -> list[list[Any]]:
@@ -342,34 +351,62 @@ def _get_graph(  # noqa: PLR0911 - explicit graph-status outcomes
 
 
 def _refine_partition(partition: list[list[int]], graph: _Graph) -> list[list[int]]:
+    """Split cells by each node's sorted bond labels towards every cell.
+
+    The signature of a node lists, for every cell, the sorted labels of its
+    edges to that cell's members, with ``""`` for each non-member; ``""`` sorts
+    first. Nodes are grouped by the equivalent multiset of (cell, label) bonds,
+    and new cells are ordered by the full serialised signature, as before.
+    """
     while True:
+        cell_of = {node: index for index, cell in enumerate(partition) for node in cell}
         refined: list[list[int]] = []
         for cell in partition:
-            groups: dict[str, list[int]] = {}
+            groups: dict[tuple[tuple[int, str], ...], list[int]] = {}
             for node in cell:
-                signature = _json(
-                    [
-                        sorted(
-                            graph.edges.get((min(node, other), max(node, other)), "")
-                            for other in peers
-                        )
-                        for peers in partition
-                    ]
+                bonds = tuple(
+                    sorted(
+                        (cell_of[other], bond)
+                        for other, bond in graph.neighbors(node).items()
+                        if other in cell_of
+                    )
                 )
-                groups.setdefault(signature, []).append(node)
-            refined.extend(groups[key] for key in sorted(groups))
+                groups.setdefault(bonds, []).append(node)
+            if len(groups) == 1:
+                refined.append(cell)
+                continue
+            signatures = {key: _cell_signature(key, partition) for key in groups}
+            refined.extend(
+                groups[key] for key in sorted(groups, key=signatures.__getitem__)
+            )
         if refined == partition:
             return refined
         partition = refined
 
 
-def _twins(left: int, right: int, nodes: list[int], graph: _Graph) -> bool:
-    return all(
-        graph.edges.get((min(left, other), max(left, other)))
-        == graph.edges.get((min(right, other), max(right, other)))
-        for other in nodes
-        if other not in {left, right}
+def _cell_signature(
+    bonds: tuple[tuple[int, str], ...], partition: list[list[int]]
+) -> str:
+    labels: list[list[str]] = [[] for _ in partition]
+    for index, bond in bonds:
+        labels[index].append(bond)
+    return _json(
+        [
+            [""] * (len(cell) - len(found)) + sorted(found)
+            for cell, found in zip(partition, labels, strict=True)
+        ]
     )
+
+
+def _twins(left: int, right: int, nodes: set[int], graph: _Graph) -> bool:
+    def bonds(atom: int) -> dict[int, str]:
+        return {
+            other: bond
+            for other, bond in graph.neighbors(atom).items()
+            if other in nodes and other not in {left, right}
+        }
+
+    return bonds(left) == bonds(right)
 
 
 def _canonical_graph(graph: _Graph, center: int, radius: int) -> str:
@@ -384,7 +421,12 @@ def _canonical_graph(graph: _Graph, center: int, radius: int) -> str:
     for atom in sorted(neighborhood):
         groups.setdefault(_json((atom == center, graph.labels[atom])), []).append(atom)
     initial = [groups[key] for key in sorted(groups)]
-    nodes = sorted(neighborhood)
+    nodes = neighborhood
+    local_edges = [
+        (i, j, bond)
+        for (i, j), bond in graph.edges.items()
+        if i in neighborhood and j in neighborhood
+    ]
 
     def canonical(partition: list[list[int]]) -> str:
         partition = _refine_partition(partition, graph)
@@ -412,8 +454,7 @@ def _canonical_graph(graph: _Graph, center: int, radius: int) -> str:
         positions = {atom: index for index, atom in enumerate(order)}
         bonds = sorted(
             (min(positions[i], positions[j]), max(positions[i], positions[j]), bond)
-            for (i, j), bond in graph.edges.items()
-            if i in positions and j in positions
+            for i, j, bond in local_edges
         )
         return _json(
             {
@@ -450,47 +491,78 @@ def _bin(distance: float, width: float) -> int:
     return math.floor(round(distance / width, 10))
 
 
-def _fallback_hierarchy(
+_ROUNDING_MARGIN = 1e-9
+"""Values this close to a cutoff or bin edge take the exact scalar rounding path."""
+
+
+def _within_cutoff(distances: FloatArray, cutoff: float) -> npt.NDArray[np.bool_]:
+    """Vectorised ``round(d, 10) <= cutoff``; only near-cutoff values are rounded."""
+    inside = distances <= cutoff - _ROUNDING_MARGIN
+    for index in np.flatnonzero(np.abs(distances - cutoff) <= _ROUNDING_MARGIN):
+        inside[index] = round(float(distances[index]), 10) <= cutoff
+    return inside
+
+
+def _bins(distances: FloatArray, width: float) -> npt.NDArray[np.int64]:
+    """Vectorised ``_bin``; only quotients near an integer are rounded exactly."""
+    quotients = distances / width
+    bins = np.floor(quotients).astype(np.int64)
+    for index in np.flatnonzero(
+        np.abs(quotients - np.round(quotients)) <= _ROUNDING_MARGIN
+    ):
+        bins[index] = _bin(float(distances[index]), width)
+    return bins
+
+
+def _fallback_hierarchies(
     record: MolecularRecord,
-    atom: int,
     settings: RepresentationSettings,
     registry: SignatureRegistry,
-) -> tuple[str, ...]:
-    distances = np.linalg.norm(
-        record.atoms.positions - record.atoms.positions[atom], axis=1
-    )
-    neighbors = [
-        (int(record.atoms.numbers[j]), float(distance))
-        for j, distance in enumerate(distances)
-        if j != atom and round(float(distance), 10) <= settings.r_cut_angstrom
-    ]
-    base = {
-        "version": 1,
-        "state": record.state_key,
-        "central": _protected_fallback(record, atom),
-        "unavailable": "validated_connectivity",
-    }
-    tokens = []
-    for level in range(settings.graph_radius, -1, -1):
-        width = settings.distance_bin_angstrom * 2 ** (settings.graph_radius - level)
-        context = (
-            sorted((z, _bin(distance, width)) for z, distance in neighbors)
-            if level
-            else []
-        )
-        tokens.append(
-            registry.register(
-                {
-                    **base,
-                    "level": level,
-                    "cutoff": settings.r_cut_angstrom,
-                    "bin_width": width,
-                    "neighbors": context,
-                },
-                "fallback",
+) -> list[tuple[str, ...]]:
+    """Distance-binned fallback tokens for every atom of one record.
+
+    Distances form one matrix whose rows equal per-atom ``np.linalg.norm``
+    calls; cutoff and bin rounding match the scalar rules exactly.
+    """
+    positions = record.atoms.positions
+    numbers = np.asarray(record.atoms.numbers, dtype=np.int64)
+    matrix = np.linalg.norm(positions[None, :, :] - positions[:, None, :], axis=2)
+    hierarchies = []
+    for atom in range(record.natoms):
+        mask = _within_cutoff(matrix[atom], settings.r_cut_angstrom)
+        mask[atom] = False
+        distances = matrix[atom][mask]
+        elements = numbers[mask]
+        base = {
+            "version": 1,
+            "state": record.state_key,
+            "central": _protected_fallback(record, atom),
+            "unavailable": "validated_connectivity",
+        }
+        tokens = []
+        for level in range(settings.graph_radius, -1, -1):
+            width = settings.distance_bin_angstrom * 2 ** (
+                settings.graph_radius - level
             )
-        )
-    return tuple(tokens)
+            context: list[list[int]] = []
+            if level:
+                bins = _bins(distances, width)
+                order = np.lexsort((bins, elements))
+                context = np.column_stack((elements[order], bins[order])).tolist()
+            tokens.append(
+                registry.register(
+                    {
+                        **base,
+                        "level": level,
+                        "cutoff": settings.r_cut_angstrom,
+                        "bin_width": width,
+                        "neighbors": context,
+                    },
+                    "fallback",
+                )
+            )
+        hierarchies.append(tuple(tokens))
+    return hierarchies
 
 
 def normalize_descriptors(
@@ -546,7 +618,14 @@ def _soap_descriptors(
             "SOAP requires the envtok[molecular] DScribe extra; "
             "radial is an explicit smoke-test alternative"
         ) from exc
-    backend = soap(
+    backend = _soap_backend(soap, settings)
+    return np.asarray(backend.create(record.atoms, centers=None), dtype=np.float64)
+
+
+@functools.lru_cache(maxsize=8)
+def _soap_backend(soap: Any, settings: RepresentationSettings) -> Any:
+    """Build each SOAP backend once; set-up costs about as much as ``create``."""
+    return soap(
         species=list(settings.species),
         periodic=False,
         r_cut=settings.r_cut_angstrom,
@@ -557,7 +636,6 @@ def _soap_descriptors(
         sparse=False,
         dtype="float64",
     )
-    return np.asarray(backend.create(record.atoms, centers=None), dtype=np.float64)
 
 
 def _fragment_targets(
@@ -683,25 +761,25 @@ def featurize(
         )
     registry = SignatureRegistry() if registry is None else registry
     graph, status = _get_graph(record, settings)
-    hierarchy = []
-    for atom in range(record.natoms):
-        if graph is None:
-            hierarchy.append(_fallback_hierarchy(record, atom, settings, registry))
-        else:
-            hierarchy.append(
-                tuple(
-                    registry.register(
-                        {
-                            "version": 1,
-                            "state": record.state_key,
-                            "radius": radius,
-                            "graph": _canonical_graph(graph, atom, radius),
-                        },
-                        "graph",
-                    )
-                    for radius in range(settings.graph_radius, -1, -1)
+    hierarchy = (
+        _fallback_hierarchies(record, settings, registry)
+        if graph is None
+        else [
+            tuple(
+                registry.register(
+                    {
+                        "version": 1,
+                        "state": record.state_key,
+                        "radius": radius,
+                        "graph": _canonical_graph(graph, atom, radius),
+                    },
+                    "graph",
                 )
+                for radius in range(settings.graph_radius, -1, -1)
             )
+            for atom in range(record.natoms)
+        ]
+    )
     values = (
         _soap_descriptors(record, settings)
         if settings.backend == "soap"
