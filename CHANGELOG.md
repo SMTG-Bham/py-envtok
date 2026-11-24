@@ -15,6 +15,20 @@
 
 ### Changed
 
+- Molecular selection, geometry regions, the nearest-selected audit and token
+  construction are faster and use less memory, with identical selections and
+  tokens. Selection uses lazy-heap greedy stages that score only each
+  component's own targets; the previous rescanning loops remain available as
+  `select_candidates(..., algorithm="transparent")`. `build_tools/benchmark_molecular.py`
+  measures how the stages scale.
+- Molecular featurisation can run in local worker processes with
+  `execution.workers` and `execution.threads_per_worker`; worker settings do not
+  change run fingerprints.
+- The molecular feature cache now stores descriptors in one memory-mapped
+  `descriptors.npy` instead of a compressed `descriptors.npz` with one member
+  per record, and `features.json` stores each signature once. The molecular
+  implementation version is now `molecular_v1.5`, so `molecular_v1.4` runs and
+  feature caches are not reused.
 - Molecular stages no longer re-hash the whole source on every call. `select()`
   and `export()` hash it in full; other stages re-hash it only when its stat
   signature changes, as described in the [molecular guide](docs/molecular.md).

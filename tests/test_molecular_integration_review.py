@@ -8,14 +8,16 @@ from pathlib import Path
 from typing import Any
 
 import ase.io
+import numpy as np
 import pytest
 import yaml
 from ase import Atoms
 
-from envtok.errors import StaleCacheError
+from envtok.errors import ConfigError, StaleCacheError
 from envtok.molecular import pipeline as pipeline_module
 from envtok.molecular.data import prepare_records
 from envtok.molecular.pipeline import MolecularPipeline
+from envtok.molecular.representations import RepresentationSettings
 
 
 @pytest.fixture
@@ -111,7 +113,7 @@ def test_moved_run_uses_frozen_targets_in_changed_runtime(
         pytest.fail("auditing must not refit representations or targets")
 
     monkeypatch.setattr(loaded, "build_targets", forbidden)
-    monkeypatch.setattr("envtok.molecular.pipeline.featurize_records", forbidden)
+    monkeypatch.setattr("envtok.molecular.pipeline.iter_features", forbidden)
     report = loaded.audit()
     assert report["complete"]
     assert not report["software_environment_matches_selection"]
@@ -120,7 +122,7 @@ def test_moved_run_uses_frozen_targets_in_changed_runtime(
     assert all((moved / name).read_bytes() == value for name, value in frozen.items())
 
 
-@pytest.mark.parametrize("missing", ["features.json", "descriptors.npz"])
+@pytest.mark.parametrize("missing", ["features.json", "descriptors.npy"])
 def test_frozen_coverage_and_export_without_geometry_cache(
     review_config: dict[str, Any], missing: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -131,7 +133,7 @@ def test_frozen_coverage_and_export_without_geometry_cache(
     def forbidden(*_args: Any, **_kwargs: Any) -> None:
         pytest.fail("missing audit cache must not trigger fitting")
 
-    monkeypatch.setattr("envtok.molecular.pipeline.featurize_records", forbidden)
+    monkeypatch.setattr("envtok.molecular.pipeline.iter_features", forbidden)
     loaded = MolecularPipeline.load_run(pipeline.directory)
     report = loaded.audit()
     assert report["complete"]
@@ -342,3 +344,19 @@ def test_saved_configuration_without_worker_settings_still_loads(
     loaded = MolecularPipeline.load_run(pipeline.directory)
     assert loaded.fingerprint == pipeline.fingerprint
     assert loaded.settings["execution"]["workers"] == 1
+
+
+def test_feature_cache_rejects_rows_that_do_not_match_records(
+    review_config: dict[str, Any],
+) -> None:
+    pipeline = MolecularPipeline(review_config)
+    settings = RepresentationSettings(backend="radial", species=(1,))
+    with pytest.raises(ConfigError, match="atom count"):
+        pipeline._write_features(iter(()), 1, settings)
+    manifest = {
+        "signatures": {"t": "{}"},
+        "records": [{"token_hierarchy": [["t"]]}],
+    }
+    for descriptors in (np.zeros((2, 3), np.float32), np.zeros(1, np.float32)):
+        with pytest.raises(StaleCacheError, match="missing or corrupt"):
+            pipeline_module._features_from_cache(manifest, descriptors)

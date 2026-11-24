@@ -588,3 +588,15 @@ def test_registry_merge_rejects_conflicting_payloads() -> None:
     registry.merge({token: registry.signatures[token]})
     with pytest.raises(ConfigError, match="digest collision"):
         registry.merge({token: '{"a":2}'})
+
+
+def test_worker_batches_match_serial_features() -> None:
+    records = [
+        replace(_record(item), record=replace(_record(item).record, record_id=f"r{i}"))
+        for i, item in enumerate([molecule("H2O"), molecule("CH4")])
+    ]
+    settings = rep.RepresentationSettings(backend="radial", species=(1, 6, 8))
+    batch = rep._featurize_batch(records, settings)
+    serial = rep.featurize_records(records, settings)
+    assert [f.token_hierarchy for f in batch] == [f.token_hierarchy for f in serial]
+    assert [f.signatures for f in batch] == [f.signatures for f in serial]

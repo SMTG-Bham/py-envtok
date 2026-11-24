@@ -13,13 +13,14 @@ import math
 import platform
 import time
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import asdict, fields
 from importlib import metadata
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
@@ -45,7 +46,7 @@ from envtok.molecular.records import MolecularRecord
 from envtok.molecular.representations import (
     MolecularFeatures,
     RepresentationSettings,
-    featurize_records,
+    iter_features,
 )
 from envtok.molecular.selection import (
     Candidate,
@@ -56,11 +57,49 @@ from envtok.molecular.selection import (
     select_candidates,
 )
 
-IMPLEMENTATION_VERSION = "molecular_v1.4"
+IMPLEMENTATION_VERSION = "molecular_v1.5"
 
 
 def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, indent=2, allow_nan=False)
+
+
+DESCRIPTORS = "descriptors.npy"
+"""All candidate descriptors as one float32 array, records in manifest order."""
+_MATRIX = 2
+
+
+def _features_from_cache(
+    manifest: Mapping[str, Any], descriptors: npt.NDArray[np.float32]
+) -> tuple[MolecularFeatures, ...]:
+    """Rebuild features whose descriptors are views of one (mapped) array."""
+    table = manifest["signatures"]
+    rows = manifest["records"]
+    if descriptors.ndim != _MATRIX or len(descriptors) != sum(
+        len(row["token_hierarchy"]) for row in rows
+    ):
+        raise StaleCacheError("molecular descriptor cache is missing or corrupt")
+    features = []
+    offset = 0
+    for row in rows:
+        hierarchy = tuple(tuple(tokens) for tokens in row["token_hierarchy"])
+        safeguards = tuple(row["safeguard_targets"])
+        used = {token for tokens in hierarchy for token in tokens} | set(safeguards)
+        features.append(
+            MolecularFeatures(
+                record_id=row["record_id"],
+                family_id=row["family_id"],
+                state_key=tuple(row["state_key"]),
+                token_hierarchy=hierarchy,
+                signatures={token: table[token] for token in sorted(used)},
+                descriptors=descriptors[offset : offset + len(hierarchy)],
+                graph_status=row["graph_status"],
+                safeguard_targets=safeguards,
+                zero_descriptor_atoms=tuple(row["zero_descriptor_atoms"]),
+            )
+        )
+        offset += len(hierarchy)
+    return tuple(features)
 
 
 def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
@@ -102,8 +141,11 @@ def _trusted(signature: tuple[int, int, int, int] | None, checked: int) -> bool:
 
 
 def _write_json(path: Path, value: Any) -> None:
+    """Write ``_json(value)`` atomically, streaming rather than building one string."""
     temporary = path.with_suffix(path.suffix + ".partial")
-    temporary.write_text(_json(value) + "\n")
+    with temporary.open("w") as stream:
+        json.dump(value, stream, sort_keys=True, indent=2, allow_nan=False)
+        stream.write("\n")
     temporary.replace(path)
 
 
@@ -385,7 +427,7 @@ class MolecularPipeline:
         return candidates, mandatory, hierarchy, regions
 
     def _load_features(self) -> tuple[MolecularFeatures, ...]:
-        descriptor_path = self.feature_directory / "descriptors.npz"
+        descriptor_path = self.feature_directory / DESCRIPTORS
         manifest_path = self.feature_directory / "features.json"
         commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
         if (
@@ -399,24 +441,14 @@ class MolecularPipeline:
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-        manifest = _read_json(manifest_path, {"records", "arrays_sha256"})
+        manifest = _read_json(manifest_path, {"records", "signatures", "arrays_sha256"})
         if not descriptor_path.exists() or manifest["arrays_sha256"] != _file_hash(
             descriptor_path
         ):
             raise StaleCacheError("molecular descriptor cache is missing or corrupt")
-        features = []
-        with np.load(descriptor_path, allow_pickle=False) as arrays:
-            for index, row in enumerate(manifest["records"]):
-                row["state_key"] = tuple(row["state_key"])
-                row["token_hierarchy"] = tuple(
-                    tuple(tokens) for tokens in row["token_hierarchy"]
-                )
-                row["safeguard_targets"] = tuple(row["safeguard_targets"])
-                row["zero_descriptor_atoms"] = tuple(row["zero_descriptor_atoms"])
-                features.append(
-                    MolecularFeatures(**row, descriptors=arrays[f"f{index}"])
-                )
-        return tuple(features)
+        return _features_from_cache(
+            manifest, np.load(descriptor_path, mmap_mode="r", allow_pickle=False)
+        )
 
     @property
     def seed(self) -> int:
@@ -486,7 +518,6 @@ class MolecularPipeline:
                 "are never used for fitting"
             )
         start = time.perf_counter()
-        descriptor_path = self.feature_directory / "descriptors.npz"
         manifest_path = self.feature_directory / "features.json"
         if self._loaded or (
             self.settings["execution"]["resume"] and manifest_path.exists()
@@ -509,48 +540,75 @@ class MolecularPipeline:
                 ],
             )
             execution = self.settings["execution"]
-            self._features = tuple(
-                featurize_records(
+            self._features = self._write_features(
+                iter_features(
                     records,
                     settings,
                     workers=execution["workers"],
                     threads_per_worker=execution["threads_per_worker"],
-                )
-            )
-            temporary = descriptor_path.with_suffix(".partial")
-            with temporary.open("wb") as stream:
-                np.savez_compressed(
-                    stream,
-                    allow_pickle=False,
-                    **{
-                        f"f{i}": feature.descriptors
-                        for i, feature in enumerate(self._features)
-                    },
-                )
-            temporary.replace(descriptor_path)
-            rows = [
-                {
-                    key: value
-                    for key, value in asdict(feature).items()
-                    if key != "descriptors"
-                }
-                for feature in self._features
-            ]
-            _write_json(
-                manifest_path,
-                {
-                    "records": rows,
-                    "settings": asdict(settings),
-                    "arrays_sha256": _file_hash(descriptor_path),
-                },
-            )
-            _write_json(
-                self.feature_directory / "commit.json",
-                {"features_sha256": _file_hash(manifest_path)},
+                ),
+                sum(record.natoms for record in records),
+                settings,
             )
         self._check_source()
         self.timings["featurize_seconds"] = time.perf_counter() - start
         return self._features
+
+    def _write_features(
+        self,
+        features: Iterator[MolecularFeatures],
+        natoms: int,
+        settings: RepresentationSettings,
+    ) -> tuple[MolecularFeatures, ...]:
+        """Stream descriptors into one array file and return memory-mapped features.
+
+        Each record's rows are written as it arrives, so only one batch of
+        descriptors is held in memory. Signatures are stored once for the pool.
+        """
+        descriptor_path = self.feature_directory / DESCRIPTORS
+        temporary = descriptor_path.with_suffix(".partial.npy")
+        rows: list[dict[str, Any]] = []
+        signatures: dict[str, str] = {}
+        array: np.memmap[Any, Any] | None = None
+        offset = 0
+        for feature in features:
+            if array is None:
+                array = np.lib.format.open_memmap(
+                    temporary,
+                    mode="w+",
+                    dtype=np.float32,
+                    shape=(natoms, feature.descriptors.shape[1]),
+                )
+            array[offset : offset + len(feature.descriptors)] = feature.descriptors
+            offset += len(feature.descriptors)
+            signatures.update(feature.signatures)
+            rows.append(
+                {
+                    field.name: getattr(feature, field.name)
+                    for field in fields(feature)
+                    if field.name not in {"descriptors", "signatures"}
+                }
+            )
+        if array is None or offset != natoms:
+            raise ConfigError("descriptor rows do not match the candidate atom count")
+        array.flush()
+        del array
+        temporary.replace(descriptor_path)
+        manifest = {
+            "records": rows,
+            "signatures": dict(sorted(signatures.items())),
+            "settings": asdict(settings),
+            "arrays_sha256": _file_hash(descriptor_path),
+        }
+        manifest_path = self.feature_directory / "features.json"
+        _write_json(manifest_path, manifest)
+        _write_json(
+            self.feature_directory / "commit.json",
+            {"features_sha256": _file_hash(manifest_path)},
+        )
+        return _features_from_cache(
+            manifest, np.load(descriptor_path, mmap_mode="r", allow_pickle=False)
+        )
 
     def build_targets(
         self,
@@ -751,10 +809,7 @@ class MolecularPipeline:
         candidates, mandatory, hierarchy, regions = self._load_targets()
         report = audit_selection(candidates, mandatory, ids, budget=self.atom_budget())
         manifest_path = self.feature_directory / "features.json"
-        if (
-            manifest_path.exists()
-            and (self.feature_directory / "descriptors.npz").exists()
-        ):
+        if manifest_path.exists() and (self.feature_directory / DESCRIPTORS).exists():
             provenance = _read_json(
                 self.directory / "provenance.json", {"features_sha256"}
             )

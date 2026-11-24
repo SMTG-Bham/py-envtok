@@ -17,7 +17,7 @@ import itertools
 import json
 import math
 import multiprocessing
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
@@ -832,12 +832,30 @@ def featurize_records(
 
     If no vocabulary is configured, infer it from this supplied pool only. The
     caller must not include held-out records when fitting this vocabulary.
+    See :func:`iter_features` for ``workers`` and ``threads_per_worker``.
+    """
+    return list(
+        iter_features(
+            records, settings, workers=workers, threads_per_worker=threads_per_worker
+        )
+    )
+
+
+def iter_features(
+    records: Sequence[MolecularRecord],
+    settings: RepresentationSettings,
+    *,
+    workers: int = 1,
+    threads_per_worker: int = 1,
+) -> Iterator[MolecularFeatures]:
+    """Yield each record's features in input order.
 
     With ``workers > 1``, ordered batches are featurised in spawned processes,
     each capped at ``threads_per_worker`` native threads. Tokens are content
     digests, so the features are identical to a serial run; every worker's
     signatures are merged into one registry, so a digest collision between
-    records in different batches is still rejected.
+    records in different batches is still rejected. Consumers can write each
+    batch out as it arrives instead of holding every descriptor at once.
     """
     if not settings.species:
         settings = replace(
@@ -847,13 +865,15 @@ def featurize_records(
             ),
         )
     if workers <= 1 or len(records) <= 1:
-        return _featurize_batch(records, settings)
+        registry = SignatureRegistry()
+        for record in records:
+            yield featurize(record, settings, registry=registry)
+        return
     from envtok.store.executor import thread_limits  # noqa: PLC0415
 
     size = max(1, math.ceil(len(records) / (4 * workers)))
     batches = [records[start : start + size] for start in range(0, len(records), size)]
     registry = SignatureRegistry()
-    features: list[MolecularFeatures] = []
     with (
         thread_limits(threads_per_worker),
         ProcessPoolExecutor(
@@ -863,8 +883,7 @@ def featurize_records(
         for batch in pool.map(_featurize_batch, batches, [settings] * len(batches)):
             for feature in batch:
                 registry.merge(feature.signatures)
-            features.extend(batch)
-    return features
+                yield feature
 
 
 def _featurize_batch(

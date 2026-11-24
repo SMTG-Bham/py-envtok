@@ -76,7 +76,7 @@ def test_full_pipeline_restart_export_and_state(
     def forbidden(*_args: Any, **_kwargs: Any) -> None:
         pytest.fail("restart must reuse descriptors")
 
-    monkeypatch.setattr("envtok.molecular.pipeline.featurize_records", forbidden)
+    monkeypatch.setattr("envtok.molecular.pipeline.iter_features", forbidden)
     resumed = MolecularPipeline(directory / "config.resolved.yaml")
     assert resumed.run() == directory
     assert (directory / "selected_ids.txt").read_text() == ids
@@ -132,7 +132,7 @@ def test_cache_corruption_fails_closed(
 ) -> None:
     pipeline = MolecularPipeline(molecular_config)
     pipeline.featurize()
-    path = pipeline.feature_directory / "descriptors.npz"
+    path = pipeline.feature_directory / "descriptors.npy"
     if corruption == "missing":
         path.unlink()
     else:

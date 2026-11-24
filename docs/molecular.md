@@ -261,6 +261,14 @@ When features are present, their metadata and descriptor-array digests are
 checked; corrupt or changed cached content is rejected rather than recomputed
 as part of the audit.
 
+The feature cache stores every candidate descriptor as one uncompressed float32
+array, `descriptors.npy`, with records in `features.json` order. Featurisation
+writes each record's rows as they are produced, and later stages read
+memory-mapped views of the file rather than holding every descriptor in memory.
+`features.json` stores each token signature once for the pool. Geometry regions
+and the nearest-selected audit convert descriptors to float64 in small chunks,
+so no class is held in float64 at once.
+
 For new runs, configuration/source/software fingerprints address output
 directories. Descriptor arrays can be reused across selection settings; source,
 state mappings, representation settings/version and recorded software changes
