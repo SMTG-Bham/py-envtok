@@ -225,3 +225,30 @@ def test_saved_features_cannot_be_changed_for_benchmark_resumption(
         StaleCacheError, match="frozen molecular feature metadata changed"
     ):
         loaded.featurize()
+
+
+def test_run_audits_once_and_export_reaudits_changed_inputs(
+    review_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[None] = []
+    audit = MolecularPipeline.audit
+
+    def counted(self: MolecularPipeline) -> dict[str, Any]:
+        calls.append(None)
+        return audit(self)
+
+    monkeypatch.setattr(MolecularPipeline, "audit", counted)
+    pipeline = MolecularPipeline(review_config)
+    pipeline.run()
+    pipeline.export()
+    assert len(calls) == 1
+    path = pipeline.feature_directory / "features.json"
+    path.write_text(path.read_text() + "\n")
+    (pipeline.feature_directory / "commit.json").write_text(
+        json.dumps({"features_sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+    )
+    with pytest.raises(
+        StaleCacheError, match="frozen molecular feature metadata changed"
+    ):
+        pipeline.export()
+    assert len(calls) == 2

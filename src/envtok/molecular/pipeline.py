@@ -68,6 +68,14 @@ def _file_hash(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def _stat_key(path: Path) -> tuple[int, ...] | None:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_ino)
+
+
 def _write_json(path: Path, value: Any) -> None:
     temporary = path.with_suffix(path.suffix + ".partial")
     temporary.write_text(_json(value) + "\n")
@@ -205,6 +213,7 @@ class MolecularPipeline:
             | None
         ) = None
         self.timings: dict[str, float] = {}
+        self._audit_memo: tuple[tuple[Any, ...], dict[str, Any]] | None = None
 
     @classmethod
     def load_run(cls, directory: str | Path) -> MolecularPipeline:
@@ -253,6 +262,7 @@ class MolecularPipeline:
         self._features = None
         self._built = None
         self.timings = {}
+        self._audit_memo = None
         self._check_source()
         self._load_targets()
         return self
@@ -683,9 +693,21 @@ class MolecularPipeline:
         lookup = {r.record_id: r for r in self.ingest().candidates}
         return tuple(lookup[rid] for rid in selected_ids)
 
+    def _audit_inputs(self) -> tuple[Any, ...]:
+        """Stat signatures of every file an audit reads; any rewrite changes one."""
+        paths = [
+            self.directory / name
+            for name in ("selected_ids.txt", "targets.json", "provenance.json")
+        ] + [
+            self.feature_directory / name
+            for name in ("features.json", "descriptors.npz", "commit.json")
+        ]
+        return tuple(_stat_key(path) for path in paths)
+
     def audit(self) -> dict[str, Any]:
         """Audit saved IDs against training-only targets, cost and local distances."""
         self._check_source()
+        inputs = self._audit_inputs()
         path = self.directory / "selected_ids.txt"
         if not path.exists():
             raise ConfigError("no molecular selection exists; run select first")
@@ -756,11 +778,18 @@ class MolecularPipeline:
             + html.escape(_json(report))
             + "</pre>"
         )
+        self._audit_memo = (inputs, report)
         return report
 
     def export(self, output: str | Path | None = None) -> Path:
-        """Audit and export intact records, enforcing the state policy."""
-        self.audit()
+        """Audit and export intact records, enforcing the state policy.
+
+        An audit already made by this pipeline is reused when none of the files
+        it read has changed since, so ``run()`` audits once.
+        """
+        self._check_source()
+        if self._audit_memo is None or self._audit_memo[0] != self._audit_inputs():
+            self.audit()
         ids = (self.directory / "selected_ids.txt").read_text().splitlines()
         return export_records(
             self.selected_records(ids),
