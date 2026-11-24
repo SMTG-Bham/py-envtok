@@ -73,16 +73,18 @@ def _timed(function: Callable[[], object]) -> float:
     return round(time.perf_counter() - start, 3)
 
 
-def bench_selection(n_records: int) -> dict[str, Any]:
+def bench_selection(n_records: int, *, cover_only: bool = False) -> dict[str, Any]:
     """Time cover mode and budget mode with a 10% background reserve."""
     candidates = selection_pool(n_records)
     mandatory = {token: Target() for row in candidates for token in row.targets}
     budget = 0.5 * sum(row.cost for row in candidates)
-    return {
+    result = {
         "records": n_records,
         "mandatory_targets": len(mandatory),
         "cover_seconds": _timed(lambda: select_candidates(candidates, mandatory)),
-        "budget_reserve_seconds": _timed(
+    }
+    if not cover_only:
+        result["budget_reserve_seconds"] = _timed(
             lambda: select_candidates(
                 candidates,
                 mandatory,
@@ -90,8 +92,8 @@ def bench_selection(n_records: int) -> dict[str, Any]:
                 budget=budget,
                 background_reserve_fraction=0.1,
             )
-        ),
-    }
+        )
+    return result
 
 
 def bench_geometry(n_records: int) -> dict[str, Any]:
@@ -132,14 +134,18 @@ def main() -> None:
     parser.add_argument("kind", choices=["selection", "geometry", "pipeline"])
     parser.add_argument("--records", type=int, nargs="+", default=[1000])
     parser.add_argument("--config", help="molecular configuration for 'pipeline'")
+    parser.add_argument(
+        "--cover-only", action="store_true", help="skip budget mode in 'selection'"
+    )
     args = parser.parse_args()
     if args.kind == "pipeline":
         if args.config is None:
             parser.error("pipeline requires --config")
         results = [bench_pipeline(args.config)]
+    elif args.kind == "selection":
+        results = [bench_selection(n, cover_only=args.cover_only) for n in args.records]
     else:
-        bench = bench_selection if args.kind == "selection" else bench_geometry
-        results = [bench(n) for n in args.records]
+        results = [bench_geometry(n) for n in args.records]
     for result in results:
         peak = peak_rss_bytes()
         result["peak_rss_mib"] = None if peak is None else round(peak / 2**20, 1)

@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import reference_molecular_selection as reference
 
+from envtok.errors import ConfigError
 from envtok.molecular import selection
 
 COSTS = (1.0, 2.0, 3.0, 5.0, 7.0, 0.1, 0.2, 0.25, 1.5, 12.0)
@@ -91,14 +92,54 @@ def run_both(case: dict[str, Any], **extra: Any) -> tuple[Any, Any]:
     return current, frozen
 
 
+@pytest.mark.parametrize("algorithm", ["lazy", "transparent"])
 @pytest.mark.parametrize("block", range(10))
-def test_selection_matches_frozen_reference(block: int) -> None:
+def test_selection_matches_frozen_reference(block: int, algorithm: str) -> None:
     incomplete = incomplete_budget = 0
     for seed in range(block * 60, (block + 1) * 60):
-        current, frozen = run_both(random_case(seed))
+        current, frozen = run_both(random_case(seed), algorithm=algorithm)
         assert asdict(current) == asdict(frozen), seed
         incomplete += not frozen.complete
         incomplete_budget += not frozen.complete and frozen.mode == "budget"
     # The generator must keep reaching the incomplete-budget branch.
     assert incomplete
     assert incomplete_budget
+
+
+def test_lazy_matches_on_larger_pools() -> None:
+    # Many rounds and stale heap keys, beyond the small randomised pools.
+    rng = np.random.default_rng(7)
+    rows = [
+        selection.Candidate(
+            f"r{i:04d}",
+            float(rng.integers(5, 61)),
+            frozenset(f"t{t}" for t in (rng.zipf(2.0, 20) % 60).tolist()),
+            frozenset(f"g{g}" for g in (rng.zipf(1.5, 20) % 300).tolist()),
+            f"f{i // 4}",
+        )
+        for i in range(400)
+    ]
+    mandatory = {t: selection.Target() for row in rows for t in row.targets}
+    budget = 0.5 * sum(row.cost for row in rows)
+    results = [
+        selection.select_candidates(
+            rows,
+            mandatory,
+            mode="budget",
+            budget=budget,
+            background_reserve_fraction=0.1,
+            algorithm=algorithm,
+        )
+        for algorithm in ("lazy", "transparent")
+    ]
+    assert results[0] == results[1]
+    assert set(results[0].reasons.values()) == {
+        "chemical_core",
+        "geometry",
+        "background",
+    }
+
+
+def test_unknown_algorithm_rejected() -> None:
+    with pytest.raises(ConfigError, match="algorithm"):
+        selection.select_candidates([], algorithm="fast")

@@ -5,13 +5,16 @@ constraints and never asserts mathematical infeasibility.
 """
 
 import hashlib
+import heapq
 import math
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
 
 from envtok.errors import ConfigError
+
+ALGORITHMS = ("lazy", "transparent")
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,31 +201,78 @@ class _Selection:
         )
         return sum((weights[token] for token in newly_covered), start=Fraction(0))
 
-    def greedy(self, *, weights: Mapping[str, float] | None = None) -> None:
+    def greedy(
+        self, *, weights: Mapping[str, float] | None = None, lazy: bool = True
+    ) -> None:
+        """Add the best gain-per-cost component until none gains or fits.
+
+        Ties go to the lower cost, then to the lexicographically first sorted
+        record IDs. The lazy and transparent versions return identical picks.
+        """
         exact = (
             None if weights is None else {t: _fraction(w) for t, w in weights.items()}
         )
-        while True:
-            options: list[tuple[Fraction, Fraction, tuple[str, ...]]] = []
-            for component in self.components:
-                remaining = component - self.selected
-                if not remaining:
-                    continue
-                cost = self.marginal_cost(remaining)
-                if self.limit is not None and self.cost + cost > self.limit:
-                    continue
-                gain = (
-                    self.chemical_gain(remaining)
-                    if exact is None
-                    else self.refine_gain(remaining, exact)
-                )
-                if gain > 0:
-                    options.append((-gain / cost, cost, tuple(sorted(remaining))))
-            if not options:
-                return
-            self.add(
-                set(min(options)[2]), "chemical_core" if weights is None else "geometry"
+        reason = "chemical_core" if weights is None else "geometry"
+
+        def gain(ids: frozenset[str] | set[str]) -> Fraction:
+            return (
+                self.chemical_gain(ids)
+                if exact is None
+                else self.refine_gain(ids, exact)
             )
+
+        (self._greedy_lazy if lazy else self._greedy_transparent)(gain, reason)
+
+    def _options(
+        self, gain: Callable[[frozenset[str]], Fraction]
+    ) -> list[tuple[Fraction, Fraction, tuple[str, ...]]]:
+        options = []
+        for component in self.components:
+            remaining = component - self.selected
+            if not remaining:
+                continue
+            cost = self.marginal_cost(remaining)
+            if self.limit is not None and self.cost + cost > self.limit:
+                continue
+            value = gain(remaining)
+            if value > 0:
+                options.append((-value / cost, cost, tuple(sorted(remaining))))
+        return options
+
+    def _greedy_transparent(
+        self, gain: Callable[[frozenset[str]], Fraction], reason: str
+    ) -> None:
+        """Readable specification: rescan every component in every round."""
+        while options := self._options(gain):
+            self.add(set(min(options)[2]), reason)
+
+    def _greedy_lazy(
+        self, gain: Callable[[frozenset[str]], Fraction], reason: str
+    ) -> None:
+        """Lazy-heap (CELF) greedy with the transparent version's picks.
+
+        Components are disjoint and always added or removed whole, so each
+        one's cost is fixed. Gains are weighted truncated coverage, which never
+        rises as records are added, so a stored key is a lower bound on the
+        current one: the popped component wins once its fresh key still beats
+        every stored key. The total cost only rises within a stage, so a
+        component over the limit never fits again. The heap is built for each
+        call because pruning between stages can raise gains.
+        """
+        heap = self._options(gain)
+        heapq.heapify(heap)
+        while heap:
+            _, cost, ids = heapq.heappop(heap)
+            if self.limit is not None and self.cost + cost > self.limit:
+                continue
+            value = gain(frozenset(ids))
+            if value <= 0:
+                continue
+            key = (-value / cost, cost, ids)
+            if heap and key > heap[0]:
+                heapq.heappush(heap, key)
+                continue
+            self.add(set(ids), reason)
 
     def prune(self) -> None:
         # One unmet target blocks every removal, as each removal must leave all
@@ -352,6 +402,7 @@ def select_candidates(
     background_reserve_fraction: float = 0.0,
     seed: int = 0,
     prune: bool = True,
+    algorithm: str = "lazy",
 ) -> MolecularSelectionResult:
     """Select a chemical core, refine geometry, and fill a background reserve.
 
@@ -359,7 +410,12 @@ def select_candidates(
     including transitive overlapping bundles. All stages charge marginal whole
     configuration costs. Geometry and background run only after mandatory cover
     succeeds. Pruning runs before refinement so geometric witnesses survive.
+    ``algorithm`` chooses the ``"lazy"`` heap greedy or the ``"transparent"``
+    rescanning specification; both return identical selections.
     """
+    if algorithm not in ALGORITHMS:
+        raise ConfigError(f"selection algorithm must be one of {ALGORITHMS}")
+    lazy = algorithm == "lazy"
     required = (
         {token: Target() for candidate in candidates for token in candidate.targets}
         if mandatory is None
@@ -376,7 +432,7 @@ def select_candidates(
     by_id = {candidate.record_id: candidate for candidate in candidates}
     hard_limit = None if budget is None else _fraction(budget)
     state = _Selection(by_id, required, _components(by_id, bundles), hard_limit)
-    state.greedy()
+    state.greedy(lazy=lazy)
     if prune:
         state.prune()
     reserve = (
@@ -391,7 +447,7 @@ def select_candidates(
     if complete:
         if hard_limit is not None:
             state.limit = max(state.cost, hard_limit - reserve)
-        state.greedy(weights=weights)
+        state.greedy(weights=weights, lazy=lazy)
         if hard_limit is not None and reserve:
             state.limit = hard_limit
             before = state.cost
