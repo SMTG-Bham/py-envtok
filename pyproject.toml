@@ -84,6 +84,11 @@ filterwarnings = [
   "error",
   # ASE's SQLite backend leaves connections to the garbage collector.
   "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
+  # dscribe docstrings contain invalid escapes that warn when the module is
+  # first compiled: DeprecationWarning before Python 3.12, SyntaxWarning after.
+  # Compile-time warnings report the source path as their module.
+  'ignore:.*invalid escape sequence:DeprecationWarning:(.*[/\\])?dscribe[./\\]',
+  'ignore:.*invalid escape sequence:SyntaxWarning:(.*[/\\])?dscribe[./\\]',
 ]
 
 [tool.coverage.run]
