@@ -52,7 +52,7 @@ from envtok.molecular.selection import (
     select_candidates,
 )
 
-IMPLEMENTATION_VERSION = "molecular_v1.3"
+IMPLEMENTATION_VERSION = "molecular_v1.4"
 
 
 def _json(value: Any) -> str:

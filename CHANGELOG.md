@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Molecular graph perception no longer falls back for molecules with a nonzero
+  coordinate smaller than 1e-4 in magnitude. Such coordinates were written to
+  RDKit in exponent notation, which its XYZ reader rejects, so perception
+  silently reported `fallback_perception_unsupported`. Coordinates are now
+  written positionally and parse to the same values; other coordinates keep
+  their previous text. The molecular implementation version is now
+  `molecular_v1.4`, so runs and feature caches from `molecular_v1.3` are not
+  reused.
+
 ## 0.1.0a1 — 2026-11-24
 
 Initial alpha release. Public APIs and saved-run formats may change in later
