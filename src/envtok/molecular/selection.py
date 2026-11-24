@@ -312,25 +312,71 @@ class _Selection:
             *(self.candidates[rid].refinement_targets for rid in self.selected)
         )
 
-    def background(self, seed: int, limit: Fraction) -> None:
+    def background(self, seed: int, limit: Fraction, *, lazy: bool = True) -> None:
+        """Fill the reserve, preferring groups with fewer selected records.
+
+        Ties go to a seeded hash of the component's sorted IDs, then the IDs.
+        The lazy and transparent versions return identical picks.
+        """
+        (self._background_lazy if lazy else self._background_transparent)(seed, limit)
+
+    def _group(self, record_id: str) -> str:
+        return self.candidates[record_id].group_id or record_id
+
+    def _background_transparent(self, seed: int, limit: Fraction) -> None:
+        """Readable specification: recount and rescan every component each round."""
         while True:
-            groups: Counter[str] = Counter(
-                self.candidates[rid].group_id or rid for rid in self.selected
-            )
+            groups: Counter[str] = Counter(self._group(rid) for rid in self.selected)
             options: list[tuple[int, str, tuple[str, ...]]] = []
             for component in self.components:
                 remaining = component - self.selected
                 if not remaining or self.cost + self.marginal_cost(remaining) > limit:
                     continue
                 ids = tuple(sorted(remaining))
-                group_count = sum(
-                    groups[self.candidates[rid].group_id or rid] for rid in ids
-                )
-                order = hashlib.sha256(f"{seed}:{ids!r}".encode()).hexdigest()
-                options.append((group_count, order, ids))
+                group_count = sum(groups[self._group(rid)] for rid in ids)
+                options.append((group_count, _background_order(seed, ids), ids))
             if not options:
                 return
             self.add(set(min(options)[2]), "background")
+
+    def _background_lazy(self, seed: int, limit: Fraction) -> None:
+        """Lazy heap with incrementally maintained group counts.
+
+        Group counts only rise as records are added, so a stored key is a lower
+        bound on the current one, and the running cost only rises, so a
+        component over the limit never fits again. The order hash is fixed per
+        component and computed once.
+        """
+        groups: Counter[str] = Counter(self._group(rid) for rid in self.selected)
+
+        def count(ids: tuple[str, ...]) -> int:
+            return sum(groups[self._group(rid)] for rid in ids)
+
+        heap: list[tuple[int, str, tuple[str, ...], Fraction]] = []
+        for component in self.components:
+            remaining = component - self.selected
+            if not remaining:
+                continue
+            cost = self.marginal_cost(remaining)
+            if self.cost + cost > limit:
+                continue
+            ids = tuple(sorted(remaining))
+            heap.append((count(ids), _background_order(seed, ids), ids, cost))
+        heapq.heapify(heap)
+        while heap:
+            _, order, ids, cost = heapq.heappop(heap)
+            if self.cost + cost > limit:
+                continue
+            key = (count(ids), order, ids, cost)
+            if heap and key > heap[0]:
+                heapq.heappush(heap, key)
+                continue
+            self.add(set(ids), "background")
+            groups.update(self._group(rid) for rid in ids)
+
+
+def _background_order(seed: int, ids: tuple[str, ...]) -> str:
+    return hashlib.sha256(f"{seed}:{ids!r}".encode()).hexdigest()
 
 
 def _positive_integer(value: object) -> bool:
@@ -451,7 +497,7 @@ def select_candidates(
         if hard_limit is not None and reserve:
             state.limit = hard_limit
             before = state.cost
-            state.background(seed, hard_limit)
+            state.background(seed, hard_limit, lazy=lazy)
             background_cost = state.cost - before
     counts: Counter[str] = Counter()
     for record_id in sorted(state.selected):
