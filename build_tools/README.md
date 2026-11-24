@@ -52,6 +52,7 @@ Run from the repository root:
 
 ```bash
 uv run python build_tools/benchmark_selection.py
+uv run python build_tools/benchmark_molecular.py selection --records 1000 4000
 uv run --extra omat24 python build_tools/qualify_periodic.py
 uv run --extra molecular python build_tools/qualify_molecular.py
 uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py
@@ -63,7 +64,10 @@ uv run python build_tools/qualify_artifacts.py
 ```
 
 The selection benchmark defaults to 1,000 synthetic records, 200 possible tokens
-and T=5. The periodic check uses 20 generated fixtures in native LMDB storage,
+and T=5. The molecular benchmark times `selection` (cover mode, and budget
+mode with a 10% background reserve) or `geometry` (region fitting and the
+nearest-selected audit) on synthetic pools of the given sizes; `pipeline
+--config` times each stage of a real configuration. The periodic check uses 20 generated fixtures in native LMDB storage,
 including real geometry, two worker counts and interrupted restart. Supply
 `--source` and `--revision` to the periodic runner for a small real native shard.
 The molecular screen trains a cheap CPU energy/force model on the bundled OMol
