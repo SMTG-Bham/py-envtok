@@ -68,12 +68,23 @@ def _file_hash(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def _stat_key(path: Path) -> tuple[int, ...] | None:
+_RACY_NS = 2_000_000_000
+"""File timestamps are coarse (a few ms on Linux), so a file changed this close
+to a check could change again without a new timestamp; such stats are not
+trusted until a later full hash, as with git's racily clean entries."""
+
+
+def _stat_key(path: Path) -> tuple[int, int, int, int] | None:
     try:
         stat = path.stat()
     except FileNotFoundError:
         return None
     return (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_ino)
+
+
+def _trusted(signature: tuple[int, int, int, int] | None, checked: int) -> bool:
+    """Whether the file was last changed well before ``checked`` (ns)."""
+    return signature is not None and checked - max(signature[1:3]) > _RACY_NS
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -164,7 +175,10 @@ class MolecularPipeline:
         self.source = Path(self.settings["source"]["path"])
         if not self.source.is_file():
             raise ConfigError(f"molecular source does not exist: {self.source}")
+        checked = time.time_ns()
+        signature = _stat_key(self.source)
         self.source_hash = _file_hash(self.source)
+        self._source_stat = signature if _trusted(signature, checked) else None
         self.software = _software()
         self.runtime_software = self.software
         self._settings_hash = _digest(self.settings)
@@ -213,7 +227,6 @@ class MolecularPipeline:
             | None
         ) = None
         self.timings: dict[str, float] = {}
-        self._audit_memo: tuple[tuple[Any, ...], dict[str, Any]] | None = None
 
     @classmethod
     def load_run(cls, directory: str | Path) -> MolecularPipeline:
@@ -257,27 +270,40 @@ class MolecularPipeline:
                 "saved molecular configuration or software lock changed"
             )
         self.runtime_software = _software()
+        self._source_stat = None
         self._loaded = True
         self._prepared = None
         self._features = None
         self._built = None
         self.timings = {}
-        self._audit_memo = None
         self._check_source()
         self._load_targets()
         return self
 
-    def _check_source(self) -> None:
+    def _check_source(self, *, full: bool = False) -> None:
+        """Reject changed settings or source content.
+
+        The source is hashed in full by ``select()`` and ``export()``, and
+        whenever its stat signature (size, mtime, ctime, inode) differs from
+        the one recorded at the last verified hash. Otherwise an unchanged
+        signature stands in for the hash, provided the source had not changed
+        within ``_RACY_NS`` of that verification.
+        """
         if _digest(self.settings) != self._settings_hash:
             raise StaleCacheError(
                 "molecular configuration changed after initialization"
             )
+        checked = time.time_ns()
+        signature = _stat_key(self.source)
+        if not full and signature is not None and signature == self._source_stat:
+            return
         try:
             unchanged = _file_hash(self.source) == self.source_hash
         except OSError as exc:
             raise StaleCacheError("molecular source is unavailable") from exc
         if not unchanged:
             raise StaleCacheError("molecular source content changed; create a new run")
+        self._source_stat = signature if _trusted(signature, checked) else None
 
     def _load_targets(
         self,
@@ -622,7 +648,7 @@ class MolecularPipeline:
 
     def select(self) -> MolecularSelectionResult:
         """Select whole records, audit independently and write the manifest."""
-        self._check_source()
+        self._check_source(full=True)
         if (self.directory / "provenance.json").exists():
             self._load_targets()
         candidates, mandatory, _, _ = self.build_targets()
@@ -693,21 +719,9 @@ class MolecularPipeline:
         lookup = {r.record_id: r for r in self.ingest().candidates}
         return tuple(lookup[rid] for rid in selected_ids)
 
-    def _audit_inputs(self) -> tuple[Any, ...]:
-        """Stat signatures of every file an audit reads; any rewrite changes one."""
-        paths = [
-            self.directory / name
-            for name in ("selected_ids.txt", "targets.json", "provenance.json")
-        ] + [
-            self.feature_directory / name
-            for name in ("features.json", "descriptors.npz", "commit.json")
-        ]
-        return tuple(_stat_key(path) for path in paths)
-
     def audit(self) -> dict[str, Any]:
         """Audit saved IDs against training-only targets, cost and local distances."""
         self._check_source()
-        inputs = self._audit_inputs()
         path = self.directory / "selected_ids.txt"
         if not path.exists():
             raise ConfigError("no molecular selection exists; run select first")
@@ -778,18 +792,15 @@ class MolecularPipeline:
             + html.escape(_json(report))
             + "</pre>"
         )
-        self._audit_memo = (inputs, report)
         return report
 
     def export(self, output: str | Path | None = None) -> Path:
-        """Audit and export intact records, enforcing the state policy.
+        """Audit and export intact records, enforcing the state policy."""
+        self.audit()
+        return self._export(output)
 
-        An audit already made by this pipeline is reused when none of the files
-        it read has changed since, so ``run()`` audits once.
-        """
-        self._check_source()
-        if self._audit_memo is None or self._audit_memo[0] != self._audit_inputs():
-            self.audit()
+    def _export(self, output: str | Path | None = None) -> Path:
+        self._check_source(full=True)
         ids = (self.directory / "selected_ids.txt").read_text().splitlines()
         return export_records(
             self.selected_records(ids),
@@ -801,5 +812,6 @@ class MolecularPipeline:
         """Select, report and optionally materialise a training subset."""
         self.select()
         if self.settings["output"]["format"] != "none":
-            self.export()
+            # select() has just audited this selection.
+            self._export()
         return self.directory

@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ import yaml
 from ase import Atoms
 
 from envtok.errors import StaleCacheError
+from envtok.molecular import pipeline as pipeline_module
 from envtok.molecular.data import prepare_records
 from envtok.molecular.pipeline import MolecularPipeline
 
@@ -227,7 +229,7 @@ def test_saved_features_cannot_be_changed_for_benchmark_resumption(
         loaded.featurize()
 
 
-def test_run_audits_once_and_export_reaudits_changed_inputs(
+def test_run_audits_once_and_explicit_export_reaudits(
     review_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[None] = []
@@ -240,7 +242,6 @@ def test_run_audits_once_and_export_reaudits_changed_inputs(
     monkeypatch.setattr(MolecularPipeline, "audit", counted)
     pipeline = MolecularPipeline(review_config)
     pipeline.run()
-    pipeline.export()
     assert len(calls) == 1
     path = pipeline.feature_directory / "features.json"
     path.write_text(path.read_text() + "\n")
@@ -252,3 +253,55 @@ def test_run_audits_once_and_export_reaudits_changed_inputs(
     ):
         pipeline.export()
     assert len(calls) == 2
+
+
+def counting_source_hashes(source: Path, monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    hashed: list[Path] = []
+    file_hash = pipeline_module._file_hash
+
+    def counted(path: Path) -> str:
+        if path == source:
+            hashed.append(path)
+        return file_hash(path)
+
+    monkeypatch.setattr(pipeline_module, "_file_hash", counted)
+    return hashed
+
+
+def test_settled_source_hashed_in_full_only_at_boundaries_or_on_stat_change(
+    review_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Treat the freshly written fixture as long settled.
+    monkeypatch.setattr(pipeline_module, "_RACY_NS", -(10**12))
+    source = Path(review_config["source"]["path"])
+    hashed = counting_source_hashes(source, monkeypatch)
+    pipeline = MolecularPipeline(review_config)
+    pipeline.run()
+    # Construction, select() and the export; other stages compare stats.
+    assert len(hashed) == 3
+    hashed.clear()
+    pipeline.ingest()
+    pipeline.audit()
+    assert not hashed
+    os.utime(source)
+    pipeline.ingest()
+    pipeline.featurize()
+    assert len(hashed) == 1
+
+
+def test_same_size_rewrite_soon_after_a_check_is_detected(
+    review_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = Path(review_config["source"]["path"])
+    hashed = counting_source_hashes(source, monkeypatch)
+    pipeline = MolecularPipeline(review_config)
+    pipeline.featurize()
+    # A source changed this recently is re-hashed rather than trusted by stat.
+    hashed.clear()
+    pipeline.ingest()
+    assert len(hashed) == 1
+    text = source.read_text()
+    source.write_text(text.replace("sid=a", "sid=z"))
+    assert source.stat().st_size == len(text.encode())
+    with pytest.raises(StaleCacheError, match="source content changed"):
+        pipeline.featurize()

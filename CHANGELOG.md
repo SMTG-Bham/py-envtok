@@ -13,6 +13,13 @@
   `molecular_v1.4`, so runs and feature caches from `molecular_v1.3` are not
   reused.
 
+### Changed
+
+- Molecular stages no longer re-hash the whole source on every call. `select()`
+  and `export()` hash it in full; other stages re-hash it only when its stat
+  signature changes, as described in the [molecular guide](docs/molecular.md).
+  `run()` audits the selection once instead of again before exporting.
+
 ## 0.1.0a1 — 2026-11-24
 
 Initial alpha release. Public APIs and saved-run formats may change in later

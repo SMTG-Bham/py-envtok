@@ -243,6 +243,15 @@ count the current selected IDs against those frozen targets without refitting
 the hierarchy or prototypes. A changed runtime is reported through
 `software_environment_matches_selection`; it does not select another run.
 
+Every stage also checks that the source is unchanged. `select()` and `export()`
+hash it in full. Between them, the source is hashed again whenever its size,
+modification time, change time or inode differs from the last verified hash;
+otherwise the unchanged stat signature stands in for the hash. Because file
+timestamps are coarse, a signature is trusted only when the source had been
+unchanged for two seconds before that verification. An edit that keeps all
+four fields, which an ordinary write to a settled file cannot do, is caught at
+the next full hash.
+
 The resolved source and feature-cache paths are absolute. Moving only the run
 directory does not move its source or rewrite those paths. The original source
 must remain available and unchanged. If the saved feature cache is unavailable,
