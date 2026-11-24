@@ -149,12 +149,18 @@ class _Selection:
     refined: set[str] = field(default_factory=set)
     reasons: dict[str, str] = field(default_factory=dict)
     cost: Fraction = Fraction(0)
+    costs: dict[str, Fraction] = field(init=False)
+    weights: dict[str, Fraction] = field(init=False)
+
+    def __post_init__(self) -> None:
+        # Exact values are parsed once; Fraction(str(x)) is the hot path otherwise.
+        self.costs = {rid: _fraction(row.cost) for rid, row in self.candidates.items()}
+        self.weights = {
+            token: _fraction(target.weight) for token, target in self.mandatory.items()
+        }
 
     def marginal_cost(self, ids: frozenset[str] | set[str]) -> Fraction:
-        return sum(
-            (_fraction(self.candidates[rid].cost) for rid in sorted(ids)),
-            start=Fraction(0),
-        )
+        return sum((self.costs[rid] for rid in ids), start=Fraction(0))
 
     def add(self, ids: frozenset[str] | set[str], reason: str) -> None:
         for record_id in sorted(ids):
@@ -163,36 +169,39 @@ class _Selection:
             self.counts.update(candidate.targets)
             self.refined.update(candidate.refinement_targets)
             self.reasons[record_id] = reason
-            self.cost += _fraction(candidate.cost)
+            self.cost += self.costs[record_id]
 
     def chemical_gain(self, ids: frozenset[str] | set[str]) -> Fraction:
+        """Weighted unmet multiplicity supplied, over the records' own targets.
+
+        Targets outside the contribution add ``min(0, ...) = 0``, so this equals
+        the sum over every mandatory target.
+        """
         contribution: Counter[str] = Counter()
         for record_id in ids:
             contribution.update(self.candidates[record_id].targets)
-        return sum(
-            (
-                _fraction(target.weight)
-                * min(
-                    contribution[token], max(0, target.requirement - self.counts[token])
-                )
-                for token, target in self.mandatory.items()
-            ),
-            start=Fraction(0),
-        )
+        gain = Fraction(0)
+        for token, supplied in contribution.items():
+            target = self.mandatory.get(token)
+            if target is not None:
+                deficit = target.requirement - self.counts[token]
+                if deficit > 0:
+                    gain += self.weights[token] * min(supplied, deficit)
+        return gain
 
     def refine_gain(
-        self, ids: frozenset[str] | set[str], weights: Mapping[str, float]
+        self, ids: frozenset[str] | set[str], weights: Mapping[str, Fraction]
     ) -> Fraction:
         newly_covered = (
             set().union(*(self.candidates[rid].refinement_targets for rid in ids))
             - self.refined
         )
-        return sum(
-            (_fraction(weights[token]) for token in sorted(newly_covered)),
-            start=Fraction(0),
-        )
+        return sum((weights[token] for token in newly_covered), start=Fraction(0))
 
     def greedy(self, *, weights: Mapping[str, float] | None = None) -> None:
+        exact = (
+            None if weights is None else {t: _fraction(w) for t, w in weights.items()}
+        )
         while True:
             options: list[tuple[Fraction, Fraction, tuple[str, ...]]] = []
             for component in self.components:
@@ -204,8 +213,8 @@ class _Selection:
                     continue
                 gain = (
                     self.chemical_gain(remaining)
-                    if weights is None
-                    else self.refine_gain(remaining, weights)
+                    if exact is None
+                    else self.refine_gain(remaining, exact)
                 )
                 if gain > 0:
                     options.append((-gain / cost, cost, tuple(sorted(remaining))))
@@ -216,30 +225,39 @@ class _Selection:
             )
 
     def prune(self) -> None:
-        ordered = sorted(
-            self.components,
-            key=lambda ids: (
-                -self.marginal_cost(ids & self.selected),
-                tuple(sorted(ids)),
-            ),
-        )
-        for component in ordered:
-            removing = component & self.selected
-            if not removing:
-                continue
-            decrement: Counter[str] = Counter()
-            for record_id in removing:
-                decrement.update(self.candidates[record_id].targets)
-            if any(
-                self.counts[token] - decrement[token] < target.requirement
-                for token, target in self.mandatory.items()
-            ):
-                continue
-            self.selected.difference_update(removing)
-            self.counts.subtract(decrement)
-            self.cost -= self.marginal_cost(removing)
-            for record_id in removing:
-                del self.reasons[record_id]
+        # One unmet target blocks every removal, as each removal must leave all
+        # mandatory targets at their requirement; removals never repair a target.
+        if all(
+            self.counts[token] >= target.requirement
+            for token, target in self.mandatory.items()
+        ):
+            ordered = sorted(
+                (
+                    component
+                    for component in self.components
+                    if component & self.selected
+                ),
+                key=lambda ids: (
+                    -self.marginal_cost(ids & self.selected),
+                    tuple(sorted(ids)),
+                ),
+            )
+            for component in ordered:
+                removing = component & self.selected
+                decrement: Counter[str] = Counter()
+                for record_id in removing:
+                    decrement.update(self.candidates[record_id].targets)
+                if any(
+                    self.counts[token] - removed < self.mandatory[token].requirement
+                    for token, removed in decrement.items()
+                    if token in self.mandatory
+                ):
+                    continue
+                self.selected.difference_update(removing)
+                self.counts.subtract(decrement)
+                self.cost -= self.marginal_cost(removing)
+                for record_id in removing:
+                    del self.reasons[record_id]
         self.refined = set().union(
             *(self.candidates[rid].refinement_targets for rid in self.selected)
         )
