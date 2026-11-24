@@ -80,7 +80,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "prune": True,
     },
     "reproducibility": {"seed": 20261105, "stable_tie_break": "record_id"},
-    "execution": {"workdir": "runs/molecular", "resume": True},
+    "execution": {
+        "workdir": "runs/molecular",
+        "resume": True,
+        "workers": 1,
+        "threads_per_worker": 1,
+    },
     "output": {"format": "extxyz"},
 }
 
@@ -225,6 +230,12 @@ def _validate(data: dict[str, Any]) -> None:  # noqa: PLR0912, PLR0915 - explici
         or not data["execution"]["workdir"]
     ):
         raise ConfigError("execution.workdir must be a nonempty path")
+    for key in ("workers", "threads_per_worker"):
+        _number(data["execution"], key, minimum=1, integer=True)
+
+
+EXECUTION_ONLY = ("workers", "threads_per_worker")
+"""Execution settings that cannot change results and stay out of fingerprints."""
 
 
 @dataclass(frozen=True, slots=True)

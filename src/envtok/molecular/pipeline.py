@@ -25,7 +25,11 @@ import pyarrow.parquet as pq
 import yaml
 
 from envtok.errors import ConfigError, CoverageError, StaleCacheError
-from envtok.molecular.config import MolecularConfig, load_molecular_config
+from envtok.molecular.config import (
+    EXECUTION_ONLY,
+    MolecularConfig,
+    load_molecular_config,
+)
 from envtok.molecular.data import (
     PreparedRecords,
     export_records,
@@ -57,6 +61,16 @@ IMPLEMENTATION_VERSION = "molecular_v1.4"
 
 def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, indent=2, allow_nan=False)
+
+
+def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
+    """Settings that address a run; worker counts cannot change its results."""
+    execution = {
+        key: value
+        for key, value in settings["execution"].items()
+        if key not in EXECUTION_ONLY
+    }
+    return {**settings, "execution": execution}
 
 
 def _digest(value: Any) -> str:
@@ -184,7 +198,7 @@ class MolecularPipeline:
         self._settings_hash = _digest(self.settings)
         self._loaded = False
         fingerprint_data = {
-            "config": self.settings,
+            "config": _fingerprinted(self.settings),
             "source_sha256": self.source_hash,
             "software": self.software,
         }
@@ -260,7 +274,7 @@ class MolecularPipeline:
         )
         expected = _digest(
             {
-                "config": self.settings,
+                "config": _fingerprinted(self.settings),
                 "source_sha256": self.source_hash,
                 "software": self.software,
             }
@@ -494,7 +508,15 @@ class MolecularPipeline:
                     "allow_validated_perception"
                 ],
             )
-            self._features = tuple(featurize_records(records, settings))
+            execution = self.settings["execution"]
+            self._features = tuple(
+                featurize_records(
+                    records,
+                    settings,
+                    workers=execution["workers"],
+                    threads_per_worker=execution["threads_per_worker"],
+                )
+            )
             temporary = descriptor_path.with_suffix(".partial")
             with temporary.open("wb") as stream:
                 np.savez_compressed(

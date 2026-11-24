@@ -16,7 +16,9 @@ import importlib
 import itertools
 import json
 import math
-from collections.abc import Sequence
+import multiprocessing
+from collections.abc import Mapping, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from typing import Any
@@ -131,10 +133,18 @@ class SignatureRegistry:
         """Return a digest only if its canonical payload is unambiguous."""
         serialized = _json(signature)
         token = f"molecular_v1:{channel}:{sha256(serialized.encode()).hexdigest()}"
+        self._add(token, serialized)
+        return token
+
+    def merge(self, signatures: Mapping[str, str]) -> None:
+        """Add another registry's signatures, rejecting conflicting payloads."""
+        for token, serialized in signatures.items():
+            self._add(token, serialized)
+
+    def _add(self, token: str, serialized: str) -> None:
         previous = self.signatures.setdefault(token, serialized)
         if previous != serialized:
             raise ConfigError(f"molecular token digest collision: {token}")
-        return token
 
 
 @dataclass(frozen=True, slots=True)
@@ -812,12 +822,22 @@ def featurize(
 
 
 def featurize_records(
-    records: Sequence[MolecularRecord], settings: RepresentationSettings
+    records: Sequence[MolecularRecord],
+    settings: RepresentationSettings,
+    *,
+    workers: int = 1,
+    threads_per_worker: int = 1,
 ) -> list[MolecularFeatures]:
     """Represent a training pool with one registry and frozen species vocabulary.
 
     If no vocabulary is configured, infer it from this supplied pool only. The
     caller must not include held-out records when fitting this vocabulary.
+
+    With ``workers > 1``, ordered batches are featurised in spawned processes,
+    each capped at ``threads_per_worker`` native threads. Tokens are content
+    digests, so the features are identical to a serial run; every worker's
+    signatures are merged into one registry, so a digest collision between
+    records in different batches is still rejected.
     """
     if not settings.species:
         settings = replace(
@@ -826,5 +846,29 @@ def featurize_records(
                 sorted({int(z) for record in records for z in record.atoms.numbers})
             ),
         )
+    if workers <= 1 or len(records) <= 1:
+        return _featurize_batch(records, settings)
+    from envtok.store.executor import thread_limits  # noqa: PLC0415
+
+    size = max(1, math.ceil(len(records) / (4 * workers)))
+    batches = [records[start : start + size] for start in range(0, len(records), size)]
+    registry = SignatureRegistry()
+    features: list[MolecularFeatures] = []
+    with (
+        thread_limits(threads_per_worker),
+        ProcessPoolExecutor(
+            max_workers=workers, mp_context=multiprocessing.get_context("spawn")
+        ) as pool,
+    ):
+        for batch in pool.map(_featurize_batch, batches, [settings] * len(batches)):
+            for feature in batch:
+                registry.merge(feature.signatures)
+            features.extend(batch)
+    return features
+
+
+def _featurize_batch(
+    records: Sequence[MolecularRecord], settings: RepresentationSettings
+) -> list[MolecularFeatures]:
     registry = SignatureRegistry()
     return [featurize(record, settings, registry=registry) for record in records]

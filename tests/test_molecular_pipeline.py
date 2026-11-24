@@ -198,6 +198,9 @@ def test_audit_rejects_manipulated_selection(molecular_config: dict[str, Any]) -
         ("selection", "atom_budget", 1.5),
         ("execution", "workdir", None),
         ("execution", "workdir", ""),
+        ("execution", "workers", 0),
+        ("execution", "workers", True),
+        ("execution", "threads_per_worker", 1.5),
     ],
 )
 def test_config_rejects_invalid_settings(

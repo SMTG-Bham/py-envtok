@@ -563,3 +563,28 @@ def test_torsions_require_matching_families_and_defined_geometry() -> None:
         rep.featurize(_record(atoms), settings)
     with pytest.raises(ConfigError, match="undefined"):
         rep.featurize(_record(atoms, family_id="family"), settings)
+
+
+def test_parallel_featurisation_matches_serial() -> None:
+    atoms = [molecule(name) for name in ("H2O", "CH4", "NH3", "C2H6", "CH3OH")]
+    records = [
+        replace(_record(item), record=replace(_record(item).record, record_id=f"r{i}"))
+        for i, item in enumerate(atoms * 2)
+    ]
+    settings = rep.RepresentationSettings(backend="radial")
+    serial = rep.featurize_records(records, settings)
+    parallel = rep.featurize_records(records, settings, workers=2)
+    assert len(parallel) == len(records)
+    for left, right in zip(serial, parallel, strict=True):
+        assert left.record_id == right.record_id
+        assert left.token_hierarchy == right.token_hierarchy
+        assert left.signatures == right.signatures
+        assert np.array_equal(left.descriptors, right.descriptors)
+
+
+def test_registry_merge_rejects_conflicting_payloads() -> None:
+    registry = rep.SignatureRegistry()
+    token = registry.register({"a": 1}, "graph")
+    registry.merge({token: registry.signatures[token]})
+    with pytest.raises(ConfigError, match="digest collision"):
+        registry.merge({token: '{"a":2}'})

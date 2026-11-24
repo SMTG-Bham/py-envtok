@@ -267,7 +267,18 @@ state mappings, representation settings/version and recorded software changes
 use another feature cache. Repeating deterministic stages preserves selected
 IDs. Set `execution.resume: false` in a new run configuration to recompute
 features. This pilot implementation holds records and incidence in memory and
-does not yet provide worker-count sharding.
+does not yet provide cluster sharding.
+
+Featurisation can run in local worker processes. Set `execution.workers` to
+the number of processes and `execution.threads_per_worker` to cap the native
+threads in each (both default to 1). Records are split into ordered batches,
+and every worker's signatures are merged into one registry, so the features are
+identical to a serial run and a digest collision between batches is still
+rejected. Worker settings are left out of run and feature fingerprints, so
+changing them reuses an existing run. Starting the workers takes several
+seconds, because each imports the descriptor and perception libraries, so
+pools that featurise in a few seconds gain little. Use at most one worker per
+physical core.
 
 Runs retain `selected_ids.txt`, `selected_manifest.parquet`,
 `config.resolved.yaml`, `software-lock.json`, `provenance.json`, `ingestion.json`,

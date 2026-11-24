@@ -305,3 +305,40 @@ def test_same_size_rewrite_soon_after_a_check_is_detected(
     assert source.stat().st_size == len(text.encode())
     with pytest.raises(StaleCacheError, match="source content changed"):
         pipeline.featurize()
+
+
+def test_parallel_featurisation_matches_serial_without_new_run(
+    review_config: dict[str, Any],
+) -> None:
+    serial = MolecularPipeline(review_config)
+    serial.run()
+    parallel_config = copy.deepcopy(review_config)
+    parallel_config["execution"] |= {"workers": 2, "threads_per_worker": 1}
+    # Worker counts stay out of fingerprints, so this addresses the same run.
+    parallel = MolecularPipeline(parallel_config)
+    assert parallel.directory == serial.directory
+    assert parallel.feature_directory == serial.feature_directory
+    parallel_config["execution"]["resume"] = False
+    recomputed = MolecularPipeline(parallel_config).featurize()
+    assert [
+        (f.record_id, f.token_hierarchy, f.signatures, f.descriptors.tobytes())
+        for f in recomputed
+    ] == [
+        (f.record_id, f.token_hierarchy, f.signatures, f.descriptors.tobytes())
+        for f in serial.featurize()
+    ]
+
+
+def test_saved_configuration_without_worker_settings_still_loads(
+    review_config: dict[str, Any],
+) -> None:
+    pipeline = MolecularPipeline(review_config)
+    pipeline.select()
+    path = pipeline.directory / "config.resolved.yaml"
+    settings = yaml.safe_load(path.read_text())
+    for key in ("workers", "threads_per_worker"):
+        del settings["execution"][key]
+    path.write_text(yaml.safe_dump(settings, sort_keys=True))
+    loaded = MolecularPipeline.load_run(pipeline.directory)
+    assert loaded.fingerprint == pipeline.fingerprint
+    assert loaded.settings["execution"]["workers"] == 1
