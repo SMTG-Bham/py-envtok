@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import itertools
 import json
 import math
 import platform
@@ -66,22 +67,22 @@ def _json(value: Any) -> str:
 
 DESCRIPTORS = "descriptors.npy"
 """All candidate descriptors as one float32 array, records in manifest order."""
+LEGACY_DESCRIPTORS = "descriptors.npz"
+"""Caches before ``molecular_v1.5``: one member per record, read for saved runs."""
 _MATRIX = 2
 
 
 def _features_from_cache(
-    manifest: Mapping[str, Any], descriptors: npt.NDArray[np.float32]
+    manifest: Mapping[str, Any], blocks: Sequence[npt.NDArray[np.float32]]
 ) -> tuple[MolecularFeatures, ...]:
-    """Rebuild features whose descriptors are views of one (mapped) array."""
-    table = manifest["signatures"]
-    rows = manifest["records"]
-    if descriptors.ndim != _MATRIX or len(descriptors) != sum(
-        len(row["token_hierarchy"]) for row in rows
-    ):
-        raise StaleCacheError("molecular descriptor cache is missing or corrupt")
+    """Rebuild features from a manifest and each record's descriptor rows.
+
+    Signatures come from the pool table, or from each record in caches written
+    before ``molecular_v1.5``.
+    """
+    table = manifest.get("signatures", {})
     features = []
-    offset = 0
-    for row in rows:
+    for row, descriptors in zip(manifest["records"], blocks, strict=True):
         hierarchy = tuple(tuple(tokens) for tokens in row["token_hierarchy"])
         safeguards = tuple(row["safeguard_targets"])
         used = {token for tokens in hierarchy for token in tokens} | set(safeguards)
@@ -91,15 +92,31 @@ def _features_from_cache(
                 family_id=row["family_id"],
                 state_key=tuple(row["state_key"]),
                 token_hierarchy=hierarchy,
-                signatures={token: table[token] for token in sorted(used)},
-                descriptors=descriptors[offset : offset + len(hierarchy)],
+                signatures=row.get("signatures")
+                or {token: table[token] for token in sorted(used)},
+                descriptors=descriptors,
                 graph_status=row["graph_status"],
                 safeguard_targets=safeguards,
                 zero_descriptor_atoms=tuple(row["zero_descriptor_atoms"]),
             )
         )
-        offset += len(hierarchy)
     return tuple(features)
+
+
+def _descriptor_blocks(
+    manifest: Mapping[str, Any], path: Path
+) -> list[npt.NDArray[np.float32]]:
+    """Each record's descriptor rows: views of the mapped array, or legacy members."""
+    rows = manifest["records"]
+    if path.name == LEGACY_DESCRIPTORS:
+        with np.load(path, allow_pickle=False) as arrays:
+            return [arrays[f"f{index}"] for index in range(len(rows))]
+    matrix = np.load(path, mmap_mode="r", allow_pickle=False)
+    sizes = [len(row["token_hierarchy"]) for row in rows]
+    if matrix.ndim != _MATRIX or len(matrix) != sum(sizes):
+        raise StaleCacheError("molecular descriptor cache is missing or corrupt")
+    bounds = np.cumsum([0, *sizes]).tolist()
+    return [matrix[start:stop] for start, stop in itertools.pairwise(bounds)]
 
 
 def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
@@ -426,8 +443,14 @@ class MolecularPipeline:
         )
         return candidates, mandatory, hierarchy, regions
 
+    def _descriptor_file(self) -> Path | None:
+        for name in (DESCRIPTORS, LEGACY_DESCRIPTORS):
+            if (self.feature_directory / name).exists():
+                return self.feature_directory / name
+        return None
+
     def _load_features(self) -> tuple[MolecularFeatures, ...]:
-        descriptor_path = self.feature_directory / DESCRIPTORS
+        descriptor_path = self._descriptor_file()
         manifest_path = self.feature_directory / "features.json"
         commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
         if (
@@ -441,13 +464,13 @@ class MolecularPipeline:
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-        manifest = _read_json(manifest_path, {"records", "signatures", "arrays_sha256"})
-        if not descriptor_path.exists() or manifest["arrays_sha256"] != _file_hash(
+        manifest = _read_json(manifest_path, {"records", "arrays_sha256"})
+        if descriptor_path is None or manifest["arrays_sha256"] != _file_hash(
             descriptor_path
         ):
             raise StaleCacheError("molecular descriptor cache is missing or corrupt")
         return _features_from_cache(
-            manifest, np.load(descriptor_path, mmap_mode="r", allow_pickle=False)
+            manifest, _descriptor_blocks(manifest, descriptor_path)
         )
 
     @property
@@ -607,7 +630,7 @@ class MolecularPipeline:
             {"features_sha256": _file_hash(manifest_path)},
         )
         return _features_from_cache(
-            manifest, np.load(descriptor_path, mmap_mode="r", allow_pickle=False)
+            manifest, _descriptor_blocks(manifest, descriptor_path)
         )
 
     def build_targets(
@@ -809,7 +832,7 @@ class MolecularPipeline:
         candidates, mandatory, hierarchy, regions = self._load_targets()
         report = audit_selection(candidates, mandatory, ids, budget=self.atom_budget())
         manifest_path = self.feature_directory / "features.json"
-        if manifest_path.exists() and (self.feature_directory / DESCRIPTORS).exists():
+        if manifest_path.exists() and self._descriptor_file() is not None:
             provenance = _read_json(
                 self.directory / "provenance.json", {"features_sha256"}
             )

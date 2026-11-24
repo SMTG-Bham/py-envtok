@@ -347,16 +347,52 @@ def test_saved_configuration_without_worker_settings_still_loads(
 
 
 def test_feature_cache_rejects_rows_that_do_not_match_records(
-    review_config: dict[str, Any],
+    review_config: dict[str, Any], tmp_path: Path
 ) -> None:
     pipeline = MolecularPipeline(review_config)
     settings = RepresentationSettings(backend="radial", species=(1,))
     with pytest.raises(ConfigError, match="atom count"):
         pipeline._write_features(iter(()), 1, settings)
-    manifest = {
-        "signatures": {"t": "{}"},
-        "records": [{"token_hierarchy": [["t"]]}],
-    }
+    manifest = {"records": [{"token_hierarchy": [["t"]]}]}
+    path = tmp_path / "descriptors.npy"
     for descriptors in (np.zeros((2, 3), np.float32), np.zeros(1, np.float32)):
+        np.save(path, descriptors)
         with pytest.raises(StaleCacheError, match="missing or corrupt"):
-            pipeline_module._features_from_cache(manifest, descriptors)
+            pipeline_module._descriptor_blocks(manifest, path)
+
+
+def test_saved_run_with_a_legacy_feature_cache_keeps_its_geometry_audit(
+    review_config: dict[str, Any],
+) -> None:
+    pipeline = MolecularPipeline(review_config)
+    pipeline.select()
+    expected = pipeline.audit()["nearest_selected_distances"]
+    features = pipeline.featurize()
+    directory = pipeline.feature_directory
+    # Rewrite the cache in the layout used before molecular_v1.5.
+    np.savez_compressed(
+        directory / "descriptors.npz",
+        allow_pickle=False,
+        **{f"f{i}": np.asarray(f.descriptors) for i, f in enumerate(features)},
+    )
+    (directory / "descriptors.npy").unlink()
+    manifest = json.loads((directory / "features.json").read_text())
+    table = manifest.pop("signatures")
+    for row, feature in zip(manifest["records"], features, strict=True):
+        row["signatures"] = {token: table[token] for token in feature.signatures}
+    manifest["arrays_sha256"] = hashlib.sha256(
+        (directory / "descriptors.npz").read_bytes()
+    ).hexdigest()
+    (directory / "features.json").write_text(json.dumps(manifest))
+    digest = hashlib.sha256((directory / "features.json").read_bytes()).hexdigest()
+    (directory / "commit.json").write_text(json.dumps({"features_sha256": digest}))
+    provenance = json.loads((pipeline.directory / "provenance.json").read_text())
+    provenance["features_sha256"] = digest
+    (pipeline.directory / "provenance.json").write_text(json.dumps(provenance))
+    loaded = MolecularPipeline.load_run(pipeline.directory)
+    report = loaded.audit()
+    assert report["geometry_audit_status"] == "available"
+    assert report["nearest_selected_distances"] == expected
+    for old, new in zip(features, loaded.featurize(), strict=True):
+        assert new.signatures == old.signatures
+        assert np.array_equal(new.descriptors, old.descriptors)

@@ -27,8 +27,9 @@
 - The molecular feature cache now stores descriptors in one memory-mapped
   `descriptors.npy` instead of a compressed `descriptors.npz` with one member
   per record, and `features.json` stores each signature once. The molecular
-  implementation version is now `molecular_v1.5`, so `molecular_v1.4` runs and
-  feature caches are not reused.
+  implementation version is now `molecular_v1.5`, so new runs recompute
+  `molecular_v1.4` feature caches; saved older runs still load their
+  `descriptors.npz` for auditing and export.
 - Molecular stages no longer re-hash the whole source on every call. `select()`
   and `export()` hash it in full; other stages re-hash it only when its stat
   signature changes, as described in the [molecular guide](docs/molecular.md).

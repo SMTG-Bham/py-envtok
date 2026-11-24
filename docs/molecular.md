@@ -250,7 +250,8 @@ otherwise the unchanged stat signature stands in for the hash. Because file
 timestamps are coarse, a signature is trusted only when the source had been
 unchanged for two seconds before that verification. An edit that keeps all
 four fields, which an ordinary write to a settled file cannot do, is caught at
-the next full hash.
+the next full hash. On network file systems that cache attributes, a change may
+likewise only be seen at the next full hash.
 
 The resolved source and feature-cache paths are absolute. Moving only the run
 directory does not move its source or rewrite those paths. The original source
@@ -268,6 +269,10 @@ memory-mapped views of the file rather than holding every descriptor in memory.
 `features.json` stores each token signature once for the pool. Geometry regions
 and the nearest-selected audit convert descriptors to float64 in small chunks,
 so no class is held in float64 at once.
+Caches written before `molecular_v1.5` (`descriptors.npz`) are still read when
+auditing or exporting a saved run. Because descriptors are memory-mapped, do not
+edit cache files while a pipeline is using them: their digests are checked when
+they are loaded, not on every access.
 
 For new runs, configuration/source/software fingerprints address output
 directories. Descriptor arrays can be reused across selection settings; source,
