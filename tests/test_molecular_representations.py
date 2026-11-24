@@ -411,6 +411,32 @@ def test_perception_invalid_xyz_and_radicals(monkeypatch: pytest.MonkeyPatch) ->
     }
 
 
+@pytest.mark.parametrize(
+    "value", [6.6760000000000005e-05, -6.590999999999999e-05, 3.45e-06, 5e-324, 1.5e20]
+)
+def test_xyz_coordinates_avoid_exponents_and_round_trip(value: float) -> None:
+    text = rep._xyz_coordinate(value)
+    assert "e" not in text.lower()
+    assert float(text) == value
+
+
+@pytest.mark.parametrize("value", [0.0, -0.0, 1e-4, 0.119262, -0.763239, 12.5])
+def test_xyz_coordinates_keep_existing_positional_text(value: float) -> None:
+    assert rep._xyz_coordinate(value) == f"{value:.17g}"
+
+
+def test_real_rdkit_perceives_near_zero_coordinates() -> None:
+    pytest.importorskip("rdkit")
+    atoms = molecule("H2O")
+    atoms.positions[:, 0] += 3.45e-06
+    record = _record(atoms)
+    graph = rep._inferred_graph(record)
+    assert graph is not None
+    assert sorted(sorted(bond[:2]) for bond in graph["bonds"]) == [[0, 1], [0, 2]]
+    settings = _radial(allow_validated_perception=True)
+    assert rep.featurize(record, settings).graph_status == "inferred_rdkit"
+
+
 def test_real_soap_and_rdkit_optional() -> None:
     pytest.importorskip("dscribe")
     pytest.importorskip("rdkit")

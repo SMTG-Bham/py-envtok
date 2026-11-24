@@ -245,6 +245,20 @@ def _ring_atoms(edges: dict[tuple[int, int], str]) -> set[int]:
     return ring_atoms
 
 
+def _xyz_coordinate(value: float) -> str:
+    """Format a coordinate exactly, without the exponents RDKit's XYZ reader rejects.
+
+    Values that ``.17g`` already writes positionally keep that text; only those
+    it would write in exponent notation, such as ``6.676e-05``, are rewritten.
+    """
+    text = f"{value:.17g}"
+    if "e" not in text:
+        return text
+    return np.format_float_positional(
+        value, precision=17, unique=False, fractional=False, trim="-"
+    )
+
+
 def _inferred_graph(record: MolecularRecord) -> dict[str, Any] | None:
     """Perceive only the explicitly supported closed-shell main-group domain."""
     charge = record.total_charge
@@ -263,8 +277,8 @@ def _inferred_graph(record: MolecularRecord) -> dict[str, Any] | None:
             "graph perception requires the envtok[molecular] RDKit extra"
         ) from exc
     xyz = f"{record.natoms}\n\n" + "\n".join(
-        f"{symbol} {x:.17g} {y:.17g} {z:.17g}"
-        for symbol, (x, y, z) in zip(
+        " ".join((symbol, *map(_xyz_coordinate, position)))
+        for symbol, position in zip(
             record.atoms.get_chemical_symbols(), record.atoms.positions, strict=True
         )
     )
