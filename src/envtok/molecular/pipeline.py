@@ -39,6 +39,7 @@ from envtok.molecular.data import (
     prepare_records,
 )
 from envtok.molecular.feature_cache import (
+    COMMIT,
     FEATURES,
     FeatureSummary,
     descriptor_file,
@@ -400,7 +401,7 @@ class MolecularPipeline:
     def _feature_manifest(self) -> dict[str, Any]:
         """The committed feature manifest, matching the frozen run if loaded."""
         manifest_path = self.feature_directory / FEATURES
-        commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
+        commit = _read_json(self.feature_directory / COMMIT, {"features_sha256"})
         if (
             not manifest_path.exists()
             or _file_hash(manifest_path) != commit["features_sha256"]
@@ -486,9 +487,9 @@ class MolecularPipeline:
         if not self._loaded:
             self._check_memory(records)
         start = time.perf_counter()
-        manifest_path = self.feature_directory / FEATURES
+        commit_path = self.feature_directory / COMMIT
         if self._loaded or (
-            self.settings["execution"]["resume"] and manifest_path.exists()
+            self.settings["execution"]["resume"] and commit_path.exists()
         ):
             self._features = self._load_features()
         else:

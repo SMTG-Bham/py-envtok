@@ -15,7 +15,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 
 from envtok.cli import main
 from envtok.errors import ConfigError, CoverageError, StaleCacheError
-from envtok.molecular import MolecularPipeline, load_molecular_config
+from envtok.molecular import MolecularPipeline, feature_cache, load_molecular_config
 from envtok.molecular.cli import dispatch, is_molecular
 from envtok.molecular.pipeline import audit_selection
 from envtok.molecular.selection import Candidate, Target
@@ -124,6 +124,28 @@ def test_no_training_and_missing_source(molecular_config: dict[str, Any]) -> Non
     path.unlink()
     with pytest.raises(ConfigError, match="does not exist"):
         MolecularPipeline(molecular_config)
+
+
+def test_resume_after_interruption_before_feature_commit(
+    molecular_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pipeline = MolecularPipeline(molecular_config)
+    writer = feature_cache.write_json
+
+    def interrupt(path: Path, value: Any) -> None:
+        if path.name == feature_cache.COMMIT:
+            raise InterruptedError
+        writer(path, value)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(feature_cache, "write_json", interrupt)
+        with pytest.raises(InterruptedError):
+            pipeline.featurize()
+    manifest = pipeline.feature_directory / feature_cache.FEATURES
+    first = manifest.read_bytes()
+    assert MolecularPipeline(molecular_config).featurize()
+    assert manifest.read_bytes() == first
+    assert (pipeline.feature_directory / feature_cache.COMMIT).is_file()
 
 
 @pytest.mark.parametrize("corruption", ["missing", "content"])
