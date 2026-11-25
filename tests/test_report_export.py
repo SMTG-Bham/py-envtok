@@ -17,6 +17,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 from helpers import CORPUS
 
 from envtok import export, report
+from envtok.adapters.asedb import ARRAYS_KEY, row_atoms
 from envtok.coarsen import CoverageBuilder, CoverageClasses
 from envtok.corpus import Corpus
 from envtok.errors import (
@@ -324,6 +325,27 @@ def assert_frame_matches(exported: Atoms, source: Atoms) -> None:
 
 
 class TestExport:
+    def test_custom_array_database_round_trip(self, tmp_path: Path) -> None:
+        frame = load_frames()[0]
+        weights = np.arange(len(frame) * 2, dtype=np.float32).reshape(-1, 2)
+        frame.new_array("site_weight", weights)
+        frame.info[ARRAYS_KEY] = "source metadata"
+        corpus = Corpus.from_atoms(
+            [frame],
+            name="custom",
+            split="train",
+            label_sources={"site_weight": "arrays:site_weight"},
+        )
+        cache = Tokenizer().run(corpus, tmp_path)
+        result = Selector().select(CoverageBuilder(min_structure_support=2).fit(cache))
+        path = result.export(tmp_path / "export.db", format="asedb", corpus=corpus)
+        restored = row_atoms(ase.db.connect(str(path)), 1)
+        np.testing.assert_array_equal(
+            restored.arrays["site_weight"], weights, strict=True
+        )
+        assert restored.info[ARRAYS_KEY] == "source metadata"
+        assert_frame_matches(restored, frame)
+
     def test_extxyz_round_trip(self, result: SelectionResult, tmp_path: Path) -> None:
         sources = {str(a.info["sid"]): a for a in load_frames()}
         path = result.export(tmp_path / "subset.extxyz")

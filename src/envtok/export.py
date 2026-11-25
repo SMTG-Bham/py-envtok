@@ -20,6 +20,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 
 from envtok._extxyz import encode_string_metadata
 from envtok.adapters import Adapter
+from envtok.adapters.asedb import ARRAYS_KEY, NATIVE_ARRAYS
 from envtok.errors import ConfigError, StaleCacheError
 from envtok.fingerprint import digest
 from envtok.provenance import collect
@@ -245,8 +246,18 @@ def export_structures(
                 ase.io.write(handle, atoms, format="extxyz")
     else:
         database = ase.db.connect(str(partial), type="db")
+        database.metadata = {ARRAYS_KEY: 1}
         for atoms in frames:
             info = {k: _jsonable(v) for k, v in atoms.info.items()}
+            # Keep a source metadata field of the same name inside the envelope.
+            info[ARRAYS_KEY] = {
+                "info": {k: v for k, v in info.items() if k == ARRAYS_KEY},
+                "arrays": [
+                    (name, array.dtype.str, array.shape, array.tolist())
+                    for name, array in atoms.arrays.items()
+                    if name not in NATIVE_ARRAYS
+                ],
+            }
             database.write(
                 atoms,
                 key_value_pairs={

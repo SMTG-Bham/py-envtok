@@ -32,6 +32,20 @@ from envtok.adapters.base import (
 from envtok.errors import ConfigError
 from envtok.records import SourceRef, StructureRecord
 
+ARRAYS_KEY = "envtok_custom_arrays_v1"
+# ASE stores these arrays in native database columns.
+NATIVE_ARRAYS = frozenset(
+    {
+        "numbers",
+        "positions",
+        "tags",
+        "masses",
+        "momenta",
+        "initial_charges",
+        "initial_magmoms",
+    }
+)
+
 _SHARED_LMDB: dict[str, tuple[tuple[int, int, int], Any]] = {}
 """Read-only LMDB handles of this process, keyed by path, with the file identity
 they were opened for; an environment may be opened once per process only."""
@@ -113,7 +127,13 @@ def row_atoms(database: Any, row_id: int) -> Atoms:
     atoms = cast("Atoms", row.toatoms())
     atoms.info.update(dict(row.key_value_pairs))
     if isinstance(row.data, dict):
-        for key, value in row.data.items():
+        data = dict(row.data)
+        if ARRAYS_KEY in data and database.metadata.get(ARRAYS_KEY) == 1:
+            payload = data.pop(ARRAYS_KEY)
+            data.update(payload["info"])
+            for name, dtype, shape, values in payload["arrays"]:
+                atoms.new_array(name, np.asarray(values, dtype=dtype).reshape(shape))
+        for key, value in data.items():
             atoms.info[key] = value.item() if isinstance(value, np.generic) else value
     return atoms
 
