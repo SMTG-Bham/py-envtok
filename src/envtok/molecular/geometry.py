@@ -382,6 +382,9 @@ def nearest_selected_distances(
     for index, (class_id, _) in enumerate(samples):
         by_class[class_id].append(index)
     nearest: list[float | None] = [None] * len(samples)
+    # Every class indexes the same record names, so mark the selection once.
+    names = next(iter(classes.values())).names if classes else ()
+    chosen = np.fromiter((name in selected for name in names), dtype=bool)
     for class_id, rows in classes.items():
         indices = by_class.get(class_id, [])
         queries = (
@@ -389,7 +392,6 @@ def nearest_selected_distances(
             if indices
             else np.empty((0, 0))
         )
-        chosen = np.fromiter((name in selected for name in rows.names), dtype=bool)
         witness = chosen[rows.records]
         chunks = _chunks(len(rows), 8 * rows.dimension)
         pending: list[npt.NDArray[np.float64]] = []
