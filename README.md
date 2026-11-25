@@ -81,12 +81,11 @@ extras can be installed together with `uv sync --extra omat24 --extra molecular`
 An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment), with
 separate run and development environments, is also provided.
 
-To install a built release artifact into an existing Python 3.11–3.14 environment,
-use `python -m pip install /path/to/envtok-0.1.0a2-py3-none-any.whl`. Optional
-backends can be requested with
-`python -m pip install '/path/to/envtok-0.1.0a2-py3-none-any.whl[molecular,omat24]'`.
-The examples and fixture data below live in the source checkout; they are not
-included in the installed Python package.
+With an existing Python 3.11–3.14 environment, run `python -m pip install .`
+from the checkout, or `python -m pip install '.[molecular,omat24]'` for both
+extras. To install a built wheel, pass its path to `python -m pip install`.
+Run the commands below from the checkout to access the example configurations
+and fixture data.
 
 ## Quick start
 

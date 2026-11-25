@@ -1,9 +1,10 @@
 # Releasing EnvTok
 
-The initial alpha prerelease is version `0.1.0a1`, with Git tag `v0.1.0a1`.
-Update the version in `pyproject.toml`, refresh `uv.lock` and
-update [CHANGELOG.md](../CHANGELOG.md) together for subsequent releases. The
-package and CLI read the version from installed distribution metadata.
+Set the candidate version in [pyproject.toml](../pyproject.toml), run
+`uv lock`, and move its release notes from `Unreleased` to a dated version
+heading in the [changelog](../CHANGELOG.md). The Git tag is `v` followed by
+the exact project version. The installed package and CLI read that version
+from distribution metadata.
 
 ## Qualify the candidate
 
@@ -33,10 +34,8 @@ The [CI workflow](../.github/workflows/ci.yml) covers Python 3.11, 3.12, 3.13 an
 3.14 with locked and lowest allowed direct dependencies, plus the locked
 molecular extra. It also qualifies the bundled real periodic and molecular
 samples on each interpreter. All jobs must pass on the candidate commit.
-Inspect the change from the previous release and confirm the release notes
-reflect the resulting behavior.
-For the first release, change the changelog's `unreleased` label to the actual
-release date before tagging.
+Compare the candidate with the previous tag and confirm the release notes
+describe the changes.
 
 Historical reports under `examples/` describe earlier artifacts and sample
 runs. They are evidence of those runs, not a substitute for qualifying the final
@@ -74,25 +73,28 @@ confirm both in the authenticated PyPI and GitHub settings before publishing.
 
 1. Commit the final version, lockfile, release notes and fixes. Ensure CI passes
    for that exact commit.
-2. Create and push the matching tag (`v0.1.0a2` for this release), then prepare a
-   GitHub release against that tag with the changelog's release notes.
-3. Publishing the GitHub release starts the Release workflow. It checks the tag
-   against the package version, reruns the complete CI workflow on the tagged
-   revision, then builds and qualifies the distributions before the PyPI job.
+2. Read the candidate version with `uv version --short`. Create and push its
+   matching tag on the qualified commit, then prepare a GitHub release against
+   that tag with the changelog's release notes.
+3. Publishing the GitHub release starts the Release workflow. Its first job
+   runs CI on the tagged revision. Once CI passes, the build job checks the
+   tag against the project version, builds the wheel and sdist, and qualifies
+   those files for the PyPI job.
 4. Review any configured `pypi` environment approval and let the publish job
    upload the qualified distributions with attestations. The Actions run keeps
    the `dist` artifact and a separate `artifact-qualification` report containing
    their hashes.
-5. Confirm the published files and version on PyPI, then install from the index
-   in a fresh Python 3.14 environment:
+5. Confirm the published files and version on PyPI. From the tagged checkout,
+   install that exact version in a fresh Python 3.14 environment.
 
    ```bash
-   uv venv --python 3.14 /tmp/envtok-release-check
-   uv pip install --python /tmp/envtok-release-check/bin/python 'envtok==0.1.0a2'
-   /tmp/envtok-release-check/bin/envtok --version
-   /tmp/envtok-release-check/bin/python -m envtok --help
+   release_version=$(uv version --short)
+   check_dir=$(mktemp -d)
+   uv venv --python 3.14 "$check_dir/venv"
+   uv pip install --python "$check_dir/venv/bin/python" "envtok==$release_version"
+   "$check_dir/venv/bin/envtok" --version
+   "$check_dir/venv/bin/python" -m envtok --help
    ```
 
-A pushed tag or a draft GitHub release alone does not publish the package. Do
-not mark a failed workflow as a successful publication; inspect the failing gate
-or account configuration before retrying.
+The trigger is the GitHub release's `published` event. A tag and a draft
+release can both exist before the upload.

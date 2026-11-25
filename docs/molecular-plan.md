@@ -38,8 +38,10 @@ uv run --extra molecular envtok run --config examples/molecular/omol/config.yaml
 uv run --extra molecular envtok benchmark --config examples/molecular/omol/config.yaml
 uv run --extra molecular python build_tools/qualify_molecular.py
 uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py
-uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py --fraction 0.5
-uv run --extra molecular python build_tools/benchmark_mace.py --mace-python /path/to/mace/python
+uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py \
+  --fraction 0.5 --workdir runs/half-budget --output runs/half-budget/results.json
+uv run --extra molecular python build_tools/benchmark_mace.py \
+  --mace-python /path/to/mace/python --output runs/mace-small/results.json
 ```
 
 An optional selector sweep can use `--fractions 0.25 0.5 --seeds 0 1`.

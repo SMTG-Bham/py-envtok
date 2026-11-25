@@ -83,7 +83,7 @@ state/label/atom-order-preserving export.
 
 ```bash
 uv run --extra molecular python build_tools/benchmark_mace.py \
-  --mace-python /path/to/mace/python
+  --mace-python /path/to/mace/python --output runs/mace-small/results.json
 ```
 
 The [MACE result](mace-small-results.json) uses an existing MACE environment and

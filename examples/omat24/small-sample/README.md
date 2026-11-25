@@ -67,18 +67,18 @@ For a larger run that demonstrates compression, see the
 Recreate the sample from an existing archive:
 
 ```bash
-uv run python build_tools/sample_omat24.py --archive /data/omat24_1M.tar.gz
+uv run --extra omat24 python build_tools/sample_omat24.py --archive /data/omat24_1M.tar.gz
 ```
 
 Run the bounded engineering qualification (32 records, one and two workers,
 plus interruption and resume):
 
 ```bash
-uv run python build_tools/qualify_periodic.py \
+uv run --extra omat24 python build_tools/qualify_periodic.py \
   --source examples/omat24/small-sample/train.aselmdb \
   --revision local-1M-shard-d7be82771964f041 \
   --source-provenance examples/omat24/small-sample/provenance.json \
-  --output examples/omat24/small-sample/qualification-results.json
+  --output runs/omat24-small-demo/qualification-results.json
 ```
 
 The report separates parent-process peak RSS from unmeasured worker memory.

@@ -48,40 +48,59 @@ example `python build_tools/benchmark_selection.py`. `uv build` and
 
 ## Small acceptance runs
 
-Run from the repository root:
+From the repository root, check selection, restart and export on the bundled
+data. The periodic runner copies 20 synthetic configurations into native LMDB
+storage and compares serial, parallel and resumed runs. The molecular runner
+uses 29 real OMol configurations and checks selected IDs, charge, multiplicity
+and labels on export.
+
+```bash
+uv run --extra omat24 python build_tools/qualify_periodic.py
+uv run --extra molecular python build_tools/qualify_molecular.py
+```
+
+Read `runs/periodic-check.json` and `runs/molecular-qualification.json`, or
+choose another destination with `--output`. To check the native reader against
+a real shard, use the [32-record OMat24 instructions](../examples/omat24/small-sample/README.md).
+
+## Measure runtime and memory
 
 ```bash
 uv run python build_tools/benchmark_selection.py
 uv run python build_tools/benchmark_molecular.py selection --records 1000 4000
-uv run --extra omat24 python build_tools/qualify_periodic.py
-uv run --extra molecular python build_tools/qualify_molecular.py
-uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py
-uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py --fraction 0.5
-uv run --extra molecular python build_tools/benchmark_mace.py --mace-python /path/to/mace/python
-uv run python build_tools/benchmark_periodic_accuracy.py
-uv build --no-sources
-uv run python build_tools/qualify_artifacts.py
+uv run --extra molecular python build_tools/benchmark_molecular.py pipeline \
+  --config examples/molecular/omol/config.yaml --workdir runs/omol-timing
 ```
 
-The selection benchmark defaults to 1,000 synthetic records, 200 possible tokens
-and T=5. The molecular benchmark times `selection` (cover mode, and budget
-mode with a 10% background reserve) or `geometry` (region fitting and the
-nearest-selected audit) on synthetic pools of the given sizes; `pipeline
---config` reports each stage's time and peak resident memory for a real
-configuration, and the size of each artifact. `replicate` writes perturbed
-copies of a source for `pipeline --source` to measure larger pools. The periodic check uses 20 generated fixtures in native LMDB storage,
-including real geometry, two worker counts and interrupted restart. Supply
-`--source` and `--revision` to the periodic runner for a small real native shard.
-The molecular screen trains a cheap CPU energy/force model on the bundled OMol
-neutral singlets and evaluates a grouped development holdout. All are preliminary
-checks; generated fixtures and tiny fitted models do not establish scientific
-accuracy or large-corpus throughput. See each script's `--help` for output paths.
+The first command measures periodic coarsening and selection on a synthetic
+incidence table of 1,000 records, 200 possible tokens and T=5. The second
+times molecular cover and budget selection on synthetic candidates. For
+end-to-end molecular timings through selection, use the third command and
+record whether the feature cache was reused. Pass `--fresh` to recompute
+features. The [scale measurements](../docs/molecular.md#scale-measurements)
+give the descriptor settings, pool sizes and memory measurements from larger
+runs.
+
+## Compare model errors on held-out data
+
+```bash
+uv run python build_tools/benchmark_periodic_accuracy.py
+uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py
+uv run --extra molecular python build_tools/benchmark_molecular_accuracy.py \
+  --fraction 0.5 --workdir runs/half-budget --output runs/half-budget/results.json
+```
 
 The [real periodic sample](../examples/omat24/small-sample/README.md) includes a
 native source, fixed development split and exact acquisition provenance. Its
 accuracy check reports missing development elements and excessive vocabulary
 before training, rather than quietly reducing the holdout. A supplied suitable
-small-chemistry source can run the periodic model comparison.
+small-chemistry source can run the periodic model comparison. Read
+`runs/periodic-accuracy/results.json` for the preflight outcome. The molecular
+pair-model runs use the same grouped development split at two atom ceilings
+and save their comparisons in `runs/small-accuracy/results.json` and
+`runs/half-budget/results.json`.
+
+## Native archive examples
 
 For measured compression, the [larger OMat24 example](../examples/omat24/compression-demo/README.md)
 uses `sample_omat24.py` to retain 1,024 distinct-parent structures from a local
@@ -114,13 +133,18 @@ matched-budget random selection, each with three model seeds and 1,000 fixed
 full-batch epochs. It records prediction errors alongside training time and
 processed atoms; coverage alone is not the accuracy criterion.
 
-The older bundled-sample `benchmark_mace.py` runner uses a separate installed
-MACE interpreter, keeping PyTorch out of the selection dependencies. It trains
-four fresh CPU models for 200 fixed steps at a single 50% atom ceiling; it
-records initial/final errors, zero-force error and training losses. The run proves the training workflow, not
-convergence, a model advantage, or simulation accuracy. The pair-model runner
-also accepts `--source`, `--label-namespace` and a maximum of 128 records.
+For a MACE screen that runs on the bundled data, see the [29-record sample
+instructions](../examples/molecular/omol/README.md#small-from-scratch-mace-screen).
+
+## Qualify built packages
+
+```bash
+uv build --no-sources
+uv run python build_tools/qualify_artifacts.py
+```
 
 `qualify_artifacts.py` requires `uv` on PATH (or `--uv /path/to/uv`) and installs
 the wheel and sdist in separate environments without system-site-packages.
 Use `--offline` only when the artifact and all dependency wheels are cached.
+See the [release procedure](../docs/releasing.md) for the expected artifacts
+and the checks on each candidate.
