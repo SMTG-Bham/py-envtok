@@ -419,11 +419,12 @@ Persistent identity never uses Python's `hash()`.
 |---|---|
 | `selected_ids.txt` | stable record IDs in selection order |
 | `selected_manifest.parquet` | source locators, atom counts, split, group, metadata, reason, order |
-| `config.resolved.yaml` | the complete configuration with defaults filled in |
+| `config.resolved.yaml` | the CLI configuration with defaults filled in. A direct Python `result.write_manifest(...)` without a configuration saves the profile, coverage and selector settings |
 | `provenance.json` | versions, platform, reference commit, every fingerprint, source description, peak RSS |
 | `coverage.json` | the independent audit and distribution diagnostics |
 | `report.html` | a readable report |
 | `classes/` | frozen token-to-class mapping, classes, presence targets |
+| `run.json` | for CLI selections, the resolved configuration, fit threshold and path to the token index used by `report`, `baseline` and `export` |
 | `subset.extxyz` or `.db` | optional export from the original sources |
 
 The audit recomputes coverage from the selected IDs, the cached incidence and
@@ -448,6 +449,13 @@ Exports preserve atom order, cell, periodicity, `info`, arrays and stored
 energy, forces and stress. Every calculator is frozen to a
 `SinglePointCalculator` holding its stored results, so nothing can
 recompute a missing label.
+
+To reopen a periodic CLI run, keep the selection directory and its token
+cache. The CLI rebuilds the classes from the recorded index and settings,
+then reads the selected IDs and their order from `selected_manifest.parquet`.
+Export also retrieves the original source records. The [quick-start
+walkthrough](../examples/quickstart/README.md) shows how to interpret the
+resulting counts.
 
 ## 7. Execution
 

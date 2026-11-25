@@ -104,8 +104,11 @@ coverage and retention; `subset.extxyz` contains the selected original
 structures, and `selected_ids.txt` records their identities. Repeating the
 command reuses committed tokenisation work.
 
-The fixture is an engineering example, so it uses a small support threshold
-of 2. Its retention rate is not a prediction for a real dataset.
+At a support threshold of 2, the subset retains 16 of 20 structures and
+56 of 76 atoms. It covers all 26 fitted classes and 32 of 33 full tokens.
+The [worked example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/quickstart/README.md)
+shows how to read those counts, trace individual selections and compare a
+random subset at the same atom ceiling.
 
 ### Python API
 
@@ -243,7 +246,7 @@ to log progress, for example `uv run envtok -v run --config dataset.yaml`.
 | `envtok sweep --config C --min-support 30 100 300` | select for several values of T, reusing one token cache |
 | `envtok report --run DIR` | re-run the independent audit of a selection |
 | `envtok export --run DIR [--format extxyz\|asedb] [--output PATH]` | export the selected original structures |
-| `envtok baseline --run DIR --seeds 0 1 2` | equal-atom random baselines, audited against the same classes |
+| `envtok baseline --run DIR --seeds 0 1 2` | random subsets up to the selected atom count, audited against the same classes |
 
 `--run` takes the **selection directory**, not the parent work directory.
 Use the path printed by `run` or `select`. For example, replace `<fingerprint>`
@@ -425,9 +428,10 @@ profile = with_net_charge(get_profile("reference-723696d"), "net_round", key="ch
 cache = Tokenizer(profile).run(corpus, "runs/charged")
 ```
 
-Under `net_round`, a record without a numeric charge fails with reason
-`missing_charge`; `net_round_zero_if_missing` treats it as neutral and counts
-it as defaulted. The charge is read from the cached metadata when the index
+Under `net_round`, an absent charge fails with reason `missing_charge`.
+`net_round_zero_if_missing` treats an absent charge as neutral and counts
+it as defaulted. A string or boolean fails as `invalid_charge` under either
+policy. The charge is read from the cached metadata when the index
 is built, so switching the field on or off never repeats the geometry pass.
 Run `envtok inspect` first to check that the key is present. See
 [§1.7 of the specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md#17-net-charge-extension-opt-in).
@@ -449,20 +453,12 @@ directory
 - optionally `subset.extxyz` or `subset.db`, exported from the original sources
   with labels preserved and no live calculator.
 
-The report covers:
-
-- structure and atom retention;
-- class, full-token and frequency-weighted full-token coverage;
-- presence coverage per rare-presence family;
-- resolution loss per rung;
-- processing quality;
-- held-out out-of-vocabulary rates;
-- input versus selected distributions.
-
-Start with `report.html` for a readable view and `coverage.json` for automated
-checks. Read processing quality alongside coverage: a complete cover of the
-eligible pool does not imply that every discovered input was usable. Compare
-both atom and structure retention, since structures may differ greatly in size.
+Start with `processing` in `coverage.json` to see which inputs were usable.
+Then compare eligible and selected atom counts, coverage per presence family
+and full-token coverage. The [periodic report walkthrough](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/quickstart/README.md)
+works through a complete example. If you set `selection.stratify_by`, read
+the audit for each stratum under `strata`. Each stratum has its own fitted
+classes, and its own coverage requirement.
 
 Molecular runs also write selected IDs, a manifest, resolved configuration,
 provenance and reports. Their additional artifacts are `ingestion.json`,
