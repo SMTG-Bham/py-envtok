@@ -23,10 +23,12 @@
   `molecular_v1.6`, so new runs recompute `molecular_v1.5` feature caches;
   saved `molecular_v1.5` and earlier runs still load, audit and export.
 - Periodic tokenisation scores ChemEnv's candidate neighbour orderings in
-  batches rather than one pymatgen call each, with bit-identical environments
-  and tokens. On the bundled OMat24 sample it is about 1.6 times faster on one
-  worker and 1.4 times with four. The batched finder is used only with the
-  pymatgen code it was checked against; otherwise pymatgen's own finder runs.
+  batches rather than one pymatgen call each, with bit-identical symmetry
+  measures. On the bundled OMat24 sample it is about 1.5 times faster on one
+  worker and 1.3–1.4 times with four. The batched finder is used only with the
+  pymatgen code it was checked against, and only if a start-up comparison with
+  pymatgen on the running machine's BLAS matches exactly; otherwise pymatgen's
+  own finder runs.
 - Molecular hierarchy fitting counts token support without a set per token,
   and parallel featurisation keeps at most `2 * workers` batches of at most 64
   records waiting to be written, rather than every finished batch. Selections

@@ -55,11 +55,19 @@ same chosen neighbour set.
 ChemEnv scores every candidate ordering of a site's neighbours against each
 model polyhedron. EnvTok scores all orderings of one separation plane together,
 as stacked arrays, instead of in one pymatgen call each. Every ordering passes
-through the same BLAS and LAPACK routines as pymatgen's per-call code, so
-symmetry measures, environments and tokens are bit-for-bit identical. The
-batched finder is used only when the installed pymatgen has exactly the code it
-mirrors (checked by source digest); otherwise pymatgen's own finder runs. On the
-bundled OMat24 sample it makes tokenisation about 1.6 times faster on one worker.
+through the same BLAS and LAPACK routines as pymatgen's per-call code, with its
+sums over equally aligned data, so each symmetry measure is bit-for-bit
+pymatgen's. The batched finder is used only when the installed pymatgen has
+exactly the code it mirrors (checked by source digest) and, on the running
+machine, its measures equal pymatgen's on a fixed set of orderings; otherwise
+pymatgen's own finder runs. This was verified with NumPy's bundled OpenBLAS on
+x86-64 under its default, Sandy Bridge and generic kernels. On the bundled
+OMat24 sample tokenisation is about 1.5 times faster on one worker.
+
+pymatgen's random fallback, used for a geometry with no usable separation
+plane, draws from an unseeded generator, so its raw CSM can differ between runs
+with either finder. On the bundled sample it changed the raw CSM of one of 237
+sites between two runs, without changing any token.
 
 Symmetry reuse is purely an optimisation. Geometric results are reused across
 an orbit, while each atom keeps its own initial moment. If spglib fails or
