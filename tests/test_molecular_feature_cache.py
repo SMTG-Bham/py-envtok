@@ -32,6 +32,8 @@ def example_config(tmp_path: Path) -> dict[str, Any]:
     shutil.copy(EXAMPLE / "molecules.extxyz", tmp_path / "molecules.extxyz")
     config["source"]["path"] = str(tmp_path / "molecules.extxyz")
     config["execution"]["workdir"] = str(tmp_path / "runs")
+    # Radial descriptors need no optional DScribe install.
+    config["geometry"]["backend"] = "radial"
     config["execution"]["resume"] = False
     return config
 
@@ -216,7 +218,7 @@ def test_writer_rejects_inconsistent_descriptor_rows(
         natoms -= 1
     else:
         natoms += 1
-    settings = RepresentationSettings(backend="soap", species=(1, 6, 8))
+    settings = RepresentationSettings(backend="radial", species=(1, 6, 8))
     directory = pipeline.feature_directory
     with pytest.raises(ConfigError, match="atom count"):
         feature_cache.write_feature_cache(directory, iter(features), natoms, settings)

@@ -45,6 +45,8 @@ def example_config(tmp_path: Path) -> dict[str, Any]:
     shutil.copy(EXAMPLE / "molecules.extxyz", tmp_path / "molecules.extxyz")
     config["source"]["path"] = str(tmp_path / "molecules.extxyz")
     config["execution"]["workdir"] = str(tmp_path / "runs")
+    # Radial descriptors need no optional DScribe install.
+    config["geometry"]["backend"] = "radial"
     config["selection"]["prototype_region_radius"] = 0.01
     config["selection"]["prototype_cap"] = 1
     config["hierarchy"]["min_source_support"] = 8
