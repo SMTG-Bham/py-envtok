@@ -1,32 +1,18 @@
 # Experimental finite-molecule profile
 
-`molecular_v1` implements the data, representation and selection stages of
-[the molecular plan](molecular-plan.md). It selects
-whole original configurations, with explicit charge/spin protections, chemical
-coverage and optional geometry refinement. It uses a separate pipeline from
-`reference-723696d`; the periodic reference profile keeps its existing behavior.
-
-The implementation is intended for small measured pools. The simplified plan
-starts with the bundled 29-record sample, one 25% atom budget and one seed.
-Selection coverage and descriptor distances do not establish preserved model
-accuracy. Application validation, full-scale sharding and broader chemistry
-profiles remain follow-up work.
-
-The [native OMol25 compression example](../examples/molecular/omol/compression-demo/README.md)
-extends the runnable examples to 512 real configurations, with unbudgeted
-cover, random and budget comparisons, and a finer-prototype sensitivity
-check. Its reports separate mandatory targets, modeled geometry regions and
-source environments outside the prototype radii.
+`molecular_v1` selects whole finite molecules. Its chemical targets distinguish
+charge, spin multiplicity, electronic state and reference method. You can run
+an unrestricted cover or set an atom ceiling. Both report the mandatory targets
+achieved and the geometry regions represented by the selected molecules.
 
 ## Run the engineering example
 
-The bundled generator creates 22 configurations with known charge/multiplicity,
-supplied graphs, distortions, and water-dimer separation scans. Its labels are a
-synthetic toy function and must not be used to claim quantum-model accuracy.
+From the repository root, run the [bundled configuration](../examples/molecular/config.yaml)
+on 22 synthetic molecular configurations. The fixture includes known charge
+and multiplicity, supplied graphs, distortions and a water-dimer separation
+scan. Its energy and force labels come from a toy function.
 
 ```bash
-uv sync --extra molecular
-uv run --extra molecular python examples/molecular/generate_fixture.py
 uv run --extra molecular envtok run --config examples/molecular/config.yaml
 ```
 
@@ -38,58 +24,106 @@ pipeline without the molecular optional dependencies, set
 element-resolved radial density, which is angle-blind; it is an engineering
 alternative, not SOAP.
 
-A [real OMol25 smoke sample](../examples/molecular/omol/README.md) also contains
-29 finite CHNO configurations and 650 atoms from the public ColabFit training
-mirror. It is an ordered snapshot filtered from the first 100 source rows,
-with the exact response saved and hashed. It is not a random or representative
-scientific pilot. Its README documents source fields, units, attribution, and
-the reproduction command. A separate tiny CPU training/evaluation screen is
-available in `build_tools/benchmark_molecular_accuracy.py`; its linear pair model
-is an engineering baseline, not a qualified molecular potential.
+## Read a budgeted run
 
-Use `selection.mode: budget` with either `atom_fraction: 0.25` or an integer
-`atom_budget` to impose a hard cap. Remove both fields for `mode: cover`.
-A tiny budget can produce a valid, incomplete selection. Check `complete` and
-`unmet_constraints` in `coverage.json`; the pipeline never drops a protected
-state distinction to make the result appear complete. A failed heuristic cover
-is not an infeasibility proof.
+The [OMol25 sample](../examples/molecular/omol/README.md) contains 29 training
+configurations and 650 atoms. Its configuration sets `selection.mode: budget`
+and `atom_fraction: 0.25`. A fractional ceiling is rounded down after grouping,
+deduplication and training-split assignment. For a fixed ceiling, replace
+`atom_fraction` with an integer `atom_budget`. Omit both for `mode: cover`.
+
+```bash
+uv run --extra molecular envtok run --config examples/molecular/omol/config.yaml
+```
+
+Open `coverage.json` in the printed selection directory.
+
+| Fields | What the sample shows |
+|---|---|
+| `achieved_cost`, `budget`, `selected_configurations` | 10 whole configurations cost 154 atoms, within the 162-atom ceiling. |
+| `complete`, `covered_targets`, `mandatory_targets` | All 15 mandatory targets have the required number of distinct selected witnesses. An incomplete run lists each deficit in `unmet_constraints` and can still exit successfully. |
+| `covered_refinement_targets`, `refinement_targets` | The subset represents 80 of 133 modeled geometry regions. These counts are separate from `complete`. |
+| `geometry_overflow_environments` | 481 source environments lie outside the fitted prototype radii. This can include sites in selected molecules. |
+| `nearest_selected_distances` | The distance audit compares source descriptors to selected environments in the same fitted class. Read `p95` alongside `sample_count` and `missing_class_count`. |
+
+To study geometry resolution at a larger scale, the [512-configuration
+example](../examples/molecular/omol/compression-demo/README.md) compares two
+prototype caps on the same source descriptors.
 
 ## Data contract
 
-The initial adapter reads ASE extended XYZ, including compressed files. Python
-callers can use `from_atoms` with an iterable of ASE configurations.
+### Configure an extended XYZ source
+
+For a file with custom state and label names, save a YAML file beside the
+source. In this example each frame stores its energy in `Atoms.info["E"]`,
+its force vectors in `Atoms.arrays["F"]`, and its charge and multiplicity
+in the scalar metadata fields `charge` and `mult`. Set the namespace to
+the calculation method used for those labels.
+
+```yaml
+profile: molecular_v1
+source:
+  path: molecules.extxyz
+  dataset: conformers
+  revision: v1
+  label_namespace: HF/sto-3g
+  label_sources:
+    energy: info:E
+    forces: arrays:F
+  label_units:
+    energy: Hartree
+    forces: Hartree/Bohr
+state:
+  charge_key: charge
+  multiplicity_key: mult
+```
+
+The molecular adapter reads plain or compressed extended XYZ. For energy and
+forces already stored in an ASE calculator in eV and eV/Å, the default source
+and unit mappings apply. With custom mappings, `calc:`, `info:` and `arrays:`
+select stored calculator results, frame metadata and per-atom arrays,
+respectively. A frame's own `label_namespace` takes precedence over the
+configured default.
+
+### Use the Python API
+
+To run the same file-backed pipeline as the CLI and reopen its saved selection,
+use the directory returned by `run()`.
 
 ```python
-from envtok.molecular import MolecularPipeline, from_atoms, prepare_records
-
-prepared = prepare_records(from_atoms(frames, label_namespace="method-basis-v1"))
-training_pool = prepared.candidates
+from envtok.molecular import MolecularPipeline
 
 pipeline = MolecularPipeline("examples/molecular/config.yaml")
-result = pipeline.select()
-report = pipeline.audit()
-output = pipeline.export()
+directory = pipeline.run()
+saved = MolecularPipeline.load_run(directory)
+report = saved.audit()
+print(report["selected_configurations"], report["achieved_cost"])
 ```
 
-Here, `frames` is an application-provided ASE iterable. To inspect or export an
-existing selection, bind its actual saved directory:
+To inspect training candidates from an ASE iterable in memory, pass the frames
+to `from_atoms` and `prepare_records`. Here the iterable comes from the bundled
+fixture. The same calls accept frames produced by application code.
 
 ```python
-saved = MolecularPipeline.load_run("runs/molecular/molecular-<fingerprint>")
-report = saved.audit()
-output = saved.export("selected-molecules.extxyz")
+from ase.io import iread
+from envtok.molecular import from_atoms, prepare_records
+
+frames = iread("examples/molecular/molecules.extxyz")
+prepared = prepare_records(from_atoms(frames, label_namespace="synthetic-harmonic-v1"))
+print(len(prepared.candidates), len(prepared.exclusions))
 ```
 
-Map actual source metadata explicitly through `state.charge_key`,
-`state.multiplicity_key`, `source.family_key`, `source.label_sources` and
-`source.label_units`. The default charge and multiplicity keys are
+### State, labels and splits
+
+The default charge and multiplicity keys are
 `total_charge` and `spin_multiplicity`. Positive total charge means removed
 electrons; multiplicity is the intended molecular value, conventionally 2S+1.
 Neither value is inferred from partial charges or site magnetic moments.
 
 The protected state key is `(label_namespace, total_charge, spin_multiplicity,
 electronic_state_id)`. Unknown values remain `None`, occupy separate targets,
-and are reported. `unknown_policy: reject` excludes them instead. With the
+and are reported. `state.unknown_policy: reject` excludes records missing
+charge or multiplicity. The electronic state ID is optional. With the
 standard `strict_training_export: true`, export requires known charge and
 multiplicity. Validation rejects malformed coordinates, periodic records,
 invalid state metadata and invalid labels; graph perception failure alone uses
@@ -103,8 +137,9 @@ are to participate in normalized-label validation. Export does not run a live
 calculator. Arrays that cannot be represented faithfully in the extended XYZ
 writer, including string columns containing whitespace and reserved `pos` or
 `species` arrays, cause an error before replacing an existing output file.
-Permissive export keeps mapped unknown state fields unknown, even when the
-source also contains an unrelated canonical-looking charge or spin key.
+Set `state.strict_training_export: false` to export selected records with
+unknown charge or multiplicity. Permissive export preserves these unknowns
+even if the source also contains an unrelated canonical-looking state key.
 
 Official source `split` assignments are preserved. Development validation can
 be made only within training records with `split.validation_fraction`. Related
@@ -212,7 +247,7 @@ All stages accept `--config` and `profile: molecular_v1`:
 
 | Command | Output or effect |
 | --- | --- |
-| `ingest`, `split` | Validate, group and deduplicate; write ingestion and split reports. |
+| `ingest`, `split` | Both validate, group and deduplicate the full source and write `ingestion.json` and `splits.json`. Molecular `inspect` also runs this stage over the full file, even with `--sample`. |
 | `featurize` | Compute or reuse checked local descriptor arrays and token signatures. |
 | `build-targets` | Fit protected hierarchy and geometric regions; write incidence. |
 | `select` | Select, audit, and write selected IDs and the source manifest. |
@@ -226,13 +261,21 @@ with the full training pool included once as a separate control. To opt into a
 larger comparison, pass e.g. `--fractions 0.25 0.5 --seeds 0 1`. The source
 configuration defines the pool; the command does not silently subsample it.
 
-For an existing run, use its saved directory rather than recomputing a directory
-from the current software environment. Replace `<fingerprint>` with the run's
-actual directory suffix:
+For an individual selection, `selected_ids.txt` gives the export order and
+`selected_manifest.parquet` records each molecule's state, source locator
+and selection reason. Look in `provenance.json` for stage timings and cache
+paths. `output.format: none` skips writing `subset.extxyz` during `run`.
+The saved selection can still be exported later.
+
+### Reopen a saved selection
+
+Pass the directory printed by the synthetic example's `run` command to
+`report` or `export`. Replace `<fingerprint>` with its actual suffix.
 
 ```bash
-envtok report --run "runs/molecular/molecular-<fingerprint>"
-envtok export --run "runs/molecular/molecular-<fingerprint>" --output subset.extxyz
+run_dir="runs/molecular/molecular-<fingerprint>"
+uv run --extra molecular envtok report --run "$run_dir"
+uv run --extra molecular envtok export --run "$run_dir" --output "$run_dir/subset.extxyz"
 ```
 
 These commands use `MolecularPipeline.load_run`. The supplied run directory is
@@ -261,6 +304,8 @@ coverage and budget auditing continue, while `geometry_audit_status` is
 When features are present, their metadata and descriptor-array digests are
 checked; corrupt or changed cached content is rejected rather than recomputed
 as part of the audit.
+
+### Feature cache and target tables
 
 The feature cache stores every candidate descriptor as one uncompressed float32
 array, `descriptors.npy`, with records in the order of `records.parquet`. That
@@ -302,6 +347,8 @@ IDs. Set `execution.resume: false` in a new run configuration to recompute
 features. This pilot implementation holds records and incidence in memory and
 does not yet provide cluster sharding.
 
+### Workers and memory
+
 Featurisation can run in local worker processes. Set `execution.workers` to
 the number of processes and `execution.threads_per_worker` to cap the native
 threads in each (both default to 1). Records are split into ordered batches,
@@ -325,24 +372,6 @@ OMol records, whose fine tokens are almost all distinct; pools that repeat
 chemical environments need less. Memory-mapped descriptors are read through
 the page cache and are not counted. Like the worker settings, the budget does
 not change run or feature fingerprints.
-
-Runs retain `selected_ids.txt`, `selected_manifest.parquet`,
-`config.resolved.yaml`, `software-lock.json`, `provenance.json`, `ingestion.json`,
-`splits.json`, `targets.json` with its `targets/` tables, `coverage.json`,
-`report.html`, and optionally
-`subset.extxyz`. Reports include achieved cost, unmet constraints, coarsening
-lineage, graph/fallback status, distributions, prototype overflow, selection
-reasons and preprocessing/selection timings.
-
-Small from-scratch pair-model and MACE screens are now available in
-`build_tools/benchmark_molecular_accuracy.py` and `build_tools/benchmark_mace.py`.
-Both use a grouped development holdout. The pair runner supports a declared
-budget and supplied source capped at 128 records; MACE uses the bundled neutral
-singlets, a fixed 50% budget and a separate installed training interpreter.
-The [sample report](../examples/molecular/omol/README.md) records the results and
-limitations. Mixed-state models must consume the relevant state inputs. Wider
-datasets, model convergence, repeated seeds, application panels and declared
-tolerances remain necessary before general compression or accuracy claims.
 
 ### Scale measurements
 

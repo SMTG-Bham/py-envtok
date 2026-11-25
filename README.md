@@ -341,21 +341,19 @@ Neither is inferred from partial charges or site magnetic moments. Unknown
 states remain distinct, and the default strict training export requires known
 charge and multiplicity.
 
-Molecular runs write to `<workdir>/molecular-<fingerprint>/`. The CLI currently
-reads one extended XYZ source and exports extended XYZ; the Python API also
-accepts ASE iterables. This is an in-memory pilot; featurisation can use local
-worker processes (`execution.workers`), but there is no cluster sharding. Its
-staged commands include `ingest`, `split`, `featurize`,
-`build-targets`, `select`, `audit` and `export`; use `benchmark` for budget
-comparisons rather than the reference profile's `sweep`.
+Molecular runs write to `<workdir>/molecular-<fingerprint>/`. The pipeline
+reads one extended XYZ source. The Python adapters can also prepare records
+from an ASE iterable. Featurisation supports local worker processes and
+memory-mapped descriptors. Records and selection incidence stay in memory.
 
 The bundled [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) contains 29 real
 training configurations with stored energy, force, charge and spin data. Its
 selector benchmark compares stratified random, token-only and combined
 selection at a 25% atom ceiling with seed 0, plus a full-pool control.
 Use `--fractions` and `--seeds` to change the comparison.
-See [molecular usage and data contracts](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md) for the Python API,
-staged CLI, supplied-graph schema, safeguards and current limitations.
+The [molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md)
+walks through the budget report, custom label units, Python API and saved-run
+audit.
 
 The [native OMol25 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md)
 starts from 512 real configurations / 10,938 atoms. Unbudgeted cover mode
