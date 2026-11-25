@@ -276,3 +276,16 @@ def test_unreadable_source_falls_back_to_the_stock_finder(
 
     monkeypatch.setattr(inspect, "getsource", unavailable)
     assert not chemenv.batched_supported()
+
+
+def test_a_blas_that_sums_differently_falls_back_to_the_stock_finder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    measures = chemenv.symmetry_measures
+
+    def drifting(distorted: Any, perfect: Any) -> Any:
+        values, scales, rotations = measures(distorted, perfect)
+        return values, np.nextafter(scales, np.inf), rotations
+
+    monkeypatch.setattr(chemenv, "symmetry_measures", drifting)
+    assert not chemenv.batched_supported()

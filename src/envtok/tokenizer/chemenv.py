@@ -10,12 +10,16 @@ most of their cost is per-call overhead rather than arithmetic.
 plane as stacked arrays. Each ordering still goes through the same BLAS and
 LAPACK routines, on the same memory layout, as pymatgen's per-call code: the
 stacked matrix products and SVD call them once per ordering, and every sum is
-the same BLAS dot product. Symmetry measures, scales and rotations are
-therefore bit-for-bit identical, and so are the environments and tokens.
+the same BLAS dot product over equally aligned data. Symmetry measures, scales
+and rotations are therefore bit-for-bit identical, and so are the environments
+and tokens. This was checked with NumPy's bundled OpenBLAS on x86-64 under its
+default, Sandy Bridge and generic kernels.
 
-The override mirrors pymatgen source that may change between releases, so
-:func:`make_finder` uses it only when that source is exactly the source it was
-checked against, and otherwise returns pymatgen's own finder.
+The override mirrors pymatgen source that may change between releases, and
+relies on BLAS kernels summing the same way, so :func:`make_finder` uses it
+only when that source is exactly the source it was checked against and the
+batched measures equal pymatgen's on this machine; otherwise it returns
+pymatgen's own finder.
 
 The ordering set-up in ``BatchedLocalGeometryFinder`` is adapted from
 pymatgen (MIT License, Copyright (c) 2011-2012 MIT & The Regents of the
@@ -69,16 +73,73 @@ def _source_digest(qualname: str) -> str | None:
 
 @functools.cache
 def batched_supported() -> bool:
-    """Whether the installed pymatgen has exactly the code the override mirrors."""
+    """Whether the batched finder reproduces the installed pymatgen exactly.
+
+    pymatgen's code must match the source the override mirrors, and on this
+    machine's BLAS the batched measures must equal pymatgen's, bit for bit, on
+    a fixed set of orderings.
+    """
     if getattr(finder_module, "svd", None) is not np.linalg.svd:
         return False
-    return all(_source_digest(name) == digest for name, digest in _MIRRORED.items())
+    if any(_source_digest(name) != digest for name, digest in _MIRRORED.items()):
+        return False
+    return _agrees_with_pymatgen()
+
+
+def _agrees_with_pymatgen() -> bool:
+    """Compare batched and per-call measures on fixed random orderings."""
+    rng = np.random.default_rng(20261125)
+    for points in range(2, 16):
+        perfect = rng.normal(size=(points, 3))
+        base = perfect + rng.normal(scale=0.1, size=(points, 3))
+        distorted = np.stack([base[rng.permutation(points)] for _ in range(5)])
+        measures, scales, rotations = symmetry_measures(distorted, perfect)
+        for index, ordering in enumerate(distorted):
+            expected = finder_module.symmetry_measure(ordering, perfect)
+            if (
+                measures[index] != expected["symmetry_measure"]
+                or scales[index].tobytes() != expected["scaling_factor"].tobytes()
+                or rotations[index].tobytes() != expected["rotation_matrix"].tobytes()
+            ):
+                return False
+    return True
 
 
 def make_finder(**options: Any) -> Any:
     """A ``LocalGeometryFinder``, batched when the installed pymatgen allows it."""
     finder = BatchedLocalGeometryFinder if batched_supported() else LocalGeometryFinder
     return finder(**options)
+
+
+_ALIGNMENT = 16
+"""Byte alignment of NumPy's fresh arrays, which pymatgen's sums run over."""
+
+
+def _aligned_rows(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Copy ``(count, n)`` values into rows that each start on a 16-byte boundary.
+
+    pymatgen's sums run over freshly allocated arrays. Some OpenBLAS dot
+    kernels take a different summation path for unaligned data, so each
+    ordering's row is aligned like a fresh array.
+    """
+    count, columns = values.shape
+    items = _ALIGNMENT // values.itemsize
+    stride = -(-columns // items) * items
+    buffer = np.empty(count * stride + items)
+    start = (-buffer.ctypes.data // values.itemsize) % items
+    rows = buffer[start : start + count * stride].reshape(count, stride)[:, :columns]
+    rows[...] = values
+    return rows
+
+
+def _dots(
+    left: npt.NDArray[np.float64], right: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """Each row's BLAS dot product, as ``tensordot`` computes a full contraction."""
+    products: npt.NDArray[np.float64] = np.matmul(left[:, None, :], right[:, :, None])[
+        :, 0, 0
+    ]
+    return products
 
 
 def symmetry_measures(
@@ -99,15 +160,18 @@ def symmetry_measures(
     # find_rotation: H = distorted.T @ perfect, then Vt.T @ U.T from its SVD.
     u, _, vt = np.linalg.svd(np.matmul(distorted.transpose(0, 2, 1), perfect))
     rotations = np.matmul(vt.transpose(0, 2, 1), u.transpose(0, 2, 1))
-    # find_scaling_factor: full contractions are BLAS dot products, as in tensordot.
+    # find_scaling_factor: full contractions are BLAS dot products, as in tensordot,
+    # over rows aligned like the fresh arrays pymatgen sums.
     rotated = np.matmul(rotations, distorted.transpose(0, 2, 1)).transpose(0, 2, 1)
-    flat = rotated.reshape(count, 1, columns)
-    numerator = np.matmul(flat, perfect.reshape(columns, 1))[:, 0, 0]
-    denominator = np.matmul(flat, flat.transpose(0, 2, 1))[:, 0, 0]
+    flat = _aligned_rows(rotated.reshape(count, columns))
+    model = np.broadcast_to(perfect.reshape(columns), (count, columns))
+    numerator = _dots(flat, model)
+    denominator = _dots(flat, flat)
     scales = numerator / denominator
     # symmetry_measure: squared error of the scaled rotation, relative to perfect.
-    difference = (perfect - rotated * scales[:, None, None]).reshape(count, 1, columns)
-    error = np.matmul(difference, difference.transpose(0, 2, 1))[:, 0, 0]
+    difference = perfect - rotated * scales[:, None, None]
+    deviations = _aligned_rows(difference.reshape(count, columns))
+    error = _dots(deviations, deviations)
     norm = float(perfect.ravel().dot(perfect.ravel()))
     measures = [0.0] * count if norm == 0.0 else ((error / norm) * 100.0).tolist()
     return measures, scales, rotations
