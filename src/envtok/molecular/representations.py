@@ -842,7 +842,7 @@ def featurize_records(
     )
 
 
-_MAX_BATCH = 64
+MAX_BATCH = 64
 """Records per worker batch at most, bounding the descriptors in flight."""
 
 
@@ -860,7 +860,7 @@ def iter_features(
     digests, so the features are identical to a serial run; every worker's
     signatures are merged into one registry, so a digest collision between
     records in different batches is still rejected. At most
-    ``2 * workers + 1`` batches of at most ``_MAX_BATCH`` records are queued
+    ``2 * workers + 1`` batches of at most ``MAX_BATCH`` records are queued
     or held, so a consumer that writes each record out as it arrives never
     holds every descriptor at once.
     """
@@ -878,7 +878,7 @@ def iter_features(
         return
     from envtok.store.executor import thread_limits  # noqa: PLC0415
 
-    size = max(1, min(_MAX_BATCH, math.ceil(len(records) / (4 * workers))))
+    size = max(1, min(MAX_BATCH, math.ceil(len(records) / (4 * workers))))
     starts = iter(range(0, len(records), size))
     registry = SignatureRegistry()
     with (

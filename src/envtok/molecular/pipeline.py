@@ -26,6 +26,7 @@ import pyarrow.parquet as pq
 import yaml
 
 from envtok.errors import ConfigError, CoverageError, StaleCacheError
+from envtok.execution import parse_size, resident_bytes
 from envtok.molecular.config import (
     EXECUTION_ONLY,
     MolecularConfig,
@@ -61,6 +62,7 @@ from envtok.molecular.manifests import read_json as _read_json
 from envtok.molecular.manifests import write_json as _write_json
 from envtok.molecular.records import MolecularRecord
 from envtok.molecular.representations import (
+    MAX_BATCH,
     MolecularFeatures,
     RepresentationSettings,
     iter_features,
@@ -73,8 +75,32 @@ from envtok.molecular.selection import (
     build_hierarchy,
     select_candidates,
 )
+from envtok.selection.incidence import check_budget
 
 IMPLEMENTATION_VERSION = "molecular_v1.6"
+
+MEMORY_BASE_BYTES = 512 * 2**20
+"""Descriptor, perception and Arrow libraries loaded once featurisation starts."""
+MEMORY_ATOM_BYTES = 1536
+"""Features, fitted targets, selection and audit state per candidate atom."""
+MEMORY_QUEUED_ATOM_BYTES = 4 * 2**10
+"""Descriptors and tokens per atom of a worker batch waiting to be written."""
+
+
+def estimate_molecular_bytes(records: int, atoms: int, *, workers: int = 1) -> int:
+    """Estimate the memory the stages after ingestion add to the loaded records.
+
+    Covers featurisation (including queued worker batches), target fitting,
+    selection and the audit. Descriptors are memory-mapped and not counted.
+    The constants are calibrated, with headroom, on perturbed copies of OMol
+    records, whose fine tokens are almost all distinct; pools that repeat
+    chemical environments need less.
+    """
+    queued = 0.0
+    if workers > 1 and records:
+        batch = min(MAX_BATCH, math.ceil(records / (4 * workers)))
+        queued = (2 * workers + 1) * batch * atoms / records * MEMORY_QUEUED_ATOM_BYTES
+    return int(MEMORY_BASE_BYTES + MEMORY_ATOM_BYTES * atoms + queued)
 
 
 def _json(value: Any) -> str:
@@ -454,6 +480,8 @@ class MolecularPipeline:
                 "no eligible training candidates; official held-out splits "
                 "are never used for fitting"
             )
+        if not self._loaded:
+            self._check_memory(records)
         start = time.perf_counter()
         manifest_path = self.feature_directory / FEATURES
         if self._loaded or (
@@ -490,6 +518,27 @@ class MolecularPipeline:
         self._check_source()
         self.timings["featurize_seconds"] = time.perf_counter() - start
         return self._features
+
+    def _check_memory(self, records: Sequence[MolecularRecord]) -> None:
+        """Refuse to continue if the estimated peak exceeds ``memory_budget``.
+
+        The peak is what this process holds now, with the records loaded, plus
+        :func:`estimate_molecular_bytes` for the remaining stages.
+        """
+        execution = self.settings["execution"]
+        budget = parse_size(execution["memory_budget"])
+        if budget is None:
+            return
+        estimate = estimate_molecular_bytes(
+            len(records),
+            sum(record.natoms for record in records),
+            workers=execution["workers"],
+        )
+        check_budget(
+            (resident_bytes() or 0) + estimate,
+            budget,
+            f"Molecular selection of {len(records)} records",
+        )
 
     def _write_features(
         self,
