@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import pytest
 from ase import Atoms
+from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io import read
 
 from envtok.errors import ConfigError
@@ -24,6 +25,21 @@ def _atoms(**metadata: Any) -> Atoms:
         positions=[[0, 0, 0], [0, 0, 0.71]],
         info={"total_charge": 0, "spin_multiplicity": 1, **metadata},
     )
+
+
+def test_per_atom_stress_tensor_round_trip(tmp_path: Path) -> None:
+    atoms = _atoms()
+    stresses = np.arange(18, dtype=float).reshape(2, 3, 3)
+    atoms.calc = SinglePointCalculator(atoms, stresses=stresses)
+    record = next(from_atoms([atoms], label_namespace="ref"))
+    path = export_records([record], tmp_path / "stresses.extxyz")
+    restored = next(
+        iter_extxyz(
+            path, label_namespace="ref", label_sources={"local_stress": "calc:stresses"}
+        )
+    )
+    np.testing.assert_array_equal(restored.atoms.calc.results["stresses"], stresses)
+    np.testing.assert_array_equal(restored.labels["local_stress"].value, stresses)
 
 
 def test_permissive_export_does_not_reintroduce_unmapped_canonical_state(

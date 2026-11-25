@@ -16,6 +16,7 @@ from ase.constraints import FixAtoms, FixCartesian
 from ase.io.extxyz import key_val_dict_to_str
 
 from envtok._extxyz import encode_string_metadata
+from envtok.adapters._labels import extract_labels
 from envtok.adapters.base import RecordOptions, make_record
 from envtok.adapters.extxyz import ExtxyzAdapter
 from envtok.errors import ConfigError, DuplicateRecordError
@@ -114,7 +115,10 @@ def _options(
 def _restore_shapes(atoms: Atoms) -> None:
     shapes = atoms.info.get("envtok_array_shapes", {})
     for name, shape in shapes.items():
-        atoms.arrays[name] = atoms.arrays[name].reshape(shape)
+        values = (
+            atoms.arrays if name in atoms.arrays else getattr(atoms.calc, "results", {})
+        )
+        values[name] = values[name].reshape(shape)
 
 
 def from_atoms(  # noqa: PLR0913 - explicit adapter options
@@ -170,7 +174,16 @@ def iter_extxyz(  # noqa: PLR0913 - explicit adapter options
         path, _options(dataset, revision, split, family_key, label_sources, label_units)
     )
     for record in adapter.iter_records():
-        _restore_shapes(record.atoms)
+        if record.atoms.info.get("envtok_array_shapes"):
+            _restore_shapes(record.atoms)
+            record = replace(
+                record,
+                labels=extract_labels(
+                    record.atoms,
+                    adapter.options.label_sources,
+                    adapter.options.label_units,
+                ),
+            )
         yield adapt_record(
             record,
             label_namespace=label_namespace,
