@@ -4,6 +4,7 @@ import dataclasses
 import enum
 import json
 import os
+import sqlite3
 import sys
 from concurrent.futures import Future
 from concurrent.futures.process import BrokenProcessPool
@@ -253,6 +254,16 @@ class TestDuckAndSchema:
 
 
 class TestPartitions:
+    def test_cleanup_reports_lock_errors_other_than_contention(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / ".part-000001.tmp-leftover").mkdir()
+        guard = sqlite3.connect(tmp_path / ".writers.sqlite3")
+        guard.execute("PRAGMA query_only=ON")
+        monkeypatch.setattr(sqlite3, "connect", lambda *args, **kwargs: guard)
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            remove_temporary(tmp_path)
+
     def test_commit_and_reuse(self, tmp_path: Path) -> None:
         root = tmp_path / "partitions"
         assert committed_partitions(root, "fp") == {}
@@ -419,6 +430,29 @@ class TestExecutor:
 
 
 class TestTokenizeAndResume:
+    def test_shard_startup_during_partition_write(
+        self,
+        subset: Path,
+        serial: TokenCache,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        tokenizer = Tokenizer()
+        write_table = pq.write_table
+
+        def start_other_shard(*args: Any, **kwargs: Any) -> None:
+            monkeypatch.setattr(pq, "write_table", write_table)
+            tokenizer.tokenize(
+                corpus_of(subset), tmp_path, batch_size=2, shard_index=1, num_shards=2
+            )
+            write_table(*args, **kwargs)
+
+        monkeypatch.setattr(pq, "write_table", start_other_shard)
+        directory = tokenizer.tokenize(
+            corpus_of(subset), tmp_path, batch_size=2, shard_index=0, num_shards=2
+        )
+        assert_same_tables(serial, tokenizer.index(directory, tmp_path))
+
     def test_parallel_run_equals_serial_run(
         self, subset: Path, serial: TokenCache, tmp_path: Path
     ) -> None:

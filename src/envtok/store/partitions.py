@@ -9,8 +9,10 @@ partition, and a retried batch can never duplicate rows.
 
 import json
 import shutil
+import sqlite3
 import uuid
 from collections.abc import Sequence
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -54,33 +56,41 @@ def write_partition(
     final = root / partition_name(index)
     if (final / COMMIT_MARKER).exists():
         return final
-    temporary = root / f".{partition_name(index)}.tmp-{uuid.uuid4().hex}"
-    temporary.mkdir(parents=True)
-    tables = {
-        "structures": rows_to_table([r.structure for r in results], STRUCTURES),
-        "sites": rows_to_table([s for r in results for s in r.sites], SITES),
-        "failures": rows_to_table([f for r in results for f in r.failures], FAILURES),
-    }
-    if keep_neighbours:
-        tables["neighbours"] = rows_to_table(
-            [n for r in results for n in r.neighbours], NEIGHBOURS
-        )
-    for name, table in tables.items():
-        pq.write_table(table, temporary / f"{name}.parquet", compression="zstd")
-    marker = {
-        "index": index,
-        "fingerprint": fingerprint,
-        "record_ids": [r.structure.record_id for r in results],
-        "tables": sorted(tables),
-        "committed_at": datetime.now(UTC).isoformat(),
-    }
-    (temporary / COMMIT_MARKER).write_text(json.dumps(marker, indent=1))
-    try:
-        temporary.rename(final)
-    except OSError:
-        if not (final / COMMIT_MARKER).exists():
-            raise
-        shutil.rmtree(temporary)
+    root.mkdir(parents=True, exist_ok=True)
+    # Read transactions can coexist across shard processes. The OS releases
+    # the lock even if a worker dies before publishing its partition.
+    with closing(sqlite3.connect(root / ".writers.sqlite3")) as guard:
+        guard.execute("BEGIN")
+        guard.execute("SELECT name FROM sqlite_master").fetchall()
+        temporary = root / f".{partition_name(index)}.tmp-{uuid.uuid4().hex}"
+        temporary.mkdir(parents=True)
+        tables = {
+            "structures": rows_to_table([r.structure for r in results], STRUCTURES),
+            "sites": rows_to_table([s for r in results for s in r.sites], SITES),
+            "failures": rows_to_table(
+                [f for r in results for f in r.failures], FAILURES
+            ),
+        }
+        if keep_neighbours:
+            tables["neighbours"] = rows_to_table(
+                [n for r in results for n in r.neighbours], NEIGHBOURS
+            )
+        for name, table in tables.items():
+            pq.write_table(table, temporary / f"{name}.parquet", compression="zstd")
+        marker = {
+            "index": index,
+            "fingerprint": fingerprint,
+            "record_ids": [r.structure.record_id for r in results],
+            "tables": sorted(tables),
+            "committed_at": datetime.now(UTC).isoformat(),
+        }
+        (temporary / COMMIT_MARKER).write_text(json.dumps(marker, indent=1))
+        try:
+            temporary.rename(final)
+        except OSError:
+            if not (final / COMMIT_MARKER).exists():
+                raise
+            shutil.rmtree(temporary)
     return final
 
 
@@ -129,7 +139,16 @@ def remove_temporary(root: Path) -> int:
     Returns:
         The number of directories removed.
     """
-    leftovers = list(root.glob(".part-*.tmp-*")) if root.exists() else []
-    for path in leftovers:
-        shutil.rmtree(path, ignore_errors=True)
+    leftovers = list(root.glob(".part-*.tmp-*"))
+    if not leftovers:
+        return 0
+    with closing(sqlite3.connect(root / ".writers.sqlite3", timeout=0)) as guard:
+        try:
+            guard.execute("BEGIN EXCLUSIVE")
+        except sqlite3.OperationalError as exc:
+            if exc.sqlite_errorcode == sqlite3.SQLITE_BUSY:
+                return 0
+            raise
+        for path in leftovers:
+            shutil.rmtree(path, ignore_errors=True)
     return len(leftovers)
