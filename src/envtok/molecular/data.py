@@ -173,7 +173,8 @@ def iter_extxyz(  # noqa: PLR0913 - explicit adapter options
     adapter = ExtxyzAdapter(
         path, _options(dataset, revision, split, family_key, label_sources, label_units)
     )
-    for record in adapter.iter_records():
+    for source_record in adapter.iter_records():
+        record = source_record
         if record.atoms.info.get("envtok_array_shapes"):
             _restore_shapes(record.atoms)
             record = replace(
@@ -219,6 +220,9 @@ def exact_identity(record: MolecularRecord, *, include_constraints: bool = True)
     Unknown non-provenance metadata is conservatively treated as an external
     condition. Rotated, permuted, rounded or merely same-graph records are never
     merged by this identity.
+
+    Older saved runs use `include_constraints=False` to reproduce their
+    original candidate pool.
     """
     label_info_keys = {
         label.source_key.split(":", 1)[1]

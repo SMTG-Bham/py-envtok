@@ -17,6 +17,7 @@ from envtok.cli import main
 from envtok.errors import ConfigError, CoverageError, StaleCacheError
 from envtok.molecular import MolecularPipeline, feature_cache, load_molecular_config
 from envtok.molecular.cli import dispatch, is_molecular
+from envtok.molecular.manifests import write_json
 from envtok.molecular.pipeline import audit_selection
 from envtok.molecular.selection import Candidate, Target
 
@@ -130,12 +131,11 @@ def test_resume_after_interruption_before_feature_commit(
     molecular_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pipeline = MolecularPipeline(molecular_config)
-    writer = feature_cache.write_json
 
     def interrupt(path: Path, value: Any) -> None:
         if path.name == feature_cache.COMMIT:
             raise InterruptedError
-        writer(path, value)
+        write_json(path, value)
 
     with monkeypatch.context() as patch:
         patch.setattr(feature_cache, "write_json", interrupt)

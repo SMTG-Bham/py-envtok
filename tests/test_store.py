@@ -260,7 +260,7 @@ class TestPartitions:
         (tmp_path / ".part-000001.tmp-leftover").mkdir()
         guard = sqlite3.connect(tmp_path / ".writers.sqlite3")
         guard.execute("PRAGMA query_only=ON")
-        monkeypatch.setattr(sqlite3, "connect", lambda *args, **kwargs: guard)
+        monkeypatch.setattr(sqlite3, "connect", lambda *_args, **_kwargs: guard)
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             remove_temporary(tmp_path)
 
