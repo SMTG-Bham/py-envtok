@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import html
-import itertools
 import json
 import math
 import platform
 import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import asdict, fields
+from dataclasses import asdict, replace
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -27,6 +26,7 @@ import pyarrow.parquet as pq
 import yaml
 
 from envtok.errors import ConfigError, CoverageError, StaleCacheError
+from envtok.execution import parse_size, resident_bytes
 from envtok.molecular.config import (
     EXECUTION_ONLY,
     MolecularConfig,
@@ -38,13 +38,31 @@ from envtok.molecular.data import (
     iter_extxyz,
     prepare_records,
 )
+from envtok.molecular.feature_cache import (
+    FEATURES,
+    FeatureSummary,
+    descriptor_file,
+    read_feature_cache,
+    read_feature_summary,
+    write_feature_cache,
+)
 from envtok.molecular.geometry import (
+    DescriptorPool,
     GeometryRegions,
     build_geometry_regions,
     nearest_selected_distances,
 )
+from envtok.molecular.manifests import (
+    TARGETS,
+    AtomClasses,
+    FrozenTargets,
+    write_targets,
+)
+from envtok.molecular.manifests import read_json as _read_json
+from envtok.molecular.manifests import write_json as _write_json
 from envtok.molecular.records import MolecularRecord
 from envtok.molecular.representations import (
+    MAX_BATCH,
     MolecularFeatures,
     RepresentationSettings,
     iter_features,
@@ -57,66 +75,62 @@ from envtok.molecular.selection import (
     build_hierarchy,
     select_candidates,
 )
+from envtok.selection.incidence import check_budget
 
-IMPLEMENTATION_VERSION = "molecular_v1.5"
+IMPLEMENTATION_VERSION = "molecular_v1.6"
+
+MEMORY_BASE_BYTES = 512 * 2**20
+"""Descriptor, perception and Arrow libraries loaded once featurisation starts."""
+MEMORY_ATOM_BYTES = 1536
+"""Features, fitted targets, selection and audit state per candidate atom."""
+MEMORY_QUEUED_ATOM_BYTES = 4 * 2**10
+"""Descriptors and tokens per atom of a worker batch waiting to be written."""
+
+
+def estimate_molecular_bytes(records: int, atoms: int, *, workers: int = 1) -> int:
+    """Estimate the memory the stages after ingestion add to the loaded records.
+
+    Covers featurisation (including queued worker batches), target fitting,
+    selection and the audit. Descriptors are memory-mapped and not counted.
+    The constants are calibrated, with headroom, on perturbed copies of OMol
+    records, whose fine tokens are almost all distinct; pools that repeat
+    chemical environments need less.
+    """
+    queued = 0.0
+    if workers > 1 and records:
+        batch = min(MAX_BATCH, math.ceil(records / (4 * workers)))
+        queued = (2 * workers + 1) * batch * atoms / records * MEMORY_QUEUED_ATOM_BYTES
+    return int(MEMORY_BASE_BYTES + MEMORY_ATOM_BYTES * atoms + queued)
 
 
 def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, indent=2, allow_nan=False)
 
 
-DESCRIPTORS = "descriptors.npy"
-"""All candidate descriptors as one float32 array, records in manifest order."""
-LEGACY_DESCRIPTORS = "descriptors.npz"
-"""Caches before ``molecular_v1.5``: one member per record, read for saved runs."""
-_MATRIX = 2
+def _mapped_classes(
+    features: Sequence[MolecularFeatures], mapping: Mapping[str, str]
+) -> AtomClasses:
+    """Each descriptor row's fitted class, from its atom's finest token."""
+    names = sorted(set(mapping.values()))
+    index = {name: position for position, name in enumerate(names)}
+    codes = np.fromiter(
+        (index[mapping[path[0]]] for f in features for path in f.token_hierarchy),
+        dtype=np.int32,
+        count=sum(len(f.token_hierarchy) for f in features),
+    )
+    return names, codes
 
 
-def _features_from_cache(
-    manifest: Mapping[str, Any], blocks: Sequence[npt.NDArray[np.float32]]
-) -> tuple[MolecularFeatures, ...]:
-    """Rebuild features from a manifest and each record's descriptor rows.
-
-    Signatures come from the pool table, or from each record in caches written
-    before ``molecular_v1.5``.
-    """
-    table = manifest.get("signatures", {})
-    features = []
-    for row, descriptors in zip(manifest["records"], blocks, strict=True):
-        hierarchy = tuple(tuple(tokens) for tokens in row["token_hierarchy"])
-        safeguards = tuple(row["safeguard_targets"])
-        used = {token for tokens in hierarchy for token in tokens} | set(safeguards)
-        features.append(
-            MolecularFeatures(
-                record_id=row["record_id"],
-                family_id=row["family_id"],
-                state_key=tuple(row["state_key"]),
-                token_hierarchy=hierarchy,
-                signatures=row.get("signatures")
-                or {token: table[token] for token in sorted(used)},
-                descriptors=descriptors,
-                graph_status=row["graph_status"],
-                safeguard_targets=safeguards,
-                zero_descriptor_atoms=tuple(row["zero_descriptor_atoms"]),
-            )
-        )
-    return tuple(features)
-
-
-def _descriptor_blocks(
-    manifest: Mapping[str, Any], path: Path
-) -> list[npt.NDArray[np.float32]]:
-    """Each record's descriptor rows: views of the mapped array, or legacy members."""
-    rows = manifest["records"]
-    if path.name == LEGACY_DESCRIPTORS:
-        with np.load(path, allow_pickle=False) as arrays:
-            return [arrays[f"f{index}"] for index in range(len(rows))]
-    matrix = np.load(path, mmap_mode="r", allow_pickle=False)
-    sizes = [len(row["token_hierarchy"]) for row in rows]
-    if matrix.ndim != _MATRIX or len(matrix) != sum(sizes):
-        raise StaleCacheError("molecular descriptor cache is missing or corrupt")
-    bounds = np.cumsum([0, *sizes]).tolist()
-    return [matrix[start:stop] for start, stop in itertools.pairwise(bounds)]
+def _pool(
+    record_ids: Sequence[str],
+    atoms: Sequence[int],
+    classes: AtomClasses,
+    descriptors: npt.NDArray[np.float32],
+) -> DescriptorPool:
+    """Records' descriptor rows and classes, without per-atom objects."""
+    offsets = np.zeros(len(atoms) + 1, dtype=np.int64)
+    np.cumsum(atoms, out=offsets[1:])
+    return DescriptorPool(record_ids, offsets, classes[0], classes[1], descriptors)
 
 
 def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
@@ -155,25 +169,6 @@ def _stat_key(path: Path) -> tuple[int, int, int, int] | None:
 def _trusted(signature: tuple[int, int, int, int] | None, checked: int) -> bool:
     """Whether the file was last changed well before ``checked`` (ns)."""
     return signature is not None and checked - max(signature[1:3]) > _RACY_NS
-
-
-def _write_json(path: Path, value: Any) -> None:
-    """Write ``_json(value)`` atomically, streaming rather than building one string."""
-    temporary = path.with_suffix(path.suffix + ".partial")
-    with temporary.open("w") as stream:
-        json.dump(value, stream, sort_keys=True, indent=2, allow_nan=False)
-        stream.write("\n")
-    temporary.replace(path)
-
-
-def _read_json(path: Path, required: set[str]) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text())
-        if not isinstance(value, dict) or not required <= value.keys():
-            raise ValueError("missing manifest fields")
-    except (OSError, ValueError) as exc:
-        raise StaleCacheError(f"cannot read molecular manifest {path}: {exc}") from exc
-    return value
 
 
 def _software() -> dict[str, Any]:
@@ -290,6 +285,7 @@ class MolecularPipeline:
         self.feature_directory.mkdir(parents=True, exist_ok=True)
         self._prepared: PreparedRecords | None = None
         self._features: tuple[MolecularFeatures, ...] | None = None
+        self._descriptors: npt.NDArray[np.float32] | None = None
         self._built: (
             tuple[
                 tuple[Candidate, ...],
@@ -347,6 +343,7 @@ class MolecularPipeline:
         self._loaded = True
         self._prepared = None
         self._features = None
+        self._descriptors = None
         self._built = None
         self.timings = {}
         self._check_source()
@@ -378,80 +375,30 @@ class MolecularPipeline:
             raise StaleCacheError("molecular source content changed; create a new run")
         self._source_stat = signature if _trusted(signature, checked) else None
 
+    def _frozen_targets(self) -> FrozenTargets:
+        """Open the frozen targets after checking them against the provenance."""
+        provenance = _read_json(self.directory / "provenance.json", {"targets_sha256"})
+        path = self.directory / TARGETS
+        if not path.exists() or _file_hash(path) != provenance["targets_sha256"]:
+            raise StaleCacheError("frozen molecular targets are missing or corrupt")
+        return FrozenTargets(self.directory)
+
     def _load_targets(
         self,
     ) -> tuple[
         tuple[Candidate, ...], dict[str, Target], HierarchyResult, GeometryRegions
     ]:
-        provenance = _read_json(self.directory / "provenance.json", {"targets_sha256"})
-        path = self.directory / "targets.json"
-        if not path.exists() or _file_hash(path) != provenance["targets_sha256"]:
-            raise StaleCacheError("frozen molecular targets are missing or corrupt")
-        data = _read_json(
-            path,
-            {
-                "incidence",
-                "requirements",
-                "mapping",
-                "lineage",
-                "support",
-                "group_support",
-                "rare_targets",
-                "optional_targets",
-                "prototypes",
-                "region_targets",
-                "overflow",
-                "sampled_counts",
-                "region_radius",
-            },
-        )
-        candidates = tuple(
-            Candidate(
-                row["record_id"],
-                row["cost"],
-                frozenset(row["targets"]),
-                frozenset(row["refinement_targets"]),
-                row.get("group_id"),
-            )
-            for row in data["incidence"]
-        )
-        mandatory = {
-            key: Target(**value) for key, value in data["requirements"].items()
-        }
-        hierarchy = HierarchyResult(
-            targets={row.record_id: row.targets for row in candidates},
-            mapping=data["mapping"],
-            support=data["support"],
-            group_support=data["group_support"],
-            rare_targets=frozenset(data["rare_targets"]),
-            optional_targets=frozenset(data["optional_targets"]),
-            lineage={key: tuple(value) for key, value in data["lineage"].items()},
-            source_support=data["source_support"],
-            source_group_support=data["source_group_support"],
-        )
-        regions = GeometryRegions(
-            targets={
-                key: frozenset(value) for key, value in data["region_targets"].items()
-            },
-            prototypes={
-                key: np.asarray(value, dtype=np.float64)
-                for key, value in data["prototypes"].items()
-            },
-            overflow=tuple(tuple(row) for row in data["overflow"]),
-            sampled_counts=data["sampled_counts"],
-            radius=data["region_radius"],
-        )
-        return candidates, mandatory, hierarchy, regions
-
-    def _descriptor_file(self) -> Path | None:
-        for name in (DESCRIPTORS, LEGACY_DESCRIPTORS):
-            if (self.feature_directory / name).exists():
-                return self.feature_directory / name
-        return None
+        return self._frozen_targets().load()
 
     def _load_features(self) -> tuple[MolecularFeatures, ...]:
-        descriptor_path = self._descriptor_file()
-        manifest_path = self.feature_directory / "features.json"
+        features, self._descriptors = read_feature_cache(
+            self.feature_directory, self._feature_manifest()
+        )
+        return features
+
+    def _feature_manifest(self) -> dict[str, Any]:
+        """The committed feature manifest, matching the frozen run if loaded."""
+        manifest_path = self.feature_directory / FEATURES
         commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
         if (
             not manifest_path.exists()
@@ -464,14 +411,7 @@ class MolecularPipeline:
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-        manifest = _read_json(manifest_path, {"records", "arrays_sha256"})
-        if descriptor_path is None or manifest["arrays_sha256"] != _file_hash(
-            descriptor_path
-        ):
-            raise StaleCacheError("molecular descriptor cache is missing or corrupt")
-        return _features_from_cache(
-            manifest, _descriptor_blocks(manifest, descriptor_path)
-        )
+        return _read_json(manifest_path, {"arrays_sha256"})
 
     @property
     def seed(self) -> int:
@@ -540,8 +480,10 @@ class MolecularPipeline:
                 "no eligible training candidates; official held-out splits "
                 "are never used for fitting"
             )
+        if not self._loaded:
+            self._check_memory(records)
         start = time.perf_counter()
-        manifest_path = self.feature_directory / "features.json"
+        manifest_path = self.feature_directory / FEATURES
         if self._loaded or (
             self.settings["execution"]["resume"] and manifest_path.exists()
         ):
@@ -577,61 +519,41 @@ class MolecularPipeline:
         self.timings["featurize_seconds"] = time.perf_counter() - start
         return self._features
 
+    def _check_memory(self, records: Sequence[MolecularRecord]) -> None:
+        """Refuse to continue if the estimated peak exceeds ``memory_budget``.
+
+        The peak is what this process holds now, with the records loaded, plus
+        :func:`estimate_molecular_bytes` for the remaining stages.
+        """
+        execution = self.settings["execution"]
+        budget = parse_size(execution["memory_budget"])
+        if budget is None:
+            return
+        estimate = estimate_molecular_bytes(
+            len(records),
+            sum(record.natoms for record in records),
+            workers=execution["workers"],
+        )
+        check_budget(
+            (resident_bytes() or 0) + estimate,
+            budget,
+            f"Molecular selection of {len(records)} records",
+        )
+
     def _write_features(
         self,
         features: Iterator[MolecularFeatures],
         natoms: int,
         settings: RepresentationSettings,
     ) -> tuple[MolecularFeatures, ...]:
-        """Stream descriptors into one array file and return memory-mapped features.
-
-        Each record's rows are written as it arrives, so only one batch of
-        descriptors is held in memory. Signatures are stored once for the pool.
-        """
-        descriptor_path = self.feature_directory / DESCRIPTORS
-        temporary = descriptor_path.with_suffix(".partial.npy")
-        rows: list[dict[str, Any]] = []
-        signatures: dict[str, str] = {}
-        array: np.memmap[Any, Any] | None = None
-        offset = 0
-        for feature in features:
-            if array is None:
-                array = np.lib.format.open_memmap(
-                    temporary,
-                    mode="w+",
-                    dtype=np.float32,
-                    shape=(natoms, feature.descriptors.shape[1]),
-                )
-            array[offset : offset + len(feature.descriptors)] = feature.descriptors
-            offset += len(feature.descriptors)
-            signatures.update(feature.signatures)
-            rows.append(
-                {
-                    field.name: getattr(feature, field.name)
-                    for field in fields(feature)
-                    if field.name not in {"descriptors", "signatures"}
-                }
-            )
-        if array is None or offset != natoms:
-            raise ConfigError("descriptor rows do not match the candidate atom count")
-        array.flush()
-        del array
-        temporary.replace(descriptor_path)
-        manifest = {
-            "records": rows,
-            "signatures": dict(sorted(signatures.items())),
-            "settings": asdict(settings),
-            "arrays_sha256": _file_hash(descriptor_path),
-        }
-        manifest_path = self.feature_directory / "features.json"
-        _write_json(manifest_path, manifest)
-        _write_json(
-            self.feature_directory / "commit.json",
-            {"features_sha256": _file_hash(manifest_path)},
+        """Write the feature cache, then return its memory-mapped features."""
+        manifest = write_feature_cache(
+            self.feature_directory, features, natoms, settings
         )
-        return _features_from_cache(
-            manifest, _descriptor_blocks(manifest, descriptor_path)
+        loaded, self._descriptors = read_feature_cache(
+            self.feature_directory, manifest, verify=False
         )
+        return loaded
 
     def build_targets(
         self,
@@ -655,8 +577,15 @@ class MolecularPipeline:
             rare_policy=hierarchy_settings["rare_policy"],
         )
         selection = self.settings["selection"]
+        atom_classes = _mapped_classes(features, hierarchy.mapping)
+        assert self._descriptors is not None  # noqa: S101 - set by featurize()
         regions = build_geometry_regions(
-            self.descriptor_rows(hierarchy),
+            _pool(
+                [f.record_id for f in features],
+                [len(f.token_hierarchy) for f in features],
+                atom_classes,
+                self._descriptors,
+            ),
             group_ids=families,
             radius=selection["prototype_region_radius"],
             prototype_cap=selection["prototype_cap"],
@@ -681,47 +610,14 @@ class MolecularPipeline:
             for row in candidates
             for token in sorted(row.targets - hierarchy.optional_targets)
         }
-        self._built = candidates, mandatory, hierarchy, regions
-        _write_json(
-            self.directory / "targets.json",
-            {
-                "mapping": hierarchy.mapping,
-                "lineage": hierarchy.lineage,
-                "support": hierarchy.support,
-                "group_support": hierarchy.group_support,
-                "source_support": hierarchy.source_support,
-                "source_group_support": hierarchy.source_group_support,
-                "rare_targets": sorted(hierarchy.rare_targets),
-                "optional_targets": sorted(hierarchy.optional_targets),
-                "requirements": {
-                    key: asdict(value) for key, value in mandatory.items()
-                },
-                "prototypes": {
-                    key: value.tolist() for key, value in regions.prototypes.items()
-                },
-                "region_targets": {
-                    key: sorted(value) for key, value in regions.targets.items()
-                },
-                "overflow": regions.overflow,
-                "region_radius": regions.radius,
-                "sampled_counts": regions.sampled_counts,
-                "signatures": {
-                    token: signature
-                    for f in features
-                    for token, signature in f.signatures.items()
-                },
-                "incidence": [
-                    {
-                        "record_id": c.record_id,
-                        "cost": c.cost,
-                        "group_id": c.group_id,
-                        "targets": sorted(c.targets),
-                        "refinement_targets": sorted(c.refinement_targets),
-                    }
-                    for c in candidates
-                ],
-            },
+        write_targets(
+            self.directory, (candidates, mandatory, hierarchy, regions), atom_classes
         )
+        # Hold the written prototypes as file pages rather than a second copy.
+        regions = replace(
+            regions, prototypes=FrozenTargets.unverified(self.directory).prototypes()
+        )
+        self._built = candidates, mandatory, hierarchy, regions
         self.timings["targets_seconds"] = time.perf_counter() - start
         return self._built
 
@@ -753,7 +649,7 @@ class MolecularPipeline:
         """Select whole records, audit independently and write the manifest."""
         self._check_source(full=True)
         if (self.directory / "provenance.json").exists():
-            self._load_targets()
+            self._frozen_targets()
         candidates, mandatory, _, _ = self.build_targets()
         start = time.perf_counter()
         settings = self.settings["selection"]
@@ -803,8 +699,8 @@ class MolecularPipeline:
                 "source_sha256": self.source_hash,
                 "split_sha256": _digest(self.ingest().split_manifest),
                 "feature_directory": str(self.feature_directory),
-                "targets_sha256": _file_hash(self.directory / "targets.json"),
-                "features_sha256": _file_hash(self.feature_directory / "features.json"),
+                "targets_sha256": _file_hash(self.directory / TARGETS),
+                "features_sha256": _file_hash(self.feature_directory / FEATURES),
                 "candidate_restriction": "eligible deduplicated training records",
                 "timings": self.timings,
                 "feature_bytes": sum(f.descriptors.nbytes for f in self.featurize()),
@@ -829,42 +725,55 @@ class MolecularPipeline:
         if not path.exists():
             raise ConfigError("no molecular selection exists; run select first")
         ids = path.read_text().splitlines()
-        candidates, mandatory, hierarchy, regions = self._load_targets()
-        report = audit_selection(candidates, mandatory, ids, budget=self.atom_budget())
-        manifest_path = self.feature_directory / "features.json"
-        if manifest_path.exists() and self._descriptor_file() is not None:
+        targets = self._frozen_targets()
+        report = audit_selection(
+            targets.candidates(),
+            targets.requirements(),
+            ids,
+            budget=self.atom_budget(),
+        )
+        manifest_path = self.feature_directory / FEATURES
+        summary: FeatureSummary | None = None
+        if manifest_path.exists() and descriptor_file(self.feature_directory):
             provenance = _read_json(
                 self.directory / "provenance.json", {"features_sha256"}
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-            features = self._load_features()
-            descriptors = {
-                feature.record_id: [
-                    (hierarchy.mapping[path[0]], vector)
-                    for path, vector in zip(
-                        feature.token_hierarchy, feature.descriptors, strict=True
-                    )
-                ]
-                for feature in features
-            }
+            summary = read_feature_summary(
+                self.feature_directory, self._feature_manifest()
+            )
+            atom_classes = targets.atom_classes()
+            if atom_classes is None:
+                features = summary.features or self._load_features()
+                atom_classes = _mapped_classes(features, targets.mapping())
             report["nearest_selected_distances"] = nearest_selected_distances(
-                descriptors, ids, seed=self.seed
+                _pool(
+                    summary.record_ids,
+                    summary.atoms,
+                    atom_classes,
+                    summary.descriptors,
+                ),
+                ids,
+                seed=self.seed,
             )
             report["geometry_audit_status"] = "available"
         else:
-            features = ()
             report["nearest_selected_distances"] = None
             report["geometry_audit_status"] = "unavailable_feature_cache"
-        report["geometry_overflow_environments"] = len(regions.overflow)
-        report["graph_status"] = dict(
-            Counter(feature.graph_status for feature in features)
+        report["geometry_overflow_environments"] = targets.overflow_count()
+        report["graph_status"] = dict(Counter(summary.graph_status if summary else ()))
+        report["zero_descriptor_atoms"] = (
+            {
+                record_id: zeros
+                for record_id, zeros in zip(
+                    summary.record_ids, summary.zero_descriptor_atoms, strict=True
+                )
+                if zeros
+            }
+            if summary
+            else {}
         )
-        report["zero_descriptor_atoms"] = {
-            feature.record_id: feature.zero_descriptor_atoms
-            for feature in features
-            if feature.zero_descriptor_atoms
-        }
         report["software_environment_matches_selection"] = (
             self.runtime_software == self.software
         )

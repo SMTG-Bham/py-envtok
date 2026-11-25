@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from envtok.errors import ConfigError
+from envtok.execution import parse_size
 
 MAX_ATOMIC_NUMBER = 118
 
@@ -85,6 +86,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "resume": True,
         "workers": 1,
         "threads_per_worker": 1,
+        "memory_budget": None,
     },
     "output": {"format": "extxyz"},
 }
@@ -232,9 +234,18 @@ def _validate(data: dict[str, Any]) -> None:  # noqa: PLR0912, PLR0915 - explici
         raise ConfigError("execution.workdir must be a nonempty path")
     for key in ("workers", "threads_per_worker"):
         _number(data["execution"], key, minimum=1, integer=True)
+    budget = data["execution"]["memory_budget"]
+    if budget is not None and (
+        isinstance(budget, bool)
+        or not isinstance(budget, int | str)
+        or (parse_size(budget) or 0) < 0
+    ):
+        raise ConfigError(
+            "execution.memory_budget must be a size such as '32GB' or a byte count"
+        )
 
 
-EXECUTION_ONLY = ("workers", "threads_per_worker")
+EXECUTION_ONLY = ("workers", "threads_per_worker", "memory_budget")
 """Execution settings that cannot change results and stay out of fingerprints."""
 
 

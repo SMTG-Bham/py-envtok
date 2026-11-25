@@ -201,6 +201,10 @@ def test_audit_rejects_manipulated_selection(molecular_config: dict[str, Any]) -
         ("execution", "workers", 0),
         ("execution", "workers", True),
         ("execution", "threads_per_worker", 1.5),
+        ("execution", "memory_budget", True),
+        ("execution", "memory_budget", -1),
+        ("execution", "memory_budget", 1.5),
+        ("execution", "memory_budget", "lots"),
     ],
 )
 def test_config_rejects_invalid_settings(

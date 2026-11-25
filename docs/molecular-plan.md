@@ -88,12 +88,12 @@ The larger budget is explicit; the default remains one 25% run.
 
 ## Deferred
 
-Cluster sharding, columnar target and feature manifests, measured 100k/1M
-throughput, geometry-only comparisons, broad learning curves,
-conformer/interaction/MD qualification and separate
-reaction/cluster/metal/polymer/periodic profiles stay outside this small
-acceptance pass. Local parallel featurisation and a single memory-mapped
-descriptor array have since been added (see the scaling tracking issue,
+Cluster sharding, measured throughput on real 100k–1M pools, geometry-only
+comparisons, broad learning curves, conformer/interaction/MD qualification and
+separate reaction/cluster/metal/polymer/periodic profiles stay outside this
+small acceptance pass. Local parallel featurisation, a single memory-mapped
+descriptor array, columnar target and feature manifests and a memory budget
+have since been added (see the scaling tracking issue,
 SMTG-Bham/py-envtok#14). The pipeline still holds records and incidence in
 memory. These limits remain documented, rather than being treated as
 prerequisites for a useful local workflow.

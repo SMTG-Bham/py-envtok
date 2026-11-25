@@ -143,3 +143,44 @@ def test_lazy_matches_on_larger_pools() -> None:
 def test_unknown_algorithm_rejected() -> None:
     with pytest.raises(ConfigError, match="algorithm"):
         selection.select_candidates([], algorithm="fast")
+
+
+@pytest.mark.parametrize("seed", range(40))
+def test_hierarchy_matches_frozen_reference(seed: int) -> None:
+    rng = np.random.default_rng(seed)
+    depth = int(rng.integers(1, 4))
+    fine = [f"f{i}" for i in range(int(rng.integers(1, 40)))]
+    ancestors = {
+        token: tuple(f"{token[:2]}-{level}" for level in range(1, depth))
+        for token in fine
+    }
+    lineages: dict[str, list[tuple[str, ...]]] = {}
+    families: dict[str, str | None] = {}
+    for index in range(int(rng.integers(0, 30))):
+        record_id = f"r{int(rng.integers(0, 10**4)):04d}-{index}"
+        chosen = rng.choice(fine, size=int(rng.integers(0, 6))).tolist()
+        lineages[record_id] = [(token, *ancestors[token]) for token in chosen]
+        families[record_id] = (
+            None if rng.random() < 0.3 else f"family{int(rng.integers(0, 4))}"
+        )
+    options: dict[str, Any] = {
+        "min_source_support": int(rng.integers(1, 6)),
+        "family_ids": families if rng.random() < 0.8 else None,
+        "rare_policy": str(rng.choice(["protect", "optional"])),
+    }
+    current = selection.build_hierarchy(lineages, **options)
+    frozen = reference.build_hierarchy(lineages, **options)
+    for name in (
+        "targets",
+        "mapping",
+        "support",
+        "group_support",
+        "lineage",
+        "source_support",
+        "source_group_support",
+    ):
+        assert list(getattr(current, name).items()) == list(
+            getattr(frozen, name).items()
+        )
+    assert current.rare_targets == frozen.rare_targets
+    assert current.optional_targets == frozen.optional_targets

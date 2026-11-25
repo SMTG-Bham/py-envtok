@@ -12,12 +12,31 @@ Usage::
     uv run python build_tools/benchmark_molecular.py geometry --records 1000 4000
     uv run --extra molecular python build_tools/benchmark_molecular.py \
         pipeline --config examples/molecular/omol/config.yaml
+
+``pipeline`` reports each stage's time and peak resident memory, and the size
+of every artifact. Peak anonymous memory, resident or swapped, excludes file
+pages such as the memory-mapped descriptor cache, which the kernel can drop
+under pressure. To
+measure a larger pool, ``replicate`` writes perturbed copies of a source, which
+``pipeline --source`` then runs with the configuration's other settings::
+
+    uv run --extra molecular python build_tools/benchmark_molecular.py \
+        replicate --source examples/molecular/omol/sample.extxyz --copies 128 \
+        --drop-info omol_metadata --output runs/bench/omol-x128.extxyz
+    uv run --extra molecular python build_tools/benchmark_molecular.py \
+        pipeline --config examples/molecular/omol/config.yaml \
+        --source runs/bench/omol-x128.extxyz --workdir runs/bench --fresh
+
+Copies of a few molecules are not a real pool: perturbed coordinates make
+nearly every fine token unique, while the coarse classes saturate.
 """
 
 import argparse
 import json
+import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -113,35 +132,185 @@ def bench_geometry(n_records: int) -> dict[str, Any]:
     }
 
 
-def bench_pipeline(config: str) -> dict[str, Any]:
+class _MemorySampler(threading.Thread):
+    """Sample this process's memory from ``/proc`` (Linux only).
+
+    Anonymous memory counts swapped-out pages too, so a run that swaps does
+    not appear to use less.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(daemon=True)
+        self.running = Path("/proc/self/status").exists()
+        self.peaks = {"rss": 0, "anon": 0}
+
+    @staticmethod
+    def read() -> dict[str, int]:
+        values = {}
+        with Path("/proc/self/status").open() as stream:
+            for line in stream:
+                key, _, value = line.partition(":")
+                if key in {"VmRSS", "RssAnon", "VmSwap"}:
+                    values[key] = int(value.split()[0]) * 1024
+        return {"rss": values["VmRSS"], "anon": values["RssAnon"] + values["VmSwap"]}
+
+    def reset(self) -> None:
+        if self.running:
+            self.peaks = self.read()
+
+    def stage_peaks(self) -> dict[str, float | None]:
+        """Peak resident, and anonymous resident plus swapped, MiB since reset."""
+        if not self.running:
+            return {"peak_rss_mib": None, "peak_anon_mib": None}
+        current = self.read()
+        return {
+            f"peak_{key}_mib": round(max(self.peaks[key], current[key]) / 2**20, 1)
+            for key in ("rss", "anon")
+        }
+
+    def run(self) -> None:
+        while self.running:
+            for key, value in self.read().items():
+                self.peaks[key] = max(self.peaks[key], value)
+            time.sleep(0.02)
+
+
+def _sizes(directory: Path) -> dict[str, float]:
+    return {
+        str(path.relative_to(directory)): round(path.stat().st_size / 2**20, 2)
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
+    }
+
+
+def bench_pipeline(
+    config: str,
+    *,
+    source: str | None = None,
+    workdir: str | None = None,
+    workers: int | None = None,
+    fresh: bool = False,
+) -> dict[str, Any]:
     """Run each stage of a real molecular configuration without exporting."""
+    import yaml  # noqa: PLC0415
+
+    from envtok.molecular.config import load_molecular_config  # noqa: PLC0415
     from envtok.molecular.pipeline import MolecularPipeline  # noqa: PLC0415
 
-    pipeline = MolecularPipeline(config)
+    settings = load_molecular_config(config).resolved()
+    if source is not None:
+        settings["source"]["path"] = str(Path(source).resolve())
+    if workdir is not None:
+        settings["execution"]["workdir"] = str(Path(workdir).resolve())
+    if workers is not None:
+        settings["execution"]["workers"] = workers
+    if fresh:
+        settings["execution"]["resume"] = False
+    sampler = _MemorySampler()
+    sampler.start()
+    pipeline = MolecularPipeline(yaml.safe_load(yaml.safe_dump(settings)))
     stages = {}
     for stage in ("ingest", "featurize", "build_targets", "select"):
-        stages[f"{stage}_seconds"] = _timed(getattr(pipeline, stage))
+        sampler.reset()
+        stages[stage] = {"seconds": _timed(getattr(pipeline, stage))}
+        stages[stage] |= sampler.stage_peaks()
+    sampler.running = False
+    candidates, mandatory, hierarchy, _ = pipeline.build_targets()
     return {
-        "records": len(pipeline.ingest().candidates),
-        **stages,
+        "records": len(candidates),
+        "atoms": int(sum(row.cost for row in candidates)),
+        "fine_tokens": len(hierarchy.mapping),
+        "mandatory_targets": len(mandatory),
+        "stages": stages,
         "recorded": pipeline.timings,
+        "feature_cache_mib": _sizes(pipeline.feature_directory),
+        "run_mib": _sizes(pipeline.directory),
     }
+
+
+def replicate(
+    source: str, copies: int, output: str, *, sigma: float, drop_info: list[str]
+) -> dict[str, Any]:
+    """Write ``copies`` perturbed copies of every record with distinct IDs."""
+    from ase.io import iread, write  # noqa: PLC0415
+
+    rng = np.random.default_rng(0)
+    frames = list(iread(source, ":"))
+    path = Path(output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(path.suffix + ".partial")
+    with partial.open("w") as stream:
+        for copy_index in range(copies):
+            batch = []
+            for atoms in frames:
+                copy = atoms.copy()
+                copy.calc = atoms.calc
+                copy.positions = atoms.positions + rng.normal(
+                    0, sigma, atoms.positions.shape
+                )
+                for key in drop_info:
+                    copy.info.pop(key, None)
+                if "sid" in copy.info:
+                    copy.info["sid"] = f"{copy.info['sid']}_{copy_index}"
+                batch.append(copy)
+            write(stream, batch, format="extxyz")
+    partial.replace(path)
+    return {"output": str(path), "records": copies * len(frames)}
 
 
 def main() -> None:
     """Run the chosen benchmark and print one JSON line per size."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("kind", choices=["selection", "geometry", "pipeline"])
+    parser.add_argument(
+        "kind", choices=["selection", "geometry", "pipeline", "replicate"]
+    )
     parser.add_argument("--records", type=int, nargs="+", default=[1000])
     parser.add_argument("--config", help="molecular configuration for 'pipeline'")
     parser.add_argument(
         "--cover-only", action="store_true", help="skip budget mode in 'selection'"
     )
+    parser.add_argument("--source", help="source to replicate, or to run instead")
+    parser.add_argument("--workdir", help="'pipeline' work directory override")
+    parser.add_argument("--workers", type=int, help="'pipeline' featurisation workers")
+    parser.add_argument(
+        "--fresh", action="store_true", help="'pipeline' recomputes cached features"
+    )
+    parser.add_argument("--copies", type=int, default=16, help="'replicate' copies")
+    parser.add_argument("--output", help="'replicate' output extxyz path")
+    parser.add_argument(
+        "--sigma", type=float, default=0.05, help="'replicate' noise in Angstrom"
+    )
+    parser.add_argument(
+        "--drop-info",
+        action="append",
+        default=[],
+        help="'replicate' drops this per-record info key (repeatable)",
+    )
     args = parser.parse_args()
     if args.kind == "pipeline":
         if args.config is None:
             parser.error("pipeline requires --config")
-        results = [bench_pipeline(args.config)]
+        results = [
+            bench_pipeline(
+                args.config,
+                source=args.source,
+                workdir=args.workdir,
+                workers=args.workers,
+                fresh=args.fresh,
+            )
+        ]
+    elif args.kind == "replicate":
+        if args.source is None or args.output is None:
+            parser.error("replicate requires --source and --output")
+        results = [
+            replicate(
+                args.source,
+                args.copies,
+                args.output,
+                sigma=args.sigma,
+                drop_info=args.drop_info,
+            )
+        ]
     elif args.kind == "selection":
         results = [bench_selection(n, cover_only=args.cover_only) for n in args.records]
     else:

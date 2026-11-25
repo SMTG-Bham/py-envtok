@@ -69,30 +69,16 @@ def build_hierarchy(
         raise ConfigError("min_source_support must be a positive integer")
     if rare_policy not in {"protect", "optional"}:
         raise ConfigError("rare_policy must be protect or optional")
-    lineage: dict[str, tuple[str, ...]] = {}
-    witnesses: dict[str, set[str]] = defaultdict(set)
-    families: dict[str, set[str]] = defaultdict(set)
-    for record_id, atoms in sorted(lineages.items()):
-        family = (family_ids or {}).get(record_id) or record_id
-        for atom in atoms:
-            path = tuple(atom)
-            if not path or any(not token for token in path):
-                raise ConfigError("token lineages must contain nonempty token IDs")
-            if path[0] in lineage and lineage[path[0]] != path:
-                raise ConfigError(f"conflicting lineage for token {path[0]}")
-            lineage[path[0]] = path
-            for token in path:
-                witnesses[token].add(record_id)
-                families[token].add(family)
+    lineage, witnesses, families = _witnesses(lineages, family_ids)
     mapping: dict[str, str] = {}
     rare: set[str] = set()
     for fine, path in sorted(lineage.items()):
         chosen = next(
-            (token for token in path if len(witnesses[token]) >= min_source_support),
+            (token for token in path if witnesses[token] >= min_source_support),
             path[-1],
         )
         mapping[fine] = chosen
-        if len(witnesses[chosen]) < min_source_support:
+        if witnesses[chosen] < min_source_support:
             rare.add(chosen)
     classes = set(mapping.values())
     targets = {
@@ -114,9 +100,45 @@ def build_hierarchy(
         rare_targets=frozenset(rare),
         optional_targets=frozenset(rare if rare_policy == "optional" else ()),
         lineage=lineage,
-        source_support={token: len(witnesses[token]) for token in sorted(classes)},
-        source_group_support={token: len(families[token]) for token in sorted(classes)},
+        source_support={token: witnesses[token] for token in sorted(classes)},
+        source_group_support={
+            token: 1 if isinstance(families[token], str) else len(families[token])
+            for token in sorted(classes)
+        },
     )
+
+
+def _witnesses(
+    lineages: Mapping[str, Sequence[Sequence[str]]],
+    family_ids: Mapping[str, str | None] | None,
+) -> tuple[dict[str, tuple[str, ...]], Counter[str], dict[str, str | set[str]]]:
+    """Each fine token's lineage, and the distinct records and families per token.
+
+    A token's families are kept as one family ID until a second appears, as
+    most fine tokens occur in one family.
+    """
+    lineage: dict[str, tuple[str, ...]] = {}
+    witnesses: Counter[str] = Counter()
+    families: dict[str, str | set[str]] = {}
+    for record_id, atoms in sorted(lineages.items()):
+        family = (family_ids or {}).get(record_id) or record_id
+        seen: set[str] = set()
+        for atom in atoms:
+            path = tuple(atom)
+            if not path or any(not token for token in path):
+                raise ConfigError("token lineages must contain nonempty token IDs")
+            if path[0] in lineage and lineage[path[0]] != path:
+                raise ConfigError(f"conflicting lineage for token {path[0]}")
+            lineage[path[0]] = path
+            seen.update(path)
+        witnesses.update(seen)
+        for token in seen:
+            known = families.setdefault(token, family)
+            if isinstance(known, set):
+                known.add(family)
+            elif known != family:
+                families[token] = {known, family}
+    return lineage, witnesses, families
 
 
 @dataclass(frozen=True, slots=True)

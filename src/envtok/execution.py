@@ -1,5 +1,6 @@
 """Execution and resource settings shared by every stage."""
 
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -53,6 +54,22 @@ def peak_rss_bytes() -> int | None:
         return None
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return int(peak if sys.platform == "darwin" else peak * 1024)
+
+
+_STATM = Path("/proc/self/statm")
+
+
+def resident_bytes() -> int | None:
+    """Return this process's current resident set size, or ``None`` if unknown.
+
+    Reads ``/proc/self/statm`` where it exists (Linux) and otherwise falls back
+    to the peak from :func:`peak_rss_bytes`.
+    """
+    try:
+        pages = int(_STATM.read_text().split()[1])
+    except (OSError, IndexError, ValueError):
+        return peak_rss_bytes()
+    return pages * os.sysconf("SC_PAGE_SIZE")
 
 
 @dataclass(frozen=True, slots=True)
