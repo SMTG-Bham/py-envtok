@@ -425,7 +425,16 @@ class FrozenTargets:
     def candidates(self) -> tuple[Candidate, ...]:
         """Whole-record costs, mandatory targets and refinement targets."""
         if self.legacy is not None:
-            return self._legacy[0]
+            return tuple(
+                Candidate(
+                    row["record_id"],
+                    row["cost"],
+                    frozenset(row["targets"]),
+                    frozenset(row["refinement_targets"]),
+                    row.get("group_id"),
+                )
+                for row in self.legacy["incidence"]
+            )
         return self._candidates({})
 
     def _candidates(
@@ -450,7 +459,10 @@ class FrozenTargets:
     def requirements(self) -> dict[str, Target]:
         """Mandatory targets in token order."""
         if self.legacy is not None:
-            return self._legacy[1]
+            return {
+                key: Target(**value)
+                for key, value in self.legacy["requirements"].items()
+            }
         table = self._table(_REQUIREMENTS)
         return {
             self.tokens[token]: Target(requirement, weight)
@@ -465,7 +477,8 @@ class FrozenTargets:
     def mapping(self) -> dict[str, str]:
         """Each fine token's fitted class, in token order."""
         if self.legacy is not None:
-            return self._legacy[2].mapping
+            mapping: dict[str, str] = self.legacy["mapping"]
+            return mapping
         table = self._table(_HIERARCHY, ["fine", "class"])
         tokens = self.tokens
         return {
@@ -496,7 +509,10 @@ class FrozenTargets:
     def prototypes(self) -> dict[str, npt.NDArray[np.float64]]:
         """Each class's prototypes, as views of the memory-mapped array."""
         if self.legacy is not None:
-            return self._legacy[3].prototypes
+            return {
+                key: np.asarray(value, dtype=np.float64)
+                for key, value in self.legacy["prototypes"].items()
+            }
         table = self._table(_GEOMETRY)
         matrix = np.load(self.folder / _PROTOTYPES, mmap_mode="r", allow_pickle=False)
         bounds = np.cumsum([0, *table.column("prototype_rows").to_pylist()]).tolist()
@@ -509,15 +525,10 @@ class FrozenTargets:
             )
         }
 
-    @cached_property
-    def _legacy(self) -> Built:
-        assert self.legacy is not None  # noqa: S101 - only reached for legacy runs
-        return _legacy_targets(self.legacy)
-
     def load(self) -> Built:
         """Candidates, mandatory targets, fitted hierarchy and geometry regions."""
         if self.legacy is not None:
-            return self._legacy
+            return self._load_legacy(self.legacy)
         tokens = self.tokens
         regions_table = self._table(_REGIONS)
         region_targets = dict(
@@ -591,41 +602,27 @@ class FrozenTargets:
         )
         return candidates, self.requirements(), hierarchy, regions
 
-
-def _legacy_targets(data: Mapping[str, Any]) -> Built:
-    """Targets saved before ``molecular_v1.6``, all in one JSON document."""
-    candidates = tuple(
-        Candidate(
-            row["record_id"],
-            row["cost"],
-            frozenset(row["targets"]),
-            frozenset(row["refinement_targets"]),
-            row.get("group_id"),
+    def _load_legacy(self, data: Mapping[str, Any]) -> Built:
+        """Reconstruct the full hierarchy and geometry from a legacy JSON run."""
+        candidates = self.candidates()
+        hierarchy = HierarchyResult(
+            targets={row.record_id: row.targets for row in candidates},
+            mapping=data["mapping"],
+            support=data["support"],
+            group_support=data["group_support"],
+            rare_targets=frozenset(data["rare_targets"]),
+            optional_targets=frozenset(data["optional_targets"]),
+            lineage={key: tuple(value) for key, value in data["lineage"].items()},
+            source_support=data["source_support"],
+            source_group_support=data["source_group_support"],
         )
-        for row in data["incidence"]
-    )
-    mandatory = {key: Target(**value) for key, value in data["requirements"].items()}
-    hierarchy = HierarchyResult(
-        targets={row.record_id: row.targets for row in candidates},
-        mapping=data["mapping"],
-        support=data["support"],
-        group_support=data["group_support"],
-        rare_targets=frozenset(data["rare_targets"]),
-        optional_targets=frozenset(data["optional_targets"]),
-        lineage={key: tuple(value) for key, value in data["lineage"].items()},
-        source_support=data["source_support"],
-        source_group_support=data["source_group_support"],
-    )
-    regions = GeometryRegions(
-        targets={
-            key: frozenset(value) for key, value in data["region_targets"].items()
-        },
-        prototypes={
-            key: np.asarray(value, dtype=np.float64)
-            for key, value in data["prototypes"].items()
-        },
-        overflow=tuple(tuple(row) for row in data["overflow"]),
-        sampled_counts=data["sampled_counts"],
-        radius=data["region_radius"],
-    )
-    return candidates, mandatory, hierarchy, regions
+        regions = GeometryRegions(
+            targets={
+                key: frozenset(value) for key, value in data["region_targets"].items()
+            },
+            prototypes=self.prototypes(),
+            overflow=tuple(tuple(row) for row in data["overflow"]),
+            sampled_counts=data["sampled_counts"],
+            radius=data["region_radius"],
+        )
+        return candidates, self.requirements(), hierarchy, regions

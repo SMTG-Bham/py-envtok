@@ -151,8 +151,12 @@ def test_columnar_targets_load_exactly_as_the_legacy_document(
     )
 
 
-def test_saved_run_with_legacy_targets_audits_and_exports_identically(
-    example_config: dict[str, Any], tmp_path: Path
+@pytest.mark.parametrize("legacy", [False, True])
+def test_saved_run_audits_and_exports_without_reconstructing_targets(
+    example_config: dict[str, Any],
+    tmp_path: Path,
+    legacy: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     pipeline = MolecularPipeline(example_config)
     pipeline.run()
@@ -164,13 +168,23 @@ def test_saved_run_with_legacy_targets_audits_and_exports_identically(
         for feature in pipeline.featurize()
         for token, signature in feature.signatures.items()
     }
-    write_legacy(pipeline.directory, built, signatures)
-    provenance_path = pipeline.directory / "provenance.json"
-    provenance = json.loads(provenance_path.read_text())
-    provenance["targets_sha256"] = digest(pipeline.directory / TARGETS)
-    provenance_path.write_text(json.dumps(provenance))
-    loaded = MolecularPipeline.load_run(pipeline.directory)
-    loaded.audit()
+    if legacy:
+        write_legacy(pipeline.directory, built, signatures)
+        provenance_path = pipeline.directory / "provenance.json"
+        provenance = json.loads(provenance_path.read_text())
+        provenance["targets_sha256"] = digest(pipeline.directory / TARGETS)
+        provenance_path.write_text(json.dumps(provenance))
+
+    def unexpected(*_args: Any) -> None:
+        pytest.fail("audit should not reconstruct full targets or prototypes")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(FrozenTargets, "load", unexpected)
+        patch.setattr(FrozenTargets, "prototypes", unexpected)
+        with monkeypatch.context() as loading:
+            loading.setattr(FrozenTargets, "_table", unexpected)
+            loaded = MolecularPipeline.load_run(pipeline.directory)
+        loaded.audit()
     assert (pipeline.directory / "coverage.json").read_bytes() == coverage
     assert loaded.export(tmp_path / "again.extxyz").read_bytes() == exported
     assert as_compared(loaded.build_targets()) == as_compared(built)

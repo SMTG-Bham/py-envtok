@@ -349,7 +349,7 @@ class MolecularPipeline:
         self._built = None
         self.timings = {}
         self._check_source()
-        self._load_targets()
+        self._frozen_targets()
         return self
 
     def _check_source(self, *, full: bool = False) -> None:
@@ -384,13 +384,6 @@ class MolecularPipeline:
         if not path.exists() or _file_hash(path) != provenance["targets_sha256"]:
             raise StaleCacheError("frozen molecular targets are missing or corrupt")
         return FrozenTargets(self.directory)
-
-    def _load_targets(
-        self,
-    ) -> tuple[
-        tuple[Candidate, ...], dict[str, Target], HierarchyResult, GeometryRegions
-    ]:
-        return self._frozen_targets().load()
 
     def _load_features(self) -> tuple[MolecularFeatures, ...]:
         features, self._descriptors = read_feature_cache(
@@ -567,7 +560,7 @@ class MolecularPipeline:
         """Fit protected chemical hierarchy and bounded geometric prototype regions."""
         self._check_source()
         if self._loaded:
-            return self._load_targets()
+            return self._frozen_targets().load()
         if self._built is not None:
             return self._built
         start = time.perf_counter()
