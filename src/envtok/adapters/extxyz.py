@@ -20,6 +20,7 @@ import hashlib
 import io
 import lzma
 import shutil
+import uuid
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import IO, Any, cast
@@ -161,6 +162,7 @@ class ExtxyzAdapter(Adapter):
         self.checksum = checksum
         self.files = sorted_files(self.root, self.patterns)
         self._offsets: dict[Path, list[int]] = {}
+        self._staged: dict[Path, tuple[tuple[int, ...], Path]] = {}
 
     @property
     def _any_sequential(self) -> bool:
@@ -190,6 +192,7 @@ class ExtxyzAdapter(Adapter):
     @override
     def source_fingerprint(self) -> dict[str, Any]:
         """Fingerprint every source file and the record options."""
+        self._staged.clear()
         return {
             "kind": self.kind,
             "files": [
@@ -208,23 +211,40 @@ class ExtxyzAdapter(Adapter):
         if not _compression(path) or self.compressed == "sequential":
             return path
         assert self.staging_dir is not None  # noqa: S101 - checked in __init__
+        stat = path.stat()
+        signature = (
+            stat.st_dev,
+            stat.st_ino,
+            stat.st_size,
+            stat.st_mtime_ns,
+            stat.st_ctime_ns,
+        )
+        cached = self._staged.get(path)
+        if cached is not None and cached[0] == signature and cached[1].exists():
+            return cached[1]
+        fingerprint = file_fingerprint(path, checksum=self.checksum)
         digest = hashlib.sha256(
-            repr(sorted(file_fingerprint(path).items())).encode() + str(path).encode()
+            repr(sorted(fingerprint.items())).encode() + str(path).encode()
         ).hexdigest()[:16]
         staged = self.staging_dir / f"{path.stem}.{digest}"
         if not staged.exists():
             self.staging_dir.mkdir(parents=True, exist_ok=True)
-            partial = staged.with_name(staged.name + ".partial")
-            with _open(path) as source, partial.open("wb") as target:
-                shutil.copyfileobj(source, target)
-            partial.replace(staged)
+            partial = staged.with_name(f".{staged.name}.{uuid.uuid4().hex}.partial")
+            try:
+                with _open(path) as source, partial.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+                partial.replace(staged)
+            finally:
+                partial.unlink(missing_ok=True)
+        self._staged[path] = signature, staged
         return staged
 
     def _frame_offsets(self, path: Path) -> list[int]:
-        if path not in self._offsets:
-            with _open(self._readable(path)) as handle:
-                self._offsets[path] = scan_frames(handle, path.name)
-        return self._offsets[path]
+        readable = self._readable(path)
+        if readable not in self._offsets:
+            with _open(readable) as handle:
+                self._offsets[readable] = scan_frames(handle, path.name)
+        return self._offsets[readable]
 
     @override
     def locators(self) -> Iterator[Locator]:

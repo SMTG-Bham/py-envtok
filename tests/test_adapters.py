@@ -4,6 +4,7 @@ import bz2
 import gzip
 import io
 import lzma
+import os
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
@@ -81,6 +82,29 @@ def assert_same(a: Atoms, b: Atoms) -> None:
 
 
 class TestExtxyz:
+    def test_full_checksum_replaces_staged_data(self, tmp_path: Path) -> None:
+        path = tmp_path / "frames.xyz.gz"
+        first = b"1\n\nH 1 0 0\n"
+        path.write_bytes(gzip.compress(first, compresslevel=0, mtime=0))
+        stat = path.stat()
+        adapter = ExtxyzAdapter(
+            path,
+            OPTIONS,
+            compressed="stage",
+            staging_dir=tmp_path / "stage",
+            checksum="full",
+        )
+        before = adapter.source_fingerprint()
+        assert next(adapter.iter_records()).atoms.positions[0, 0] == 1
+        path.write_bytes(
+            gzip.compress(first.replace(b"H 1", b"H 2"), compresslevel=0, mtime=0)
+        )
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        assert path.stat().st_size == stat.st_size
+        assert next(adapter.iter_records()).atoms.positions[0, 0] == 2
+        assert adapter.source_fingerprint() != before
+        assert adapter.read(next(adapter.locators())).atoms.positions[0, 0] == 2
+
     def test_records_ids_labels_and_offsets(
         self, tmp_path: Path, frames: list[Atoms]
     ) -> None:
