@@ -1,7 +1,7 @@
 # EnvTok periodic implementation plan
 
-Updated: 5 November 2026. This replaces the original large-corpus roadmap with
-small, reproducible acceptance checks. Algorithm details live in the
+The November 2026 acceptance plan focuses on small, reproducible checks.
+Algorithm details live in the
 [specification](specification.md), [discrepancy log](discrepancies.md)
 and [reference-fixture guide](../build_tools/reference/README.md).
 
@@ -65,10 +65,15 @@ checks expose a reason to do so. CI runs the installed-package quickstart.
   It refuses unseen development elements, overlapping parent groups or an overly
   broad vocabulary. The bundled heterogeneous sample has unseen Ba/Cr and cannot
   qualify this small model; retain that explicit data gate instead of dropping
-  held-out records. A suitable narrow-chemistry sample is still needed for errors.
+  held-out records.
+- The larger archive example measures [coverage on 1,024 structures](../examples/omat24/compression-demo/README.md).
+  Its [MACE experiment](../examples/omat24/compression-demo/training.md) fits
+  covers on 823 training structures and evaluates 201 parent-disjoint
+  holdouts. Both covers reduce optimiser time. Mean force RMSE exceeds the
+  zero-force baseline for all four training selections.
 - [Publication readiness](../examples/quickstart/publication-readiness.json) records
-  the public name check and expected workflow settings. Account-specific trusted
-  publisher/environment configuration remains unverified. Nothing is published.
+  the pre-release name check and expected workflow settings. For candidate
+  qualification and publishing, see the [release procedure](releasing.md).
 
 ## Deferred
 

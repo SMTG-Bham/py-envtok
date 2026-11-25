@@ -1,25 +1,16 @@
 # EnvTok
 
-EnvTok selects a smaller set of complete atomistic structures from a large
-database, with explicit, independently audited diversity guarantees.
+EnvTok selects whole configurations from atomistic datasets and reports which
+local chemical environments the subset covers. It measures the cost in atoms
+and exports the selected structures with their original geometry and labels.
 
-The 0.1 series is alpha software: APIs and saved-run formats may change between
-releases. See the [release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md) for the initial release's scope
-and limitations.
+| Your data | Workflow | First run |
+|---|---|---|
+| Fully periodic structures | `reference-723696d` fits coverage classes and selects a low-atom-cost cover | [Periodic quick start](#quick-start) |
+| Finite molecules | Experimental `molecular_v1` protects charge and spin and supports a hard atom budget | [Molecular quick start](#molecules-experimental) |
 
-It tokenises every atom's local chemical environment into an interpretable
-**EnvTok** token. The token records the element, the magnetic moment, the
-neighbour multiset, the ChemEnv polyhedron and its distortion, compression,
-and asymmetry. Rare tokens are coarsened into coverage classes targeting
-support from at least *T* distinct structures, with a terminal per-element
-class for environments that remain too rare. EnvTok then picks a
-low-atom-cost subset of original configurations covering every class and
-every rare (element, geometry, coordination, compression, asymmetry)
-combination.
-
-An opt-in extension adds each structure's net charge to its tokens, so
-distinct charge states are separate environments for as long as their support
-allows (see [Charged structures](#charged-structures)).
+The 0.1 series is alpha software. APIs and saved-run formats may change between
+releases. See the [release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md).
 
 The default profile `reference-723696d` reproduces the method of Moerman *et
 al.*, *Atoms that Matter* (arXiv:2610.14392). It follows the reference
@@ -29,28 +20,24 @@ Every token of the golden fixture corpus matches that code running in its own
 pinned environment. See [`docs/specification.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md) and
 [`docs/discrepancies.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md).
 
-> A diversity cover does not preserve the sampling distribution, and it does
-> not guarantee equivalent model accuracy. EnvTok reports compression by
-> structures *and* by atoms. Validate the trade-off on your own data.
-> The ~1% retention reported in the paper belongs to its OMat24 experiment.
-
-Jump to [Quick start](#quick-start), [Configuration](#configure-your-dataset),
-[CLI](#command-line-interface), [Molecules](#molecules-experimental),
-[Inputs](#inputs), [Outputs](#outputs) or [Troubleshooting](#troubleshooting).
+The ~1% retention reported in the paper belongs to its OMat24 experiment.
+Evaluate model accuracy on a held-out split when choosing a subset for training.
 
 ## How selection works
 
-1. **Tokenise the source.** Validate each record, compute its local environments,
-   and cache the measurements. Selection always keeps or removes a whole
-   original configuration; it never extracts isolated atoms from a structure.
+1. **Tokenise the periodic source.** Record each site's element, rounded magnetic
+   moment, neighbour composition, ChemEnv polyhedron and distortion, compression
+   and asymmetry bins. Cache the measurements. An optional token field records
+   the structure's [net charge](#charged-structures).
 2. **Fit coverage classes.** Count support in distinct eligible training
    records, then progressively drop token detail according to the profile's
    coarsening ladder. Repeated equivalent sites within one structure count
    only once toward support.
 3. **Select and repair.** Start with required records and sole suppliers of a
    class, greedily add coverage per atom, prune redundant structures, then
-   repair missing rare-presence signatures. The result is deterministic for
-   the same input and settings, but is not a proof of minimum atom cost.
+   repair missing signatures in four families. These pair element with
+   polyhedron, coordination number, coordination and compression, or coordination
+   and asymmetry. Each signature observed in the eligible pool needs one witness.
 4. **Audit independently.** Recompute coverage from the selected IDs and the
    frozen class mapping. The report distinguishes class coverage, original
    full-token coverage, processing quality, and the atoms and structures kept.
@@ -59,10 +46,6 @@ The coverage guarantee applies to the fitted classes and configured presence
 constraints over the eligible pool. It does not mean every original full token
 is retained. Held-out records do not influence the classes; unseen held-out
 tokens are reported as out of vocabulary.
-
-For periodic materials, start with the reference profile below. For finite
-molecules with charge, spin and geometry protections, use the separate
-[experimental molecular workflow](#molecules-experimental).
 
 ## Install
 
@@ -163,7 +146,9 @@ The [OMat24 compression example](https://github.com/SMTG-Bham/py-envtok/blob/mai
 uses 1,024 real structures from distinct parent materials. At T=100, it retains
 755 structures and 5,077 of 6,705 atoms: **24.3% fewer atoms**, with every fitted
 class and required presence signature covered. Detailed full-token coverage
-is 76.7%; downstream model accuracy has not been tested.
+is 76.7%. A separate experiment held out 201 structures before fitting the
+training covers. Across three seeds, every method's mean force error exceeded
+the zero-force baseline. See the [periodic MACE training results](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/training.md).
 
 Follow the example's sampling command to prepare the input from an existing
 local OMat24 archive, then run:
@@ -362,8 +347,10 @@ staged commands include `ingest`, `split`, `featurize`,
 comparisons rather than the reference profile's `sweep`.
 
 The bundled [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) contains 29 real
-training configurations from a documented public mirror. It exercises the
-pipeline and selector comparisons; downstream model accuracy is unvalidated.
+training configurations with stored energy, force, charge and spin data. Its
+selector benchmark compares stratified random, token-only and combined
+selection at a 25% atom ceiling with seed 0, plus a full-pool control.
+Use `--fractions` and `--seeds` to change the comparison.
 See [molecular usage and data contracts](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md) for the Python API,
 staged CLI, supplied-graph schema, safeguards and current limitations.
 
@@ -372,22 +359,13 @@ starts from 512 real configurations / 10,938 atoms. Unbudgeted cover mode
 retains 146 configurations / 3,276 atoms (**70.0% fewer atoms**), covering
 all 44 mandatory element/state targets and 517 modeled SOAP regions.
 However, 91.3% of source environments fall outside the fitted prototype
-radii; this is not complete geometric coverage. A finer 64-prototype check
-retains 6,122 atoms (44.0% fewer). The example includes random and budget
-comparisons, source/export checks, saved results and reproduction commands
-for an existing local archive. It provides no downstream accuracy evidence.
+radii. A finer 64-prototype check retains 6,122 atoms (44.0% fewer).
 
-Benchmark defaults are intentionally small: molecular comparisons use one 25%
-atom budget and seed 0, plus a separate full-pool control. Larger sweeps are
-opt-in through `--fractions` and `--seeds`. The [periodic plan](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/periodic-plan.md)
-and [molecular plan](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular-plan.md) describe the short
-acceptance checks and remaining scientific work.
-
-The [real OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) exercises native
-storage, geometry, restart and export on 32 records. Small molecular pair-model
-and from-scratch MACE comparisons are also runnable; see
-[benchmark commands](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#small-acceptance-runs). Reports retain
-failed accuracy screens and unsuitable evaluation data explicitly.
+A separate training experiment split the neutral singlets by composition before
+selection. The 64-prototype cover used 52.4% fewer training atoms. Its mean
+held-out force RMSE was 1.7% higher than the full-pool model's, and one of
+three paired seeds exceeded the 10% regression threshold. See the
+[molecular MACE training results](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/training.md).
 
 ## Inputs
 

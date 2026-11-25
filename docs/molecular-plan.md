@@ -1,7 +1,7 @@
 # EnvTok molecular implementation plan
 
-Updated: 5 November 2026. This replaces the 20k–50k training pilot and 100k/1M
-scaling targets with a small development screen. Detailed contracts and supported
+The November 2026 acceptance plan starts with a small development screen.
+Detailed contracts and supported
 settings live in [molecular usage](molecular.md).
 
 ## Goal and current state
@@ -85,6 +85,11 @@ The larger budget is explicit; the default remains one 25% run.
   inaccurate. Fixed steps are not convergence or matched processed-atom cost.
   Application tolerances, mixed-state inputs and more representative evaluation
   remain prerequisites for any scientific accuracy or compression claim.
+- The [native archive experiment](../examples/molecular/omol/compression-demo/training.md)
+  repeats the training comparison on 366 neutral singlets with a
+  composition-grouped split and three model seeds. The finer cover retains
+  2,918 of 6,134 training atoms. Two of the three seeds meet the 10%
+  force-error threshold relative to their paired full-pool models.
 
 ## Deferred
 
