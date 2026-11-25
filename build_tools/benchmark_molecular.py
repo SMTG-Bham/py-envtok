@@ -14,8 +14,9 @@ Usage::
         pipeline --config examples/molecular/omol/config.yaml
 
 ``pipeline`` reports each stage's time and peak resident memory, and the size
-of every artifact. Peak anonymous memory excludes file pages, such as the
-memory-mapped descriptor cache, which the kernel can drop under pressure. To
+of every artifact. Peak anonymous memory, resident or swapped, excludes file
+pages such as the memory-mapped descriptor cache, which the kernel can drop
+under pressure. To
 measure a larger pool, ``replicate`` writes perturbed copies of a source, which
 ``pipeline --source`` then runs with the configuration's other settings::
 
@@ -132,38 +133,39 @@ def bench_geometry(n_records: int) -> dict[str, Any]:
 
 
 class _MemorySampler(threading.Thread):
-    """Sample this process's resident memory from ``/proc`` (Linux only)."""
+    """Sample this process's memory from ``/proc`` (Linux only).
+
+    Anonymous memory counts swapped-out pages too, so a run that swaps does
+    not appear to use less.
+    """
 
     def __init__(self) -> None:
         super().__init__(daemon=True)
-        self.peaks = {"VmRSS": 0, "RssAnon": 0}
         self.running = Path("/proc/self/status").exists()
+        self.peaks = {"rss": 0, "anon": 0}
 
-    def read(self) -> dict[str, int]:
+    @staticmethod
+    def read() -> dict[str, int]:
         values = {}
         with Path("/proc/self/status").open() as stream:
             for line in stream:
                 key, _, value = line.partition(":")
-                if key in self.peaks:
+                if key in {"VmRSS", "RssAnon", "VmSwap"}:
                     values[key] = int(value.split()[0]) * 1024
-        return values
+        return {"rss": values["VmRSS"], "anon": values["RssAnon"] + values["VmSwap"]}
 
     def reset(self) -> None:
         if self.running:
             self.peaks = self.read()
 
     def stage_peaks(self) -> dict[str, float | None]:
-        """Peak total and anonymous resident MiB since the last reset."""
+        """Peak resident, and anonymous resident plus swapped, MiB since reset."""
         if not self.running:
             return {"peak_rss_mib": None, "peak_anon_mib": None}
         current = self.read()
         return {
-            "peak_rss_mib": round(
-                max(self.peaks["VmRSS"], current["VmRSS"]) / 2**20, 1
-            ),
-            "peak_anon_mib": round(
-                max(self.peaks["RssAnon"], current["RssAnon"]) / 2**20, 1
-            ),
+            f"peak_{key}_mib": round(max(self.peaks[key], current[key]) / 2**20, 1)
+            for key in ("rss", "anon")
         }
 
     def run(self) -> None:

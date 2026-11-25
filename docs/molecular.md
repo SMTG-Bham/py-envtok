@@ -263,16 +263,36 @@ checked; corrupt or changed cached content is rejected rather than recomputed
 as part of the audit.
 
 The feature cache stores every candidate descriptor as one uncompressed float32
-array, `descriptors.npy`, with records in `features.json` order. Featurisation
-writes each record's rows as they are produced, and later stages read
-memory-mapped views of the file rather than holding every descriptor in memory.
-`features.json` stores each token signature once for the pool. Geometry regions
-and the nearest-selected audit convert descriptors to float64 in small chunks,
-so no class is held in float64 at once.
-Caches written before `molecular_v1.5` (`descriptors.npz`) are still read when
-auditing or exporting a saved run. Because descriptors are memory-mapped, do not
-edit cache files while a pipeline is using them: their digests are checked when
-they are loaded, not on every access.
+array, `descriptors.npy`, with records in the order of `records.parquet`. That
+table holds each record's metadata, and its token hierarchy as integer token
+IDs; `signatures.parquet` holds each token's signature once, and its row order
+numbers the tokens. `features.json` records the SHA-256 digest of each file,
+and `commit.json`, written last, records the digest of `features.json`.
+Featurisation writes and hashes each record's descriptor rows as they are
+produced, so a new cache is not read back, and later stages read
+memory-mapped views of the descriptors rather than holding them in memory.
+Loaded features share one string per token and one tuple per distinct token
+path, and a record's signatures are read from the table only when one is first
+looked up. Geometry regions and the nearest-selected audit take the descriptor
+array directly and convert it to float64 in small chunks, so no class is held in
+float64 at once.
+
+A run's `targets.json` likewise records the digests of the frozen tables under
+`targets/`: the sorted token vocabulary, incidence, regions, hierarchy,
+classes, requirements, geometry classes and overflow as Parquet, the float64
+prototypes as `prototypes.npy`, and each descriptor row's fitted class as
+`atom_classes.npy`. Every table is checked against its digest when the targets
+are opened. The audit reads only the incidence, requirements, atom classes and
+overflow count, and from the feature cache only record IDs, row counts, graph
+statuses and the descriptors. Token signatures are kept in the feature cache
+only.
+
+Runs and feature caches written by `molecular_v1.5`, which kept targets and
+record metadata in single JSON documents, and earlier caches with
+`descriptors.npz` are still read when auditing or exporting a saved run.
+Because descriptors are memory-mapped, do not edit cache files while a pipeline
+is using them: their digests are checked when they are loaded, not on every
+access.
 
 For new runs, configuration/source/software fingerprints address output
 directories. Descriptor arrays can be reused across selection settings; source,
@@ -291,11 +311,25 @@ rejected. Worker settings are left out of run and feature fingerprints, so
 changing them reuses an existing run. Starting the workers takes several
 seconds, because each imports the descriptor and perception libraries, so
 pools that featurise in a few seconds gain little. Use at most one worker per
-physical core.
+physical core. Workers take batches of at most 64 records, and at most
+`2 * workers` batches wait to be written, so finished batches do not pile up.
+
+Set `execution.memory_budget` (for example `"64GB"`, or a byte count) to refuse
+a run whose estimated peak memory exceeds it. Before featurisation, the
+pipeline adds this process's resident memory, which includes the loaded
+records, to `estimate_molecular_bytes`: 512 MiB for the descriptor and
+perception libraries, 1.5 KiB per candidate atom for features, fitted targets,
+selection and the audit, and 4 KiB per atom of each worker batch waiting to be
+written. These constants were calibrated, with headroom, on perturbed copies of
+OMol records, whose fine tokens are almost all distinct; pools that repeat
+chemical environments need less. Memory-mapped descriptors are read through
+the page cache and are not counted. Like the worker settings, the budget does
+not change run or feature fingerprints.
 
 Runs retain `selected_ids.txt`, `selected_manifest.parquet`,
 `config.resolved.yaml`, `software-lock.json`, `provenance.json`, `ingestion.json`,
-`splits.json`, `targets.json`, `coverage.json`, `report.html`, and optionally
+`splits.json`, `targets.json` with its `targets/` tables, `coverage.json`,
+`report.html`, and optionally
 `subset.extxyz`. Reports include achieved cost, unmet constraints, coarsening
 lineage, graph/fallback status, distributions, prototype overflow, selection
 reasons and preprocessing/selection timings.
@@ -309,3 +343,28 @@ The [sample report](../examples/molecular/omol/README.md) records the results an
 limitations. Mixed-state models must consume the relevant state inputs. Wider
 datasets, model convergence, repeated seeds, application panels and declared
 tolerances remain necessary before general compression or accuracy claims.
+
+### Scale measurements
+
+`build_tools/benchmark_molecular.py` measured perturbed copies of the 29 bundled
+OMol records, with `omol_metadata` removed, through `select()` in budget mode
+(25% of atoms, 10% reserve) with SOAP descriptors on one 20-core machine with
+7.6 GiB of memory. The noise makes almost every fine token distinct while the
+coarse classes saturate, so these pools are not a substitute for real data.
+Peaks are anonymous memory, resident or swapped; the loaded records alone
+account for about 25 KiB each.
+
+| Version | Records | Workers | Peak memory | Targets | Feature metadata | Descriptors |
+|---|---:|---:|---:|---:|---:|---:|
+| `molecular_v1.5` | 7,424 | 1 | 1,244 MiB | 349 MiB | 129 MiB | 432 MiB |
+| `molecular_v1.5` | 29,696 | 4 | 4,569 MiB | 1,272 MiB | 441 MiB | 1,727 MiB |
+| `molecular_v1.5` | 100,050 | — | about 15 GiB (extrapolated) | about 4.1 GiB (extrapolated) | at most 1.4 GiB (extrapolated) | 5,817 MiB |
+| `molecular_v1.6` | 7,424 | 1 | 750 MiB | 58 MiB | 12 MiB | 432 MiB |
+| `molecular_v1.6` | 29,696 | 4 | 1,991 MiB | 222 MiB | 37 MiB | 1,727 MiB |
+| `molecular_v1.6` | 100,050 | 6 | 5,376 MiB | 649 MiB | 99 MiB | 5,817 MiB |
+
+Both versions select the same records and write byte-identical coverage
+reports. Most of the remaining target size is the float64 prototypes
+(569 MiB at 100,050 records). At 100,050 records the 5.8 GiB descriptor file did
+not fit in that machine's page cache, so fitting and the audit spent most of
+their 410 s and 480 s waiting for disk reads, not computing.

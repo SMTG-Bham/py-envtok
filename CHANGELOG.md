@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Molecular `execution.memory_budget`. Before featurisation, the pipeline adds
+  its resident memory, which includes the loaded records, to
+  `estimate_molecular_bytes` for the remaining stages, and refuses to continue
+  above the budget. The budget does not change run fingerprints.
+- `geometry.DescriptorPool` lets `build_geometry_regions` and
+  `nearest_selected_distances` take descriptors as arrays, such as the
+  memory-mapped cache, with results identical to the per-atom mapping.
+
+### Changed
+
+- Molecular feature caches and run targets are stored as Parquet tables and
+  NumPy arrays, indexed by small `features.json` and `targets.json` manifests
+  that record each file's digest. Token strings are stored once and shared when
+  loaded, signatures are read only when looked up, and audits read only the
+  tables they need. `targets.json` no longer repeats the token signatures,
+  which stay in the feature cache. The molecular implementation version is now
+  `molecular_v1.6`, so new runs recompute `molecular_v1.5` feature caches;
+  saved `molecular_v1.5` and earlier runs still load, audit and export.
+- Molecular hierarchy fitting counts token support without a set per token,
+  and parallel featurisation keeps at most `2 * workers` batches of at most 64
+  records waiting to be written, rather than every finished batch. Selections
+  and features are unchanged.
+- On 29,696 perturbed OMol records with 4 workers, peak anonymous memory fell
+  from 4,569 to 1,991 MiB, the frozen targets from 1,272 to 222 MiB and the
+  feature metadata from 441 to 37 MiB, with byte-identical selections,
+  coverage reports and selected manifests. A 100,050-record run peaked at
+  5,376 MiB, of which 2,650 MiB was the loaded records. See the
+  [molecular guide](docs/molecular.md#scale-measurements).
+
 ## 0.1.0a2 — 2026-11-24
 
 ### Fixed

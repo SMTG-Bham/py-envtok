@@ -488,7 +488,8 @@ both atom and structure retention, since structures may differ greatly in size.
 
 Molecular runs also write selected IDs, a manifest, resolved configuration,
 provenance and reports. Their additional artifacts are `ingestion.json`,
-`splits.json`, `targets.json` and `software-lock.json`. Reports include budget
+`splits.json`, `targets.json` (indexing the tables under `targets/`) and
+`software-lock.json`. Reports include budget
 compliance, unmet constraints and nearest-selected geometry distances. See the
 [molecular output contract](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md#commands-restart-and-outputs).
 
