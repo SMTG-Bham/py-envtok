@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 from ase import Atoms, units
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.constraints import FixAtoms, FixBondLengths, FixCartesian
 from helpers import record_of
 
 from envtok.errors import ConfigError, DuplicateRecordError
@@ -76,6 +77,39 @@ def test_state_round_trip_preserves_precision_arrays_and_nested_metadata(
     assert restored.atoms.info["envtok_source_ref"]["shard"] == "memory"
     assert "envtok_record_id" not in atoms.info
     assert restored.atoms.calc.results["dipole"].tolist() == [0.1, 0.2, 0.3]
+
+
+def test_constraint_identity_and_extxyz_round_trip(tmp_path: Path) -> None:
+    fixed = water()
+    fixed.set_constraint(FixAtoms(indices=[1]))
+    same = water()
+    same.set_constraint(FixCartesian(1, mask=[True, True, True]))
+    partial = water()
+    partial.set_constraint(
+        [FixCartesian(0, [True, False, False]), FixAtoms(indices=[1])]
+    )
+    empty = water()
+    empty.set_constraint(FixAtoms(indices=[]))
+    records = list(
+        from_atoms([water(), fixed, same, partial, empty], label_namespace="test")
+    )
+    prepared = prepare_records(records)
+    assert len(prepared.candidates) == 3
+    assert len(prepare_records(records, include_constraints=False).candidates) == 1
+    target = export_records(prepared.candidates, tmp_path / "constrained.extxyz")
+    again = list(iter_extxyz(target, label_namespace="test"))
+    assert isinstance(again[1].atoms.constraints[0], FixAtoms)
+    assert again[1].atoms.constraints[0].get_indices().tolist() == [1]
+    assert [c.mask.tolist() for c in again[2].atoms.constraints] == [
+        [True, False, False],
+        [True, True, True],
+        [False, False, False],
+    ]
+    fixed.set_constraint(FixBondLengths([(0, 1)]))
+    with pytest.raises(
+        ConfigError, match="unsupported molecular constraint: FixBondLengths"
+    ):
+        export_records([adapt(fixed)], target)
 
 
 def test_missing_state_is_never_inferred_or_defaulted(tmp_path: Path) -> None:

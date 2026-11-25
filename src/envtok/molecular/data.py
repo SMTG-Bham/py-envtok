@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any, TextIO
 
 import numpy as np
+import numpy.typing as npt
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.constraints import FixAtoms, FixCartesian
 from ase.io.extxyz import key_val_dict_to_str
 
 from envtok._extxyz import encode_string_metadata
@@ -179,7 +181,26 @@ def iter_extxyz(  # noqa: PLR0913 - explicit adapter options
         )
 
 
-def exact_identity(record: MolecularRecord) -> str:
+def _move_mask(atoms: Atoms) -> npt.NDArray[np.bool_] | None:
+    """Canonical extxyz movement mask, combining constraints on the same atom."""
+    if not atoms.constraints:
+        return None
+    movable = np.ones((len(atoms), 3), dtype=bool)
+    for constraint in atoms.constraints:
+        if isinstance(constraint, FixAtoms):
+            movable[constraint.index] = False
+        elif isinstance(constraint, FixCartesian):
+            movable[constraint.index] &= ~constraint.mask
+        else:
+            raise ConfigError(
+                f"unsupported molecular constraint: {type(constraint).__name__}"
+            )
+    if movable.all():
+        return None
+    return movable[:, 0] if (movable == movable[:, :1]).all() else movable
+
+
+def exact_identity(record: MolecularRecord, *, include_constraints: bool = True) -> str:
     """Hash exact ordered geometry, protected state and external conditions.
 
     Unknown non-provenance metadata is conservatively treated as an external
@@ -199,16 +220,17 @@ def exact_identity(record: MolecularRecord) -> str:
         | label_info_keys
         | {"energy", "free_energy", "forces", "stress"}
     }
-    return _digest(
-        {
-            "numbers": record.atoms.numbers,
-            "positions": record.atoms.positions,
-            "cell": record.atoms.cell.array,
-            "pbc": record.atoms.pbc,
-            "state": record.state_key,
-            "conditions": conditions,
-        }
-    )
+    payload = {
+        "numbers": record.atoms.numbers,
+        "positions": record.atoms.positions,
+        "cell": record.atoms.cell.array,
+        "pbc": record.atoms.pbc,
+        "state": record.state_key,
+        "conditions": conditions,
+    }
+    if include_constraints and (mask := _move_mask(record.atoms)) is not None:
+        payload["move_mask"] = mask
+    return _digest(payload)
 
 
 def _label_identity(record: MolecularRecord) -> str:
@@ -234,7 +256,9 @@ def _label_identity(record: MolecularRecord) -> str:
     )
 
 
-def _groups(records: list[MolecularRecord]) -> tuple[dict[str, str], list[str]]:
+def _groups(
+    records: list[MolecularRecord], include_constraints: bool
+) -> tuple[dict[str, str], list[str]]:
     parents = {record.record_id: record.record_id for record in records}
 
     def root(key: str) -> str:
@@ -266,7 +290,12 @@ def _groups(records: list[MolecularRecord]) -> tuple[dict[str, str], list[str]]:
             )
         # Identical source calculations bridge every declared family alias,
         # including aliases that would disappear when duplicate rows merge.
-        keys.append(("exact_record", exact_identity(record)))
+        keys.append(
+            (
+                "exact_record",
+                exact_identity(record, include_constraints=include_constraints),
+            )
+        )
         for key in keys:
             if key in owners:
                 left, right = root(record.record_id), root(owners[key])
@@ -317,6 +346,7 @@ def prepare_records(
     *,
     validation_fraction: float = 0.0,
     seed: int = 20261105,
+    include_constraints: bool = True,
 ) -> PreparedRecords:
     """Validate, deduplicate within source splits and group development folds.
 
@@ -348,12 +378,13 @@ def prepare_records(
             )
         else:
             eligible.append(record)
-    groups, warnings = _groups(eligible)
+    groups, warnings = _groups(eligible, include_constraints)
     exact: dict[str, list[tuple[MolecularRecord, str]]] = {}
     lineage: dict[str, list[str]] = {}
     kept, conflicts, cross_split = [], [], []
     for record in eligible:
-        identity, labels = exact_identity(record), _label_identity(record)
+        identity = exact_identity(record, include_constraints=include_constraints)
+        labels = _label_identity(record)
         previous = exact.setdefault(identity, [])
         duplicate = None
         for other, other_labels in previous:
@@ -470,6 +501,9 @@ def _export_atoms(record: MolecularRecord) -> Atoms:
             atoms.info[key] = value
         else:
             atoms.info.pop(key, None)
+    move_mask = _move_mask(atoms)
+    if move_mask is not None:
+        atoms.set_array("move_mask", move_mask)
     return atoms
 
 

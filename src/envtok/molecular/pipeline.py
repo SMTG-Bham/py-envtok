@@ -77,7 +77,8 @@ from envtok.molecular.selection import (
 )
 from envtok.selection.incidence import check_budget
 
-IMPLEMENTATION_VERSION = "molecular_v1.6"
+IMPLEMENTATION_VERSION = "molecular_v1.7"
+_PRE_CONSTRAINT_VERSIONS = {f"molecular_v1.{minor}" for minor in range(7)}
 
 MEMORY_BASE_BYTES = 512 * 2**20
 """Descriptor, perception and Arrow libraries loaded once featurisation starts."""
@@ -438,6 +439,8 @@ class MolecularPipeline:
             iter_extxyz(self.source, **source, **state),
             validation_fraction=self.settings["split"]["validation_fraction"],
             seed=self.seed,
+            include_constraints=self.software["implementation"]
+            not in _PRE_CONSTRAINT_VERSIONS,
         )
         self._check_source()
         prepared = self._prepared
