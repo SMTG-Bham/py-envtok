@@ -335,16 +335,6 @@ class TestPipeline:
         _, result, directory = selection
         _, reloaded = load_selection(directory)
         assert reloaded.record_ids == result.record_ids
-        assert reloaded.validate()["strata"] == report["strata"]
-        manifest = directory / "selected_manifest.parquet"
-        table = pq.read_table(manifest)
-        keep = [
-            json.loads(m)["charge"] == 0 for m in table["metadata_json"].to_pylist()
-        ]
-        pq.write_table(table.filter(keep), manifest)
-        _, incomplete = load_selection(directory)
-        with pytest.raises(CoverageError, match="uncovered"):
-            incomplete.validate()
         assert [s.reason for s in reloaded.selected] == [
             s.reason for s in result.selected
         ]
@@ -406,6 +396,16 @@ class TestPipeline:
         assert len(report["strata"]) == 2
         _, reloaded = load_selection(directory)
         assert reloaded.record_ids == result.record_ids
+        assert reloaded.validate()["strata"] == report["strata"]
+        manifest = directory / "selected_manifest.parquet"
+        table = pq.read_table(manifest)
+        keep = [
+            json.loads(m)["charge"] == 0 for m in table["metadata_json"].to_pylist()
+        ]
+        pq.write_table(table.filter(keep), manifest)
+        _, incomplete = load_selection(directory)
+        with pytest.raises(CoverageError, match="uncovered"):
+            incomplete.validate()
         missing = Pipeline(
             config_for(
                 tmp_path / "strata",
