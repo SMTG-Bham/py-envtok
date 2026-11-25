@@ -366,5 +366,6 @@ account for about 25 KiB each.
 Both versions select the same records and write byte-identical coverage
 reports. Most of the remaining target size is the float64 prototypes
 (569 MiB at 100,050 records). At 100,050 records the 5.8 GiB descriptor file did
-not fit in that machine's page cache, so fitting and the audit spent most of
-their 410 s and 480 s waiting for disk reads, not computing.
+not fit in that machine's page cache. The select stage took 480 s but used only
+91 s of CPU, waiting on disk reads for the rest; target fitting took 410 s, and
+how much of that was paging was not measured.
