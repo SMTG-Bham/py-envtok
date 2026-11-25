@@ -17,8 +17,9 @@ import itertools
 import json
 import math
 import multiprocessing
+from collections import deque
 from collections.abc import Iterator, Mapping, Sequence
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Future, ProcessPoolExecutor
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from typing import Any
@@ -841,6 +842,10 @@ def featurize_records(
     )
 
 
+_MAX_BATCH = 64
+"""Records per worker batch at most, bounding the descriptors in flight."""
+
+
 def iter_features(
     records: Sequence[MolecularRecord],
     settings: RepresentationSettings,
@@ -854,8 +859,10 @@ def iter_features(
     each capped at ``threads_per_worker`` native threads. Tokens are content
     digests, so the features are identical to a serial run; every worker's
     signatures are merged into one registry, so a digest collision between
-    records in different batches is still rejected. Consumers can write each
-    batch out as it arrives instead of holding every descriptor at once.
+    records in different batches is still rejected. At most
+    ``2 * workers + 1`` batches of at most ``_MAX_BATCH`` records are queued
+    or held, so a consumer that writes each record out as it arrives never
+    holds every descriptor at once.
     """
     if not settings.species:
         settings = replace(
@@ -871,8 +878,8 @@ def iter_features(
         return
     from envtok.store.executor import thread_limits  # noqa: PLC0415
 
-    size = max(1, math.ceil(len(records) / (4 * workers)))
-    batches = [records[start : start + size] for start in range(0, len(records), size)]
+    size = max(1, min(_MAX_BATCH, math.ceil(len(records) / (4 * workers))))
+    starts = iter(range(0, len(records), size))
     registry = SignatureRegistry()
     with (
         thread_limits(threads_per_worker),
@@ -880,8 +887,18 @@ def iter_features(
             max_workers=workers, mp_context=multiprocessing.get_context("spawn")
         ) as pool,
     ):
-        for batch in pool.map(_featurize_batch, batches, [settings] * len(batches)):
-            for feature in batch:
+
+        def submit(start: int) -> Future[list[MolecularFeatures]]:
+            batch = records[start : start + size]
+            return pool.submit(_featurize_batch, batch, settings)
+
+        # Results are taken in order, and each is replaced by the next batch
+        # before it is consumed, so finished batches cannot pile up.
+        pending = deque(map(submit, itertools.islice(starts, 2 * workers)))
+        while pending:
+            done = pending.popleft()
+            pending.extend(map(submit, itertools.islice(starts, 1)))
+            for feature in done.result():
                 registry.merge(feature.signatures)
                 yield feature
 
