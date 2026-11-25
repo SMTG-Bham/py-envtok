@@ -15,7 +15,7 @@ import platform
 import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import asdict, fields
+from dataclasses import asdict, fields, replace
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -43,6 +43,9 @@ from envtok.molecular.geometry import (
     build_geometry_regions,
     nearest_selected_distances,
 )
+from envtok.molecular.manifests import TARGETS, FrozenTargets, write_targets
+from envtok.molecular.manifests import read_json as _read_json
+from envtok.molecular.manifests import write_json as _write_json
 from envtok.molecular.records import MolecularRecord
 from envtok.molecular.representations import (
     MolecularFeatures,
@@ -58,7 +61,7 @@ from envtok.molecular.selection import (
     select_candidates,
 )
 
-IMPLEMENTATION_VERSION = "molecular_v1.5"
+IMPLEMENTATION_VERSION = "molecular_v1.6"
 
 
 def _json(value: Any) -> str:
@@ -155,25 +158,6 @@ def _stat_key(path: Path) -> tuple[int, int, int, int] | None:
 def _trusted(signature: tuple[int, int, int, int] | None, checked: int) -> bool:
     """Whether the file was last changed well before ``checked`` (ns)."""
     return signature is not None and checked - max(signature[1:3]) > _RACY_NS
-
-
-def _write_json(path: Path, value: Any) -> None:
-    """Write ``_json(value)`` atomically, streaming rather than building one string."""
-    temporary = path.with_suffix(path.suffix + ".partial")
-    with temporary.open("w") as stream:
-        json.dump(value, stream, sort_keys=True, indent=2, allow_nan=False)
-        stream.write("\n")
-    temporary.replace(path)
-
-
-def _read_json(path: Path, required: set[str]) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text())
-        if not isinstance(value, dict) or not required <= value.keys():
-            raise ValueError("missing manifest fields")
-    except (OSError, ValueError) as exc:
-        raise StaleCacheError(f"cannot read molecular manifest {path}: {exc}") from exc
-    return value
 
 
 def _software() -> dict[str, Any]:
@@ -378,70 +362,20 @@ class MolecularPipeline:
             raise StaleCacheError("molecular source content changed; create a new run")
         self._source_stat = signature if _trusted(signature, checked) else None
 
+    def _frozen_targets(self) -> FrozenTargets:
+        """Open the frozen targets after checking them against the provenance."""
+        provenance = _read_json(self.directory / "provenance.json", {"targets_sha256"})
+        path = self.directory / TARGETS
+        if not path.exists() or _file_hash(path) != provenance["targets_sha256"]:
+            raise StaleCacheError("frozen molecular targets are missing or corrupt")
+        return FrozenTargets(self.directory)
+
     def _load_targets(
         self,
     ) -> tuple[
         tuple[Candidate, ...], dict[str, Target], HierarchyResult, GeometryRegions
     ]:
-        provenance = _read_json(self.directory / "provenance.json", {"targets_sha256"})
-        path = self.directory / "targets.json"
-        if not path.exists() or _file_hash(path) != provenance["targets_sha256"]:
-            raise StaleCacheError("frozen molecular targets are missing or corrupt")
-        data = _read_json(
-            path,
-            {
-                "incidence",
-                "requirements",
-                "mapping",
-                "lineage",
-                "support",
-                "group_support",
-                "rare_targets",
-                "optional_targets",
-                "prototypes",
-                "region_targets",
-                "overflow",
-                "sampled_counts",
-                "region_radius",
-            },
-        )
-        candidates = tuple(
-            Candidate(
-                row["record_id"],
-                row["cost"],
-                frozenset(row["targets"]),
-                frozenset(row["refinement_targets"]),
-                row.get("group_id"),
-            )
-            for row in data["incidence"]
-        )
-        mandatory = {
-            key: Target(**value) for key, value in data["requirements"].items()
-        }
-        hierarchy = HierarchyResult(
-            targets={row.record_id: row.targets for row in candidates},
-            mapping=data["mapping"],
-            support=data["support"],
-            group_support=data["group_support"],
-            rare_targets=frozenset(data["rare_targets"]),
-            optional_targets=frozenset(data["optional_targets"]),
-            lineage={key: tuple(value) for key, value in data["lineage"].items()},
-            source_support=data["source_support"],
-            source_group_support=data["source_group_support"],
-        )
-        regions = GeometryRegions(
-            targets={
-                key: frozenset(value) for key, value in data["region_targets"].items()
-            },
-            prototypes={
-                key: np.asarray(value, dtype=np.float64)
-                for key, value in data["prototypes"].items()
-            },
-            overflow=tuple(tuple(row) for row in data["overflow"]),
-            sampled_counts=data["sampled_counts"],
-            radius=data["region_radius"],
-        )
-        return candidates, mandatory, hierarchy, regions
+        return self._frozen_targets().load()
 
     def _descriptor_file(self) -> Path | None:
         for name in (DESCRIPTORS, LEGACY_DESCRIPTORS):
@@ -681,47 +615,12 @@ class MolecularPipeline:
             for row in candidates
             for token in sorted(row.targets - hierarchy.optional_targets)
         }
-        self._built = candidates, mandatory, hierarchy, regions
-        _write_json(
-            self.directory / "targets.json",
-            {
-                "mapping": hierarchy.mapping,
-                "lineage": hierarchy.lineage,
-                "support": hierarchy.support,
-                "group_support": hierarchy.group_support,
-                "source_support": hierarchy.source_support,
-                "source_group_support": hierarchy.source_group_support,
-                "rare_targets": sorted(hierarchy.rare_targets),
-                "optional_targets": sorted(hierarchy.optional_targets),
-                "requirements": {
-                    key: asdict(value) for key, value in mandatory.items()
-                },
-                "prototypes": {
-                    key: value.tolist() for key, value in regions.prototypes.items()
-                },
-                "region_targets": {
-                    key: sorted(value) for key, value in regions.targets.items()
-                },
-                "overflow": regions.overflow,
-                "region_radius": regions.radius,
-                "sampled_counts": regions.sampled_counts,
-                "signatures": {
-                    token: signature
-                    for f in features
-                    for token, signature in f.signatures.items()
-                },
-                "incidence": [
-                    {
-                        "record_id": c.record_id,
-                        "cost": c.cost,
-                        "group_id": c.group_id,
-                        "targets": sorted(c.targets),
-                        "refinement_targets": sorted(c.refinement_targets),
-                    }
-                    for c in candidates
-                ],
-            },
+        write_targets(self.directory, (candidates, mandatory, hierarchy, regions))
+        # Hold the written prototypes as file pages rather than a second copy.
+        regions = replace(
+            regions, prototypes=FrozenTargets.unverified(self.directory).prototypes()
         )
+        self._built = candidates, mandatory, hierarchy, regions
         self.timings["targets_seconds"] = time.perf_counter() - start
         return self._built
 
@@ -753,7 +652,7 @@ class MolecularPipeline:
         """Select whole records, audit independently and write the manifest."""
         self._check_source(full=True)
         if (self.directory / "provenance.json").exists():
-            self._load_targets()
+            self._frozen_targets()
         candidates, mandatory, _, _ = self.build_targets()
         start = time.perf_counter()
         settings = self.settings["selection"]
@@ -803,7 +702,7 @@ class MolecularPipeline:
                 "source_sha256": self.source_hash,
                 "split_sha256": _digest(self.ingest().split_manifest),
                 "feature_directory": str(self.feature_directory),
-                "targets_sha256": _file_hash(self.directory / "targets.json"),
+                "targets_sha256": _file_hash(self.directory / TARGETS),
                 "features_sha256": _file_hash(self.feature_directory / "features.json"),
                 "candidate_restriction": "eligible deduplicated training records",
                 "timings": self.timings,
@@ -829,8 +728,13 @@ class MolecularPipeline:
         if not path.exists():
             raise ConfigError("no molecular selection exists; run select first")
         ids = path.read_text().splitlines()
-        candidates, mandatory, hierarchy, regions = self._load_targets()
-        report = audit_selection(candidates, mandatory, ids, budget=self.atom_budget())
+        targets = self._frozen_targets()
+        report = audit_selection(
+            targets.candidates(),
+            targets.requirements(),
+            ids,
+            budget=self.atom_budget(),
+        )
         manifest_path = self.feature_directory / "features.json"
         if manifest_path.exists() and self._descriptor_file() is not None:
             provenance = _read_json(
@@ -839,9 +743,10 @@ class MolecularPipeline:
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
             features = self._load_features()
+            mapping = targets.mapping()
             descriptors = {
                 feature.record_id: [
-                    (hierarchy.mapping[path[0]], vector)
+                    (mapping[path[0]], vector)
                     for path, vector in zip(
                         feature.token_hierarchy, feature.descriptors, strict=True
                     )
@@ -856,7 +761,7 @@ class MolecularPipeline:
             features = ()
             report["nearest_selected_distances"] = None
             report["geometry_audit_status"] = "unavailable_feature_cache"
-        report["geometry_overflow_environments"] = len(regions.overflow)
+        report["geometry_overflow_environments"] = targets.overflow_count()
         report["graph_status"] = dict(
             Counter(feature.graph_status for feature in features)
         )

@@ -175,8 +175,8 @@ class _MemorySampler(threading.Thread):
 
 def _sizes(directory: Path) -> dict[str, float]:
     return {
-        path.name: round(path.stat().st_size / 2**20, 2)
-        for path in sorted(directory.iterdir())
+        str(path.relative_to(directory)): round(path.stat().st_size / 2**20, 2)
+        for path in sorted(directory.rglob("*"))
         if path.is_file()
     }
 
