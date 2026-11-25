@@ -132,12 +132,17 @@ def write_table(path: Path, table: pa.Table) -> str:
     return file_hash(path)
 
 
-def token_lists(lengths: Sequence[int], values: array.array[int]) -> pa.Array:
-    """A list-of-token-ID column from per-row lengths and concatenated IDs."""
+def list_offsets(lengths: Sequence[int]) -> pa.Array:
+    """Large-list offsets for rows of the given lengths."""
     offsets = np.zeros(len(lengths) + 1, dtype=np.int64)
     np.cumsum(lengths, out=offsets[1:])
+    return pa.array(offsets, pa.int64())
+
+
+def token_lists(lengths: Sequence[int], values: array.array[int]) -> pa.Array:
+    """A list-of-token-ID column from per-row lengths and concatenated IDs."""
     return pa.LargeListArray.from_arrays(
-        pa.array(offsets, pa.int64()),
+        list_offsets(lengths),
         pa.array(np.frombuffer(values, dtype=np.int32), pa.int32()),
     )
 

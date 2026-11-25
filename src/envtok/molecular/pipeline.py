@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import html
-import itertools
 import json
 import math
 import platform
 import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import asdict, fields, replace
+from dataclasses import asdict, replace
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -37,6 +36,12 @@ from envtok.molecular.data import (
     export_records,
     iter_extxyz,
     prepare_records,
+)
+from envtok.molecular.feature_cache import (
+    FEATURES,
+    descriptor_file,
+    read_feature_cache,
+    write_feature_cache,
 )
 from envtok.molecular.geometry import (
     GeometryRegions,
@@ -66,60 +71,6 @@ IMPLEMENTATION_VERSION = "molecular_v1.6"
 
 def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, indent=2, allow_nan=False)
-
-
-DESCRIPTORS = "descriptors.npy"
-"""All candidate descriptors as one float32 array, records in manifest order."""
-LEGACY_DESCRIPTORS = "descriptors.npz"
-"""Caches before ``molecular_v1.5``: one member per record, read for saved runs."""
-_MATRIX = 2
-
-
-def _features_from_cache(
-    manifest: Mapping[str, Any], blocks: Sequence[npt.NDArray[np.float32]]
-) -> tuple[MolecularFeatures, ...]:
-    """Rebuild features from a manifest and each record's descriptor rows.
-
-    Signatures come from the pool table, or from each record in caches written
-    before ``molecular_v1.5``.
-    """
-    table = manifest.get("signatures", {})
-    features = []
-    for row, descriptors in zip(manifest["records"], blocks, strict=True):
-        hierarchy = tuple(tuple(tokens) for tokens in row["token_hierarchy"])
-        safeguards = tuple(row["safeguard_targets"])
-        used = {token for tokens in hierarchy for token in tokens} | set(safeguards)
-        features.append(
-            MolecularFeatures(
-                record_id=row["record_id"],
-                family_id=row["family_id"],
-                state_key=tuple(row["state_key"]),
-                token_hierarchy=hierarchy,
-                signatures=row.get("signatures")
-                or {token: table[token] for token in sorted(used)},
-                descriptors=descriptors,
-                graph_status=row["graph_status"],
-                safeguard_targets=safeguards,
-                zero_descriptor_atoms=tuple(row["zero_descriptor_atoms"]),
-            )
-        )
-    return tuple(features)
-
-
-def _descriptor_blocks(
-    manifest: Mapping[str, Any], path: Path
-) -> list[npt.NDArray[np.float32]]:
-    """Each record's descriptor rows: views of the mapped array, or legacy members."""
-    rows = manifest["records"]
-    if path.name == LEGACY_DESCRIPTORS:
-        with np.load(path, allow_pickle=False) as arrays:
-            return [arrays[f"f{index}"] for index in range(len(rows))]
-    matrix = np.load(path, mmap_mode="r", allow_pickle=False)
-    sizes = [len(row["token_hierarchy"]) for row in rows]
-    if matrix.ndim != _MATRIX or len(matrix) != sum(sizes):
-        raise StaleCacheError("molecular descriptor cache is missing or corrupt")
-    bounds = np.cumsum([0, *sizes]).tolist()
-    return [matrix[start:stop] for start, stop in itertools.pairwise(bounds)]
 
 
 def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
@@ -274,6 +225,7 @@ class MolecularPipeline:
         self.feature_directory.mkdir(parents=True, exist_ok=True)
         self._prepared: PreparedRecords | None = None
         self._features: tuple[MolecularFeatures, ...] | None = None
+        self._descriptors: npt.NDArray[np.float32] | None = None
         self._built: (
             tuple[
                 tuple[Candidate, ...],
@@ -331,6 +283,7 @@ class MolecularPipeline:
         self._loaded = True
         self._prepared = None
         self._features = None
+        self._descriptors = None
         self._built = None
         self.timings = {}
         self._check_source()
@@ -377,15 +330,8 @@ class MolecularPipeline:
     ]:
         return self._frozen_targets().load()
 
-    def _descriptor_file(self) -> Path | None:
-        for name in (DESCRIPTORS, LEGACY_DESCRIPTORS):
-            if (self.feature_directory / name).exists():
-                return self.feature_directory / name
-        return None
-
     def _load_features(self) -> tuple[MolecularFeatures, ...]:
-        descriptor_path = self._descriptor_file()
-        manifest_path = self.feature_directory / "features.json"
+        manifest_path = self.feature_directory / FEATURES
         commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
         if (
             not manifest_path.exists()
@@ -398,14 +344,11 @@ class MolecularPipeline:
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-        manifest = _read_json(manifest_path, {"records", "arrays_sha256"})
-        if descriptor_path is None or manifest["arrays_sha256"] != _file_hash(
-            descriptor_path
-        ):
-            raise StaleCacheError("molecular descriptor cache is missing or corrupt")
-        return _features_from_cache(
-            manifest, _descriptor_blocks(manifest, descriptor_path)
+        manifest = _read_json(manifest_path, {"arrays_sha256"})
+        features, self._descriptors = read_feature_cache(
+            self.feature_directory, manifest
         )
+        return features
 
     @property
     def seed(self) -> int:
@@ -475,7 +418,7 @@ class MolecularPipeline:
                 "are never used for fitting"
             )
         start = time.perf_counter()
-        manifest_path = self.feature_directory / "features.json"
+        manifest_path = self.feature_directory / FEATURES
         if self._loaded or (
             self.settings["execution"]["resume"] and manifest_path.exists()
         ):
@@ -517,55 +460,14 @@ class MolecularPipeline:
         natoms: int,
         settings: RepresentationSettings,
     ) -> tuple[MolecularFeatures, ...]:
-        """Stream descriptors into one array file and return memory-mapped features.
-
-        Each record's rows are written as it arrives, so only one batch of
-        descriptors is held in memory. Signatures are stored once for the pool.
-        """
-        descriptor_path = self.feature_directory / DESCRIPTORS
-        temporary = descriptor_path.with_suffix(".partial.npy")
-        rows: list[dict[str, Any]] = []
-        signatures: dict[str, str] = {}
-        array: np.memmap[Any, Any] | None = None
-        offset = 0
-        for feature in features:
-            if array is None:
-                array = np.lib.format.open_memmap(
-                    temporary,
-                    mode="w+",
-                    dtype=np.float32,
-                    shape=(natoms, feature.descriptors.shape[1]),
-                )
-            array[offset : offset + len(feature.descriptors)] = feature.descriptors
-            offset += len(feature.descriptors)
-            signatures.update(feature.signatures)
-            rows.append(
-                {
-                    field.name: getattr(feature, field.name)
-                    for field in fields(feature)
-                    if field.name not in {"descriptors", "signatures"}
-                }
-            )
-        if array is None or offset != natoms:
-            raise ConfigError("descriptor rows do not match the candidate atom count")
-        array.flush()
-        del array
-        temporary.replace(descriptor_path)
-        manifest = {
-            "records": rows,
-            "signatures": dict(sorted(signatures.items())),
-            "settings": asdict(settings),
-            "arrays_sha256": _file_hash(descriptor_path),
-        }
-        manifest_path = self.feature_directory / "features.json"
-        _write_json(manifest_path, manifest)
-        _write_json(
-            self.feature_directory / "commit.json",
-            {"features_sha256": _file_hash(manifest_path)},
+        """Write the feature cache, then return its memory-mapped features."""
+        manifest = write_feature_cache(
+            self.feature_directory, features, natoms, settings
         )
-        return _features_from_cache(
-            manifest, _descriptor_blocks(manifest, descriptor_path)
+        loaded, self._descriptors = read_feature_cache(
+            self.feature_directory, manifest, verify=False
         )
+        return loaded
 
     def build_targets(
         self,
@@ -703,7 +605,7 @@ class MolecularPipeline:
                 "split_sha256": _digest(self.ingest().split_manifest),
                 "feature_directory": str(self.feature_directory),
                 "targets_sha256": _file_hash(self.directory / TARGETS),
-                "features_sha256": _file_hash(self.feature_directory / "features.json"),
+                "features_sha256": _file_hash(self.feature_directory / FEATURES),
                 "candidate_restriction": "eligible deduplicated training records",
                 "timings": self.timings,
                 "feature_bytes": sum(f.descriptors.nbytes for f in self.featurize()),
@@ -735,8 +637,8 @@ class MolecularPipeline:
             ids,
             budget=self.atom_budget(),
         )
-        manifest_path = self.feature_directory / "features.json"
-        if manifest_path.exists() and self._descriptor_file() is not None:
+        manifest_path = self.feature_directory / FEATURES
+        if manifest_path.exists() and descriptor_file(self.feature_directory):
             provenance = _read_json(
                 self.directory / "provenance.json", {"features_sha256"}
             )

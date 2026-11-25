@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -14,10 +15,11 @@ import yaml
 from ase import Atoms
 
 from envtok.errors import ConfigError, StaleCacheError
+from envtok.molecular import feature_cache
 from envtok.molecular import pipeline as pipeline_module
 from envtok.molecular.data import prepare_records
 from envtok.molecular.pipeline import MolecularPipeline
-from envtok.molecular.representations import RepresentationSettings
+from envtok.molecular.representations import MolecularFeatures, RepresentationSettings
 
 
 @pytest.fixture
@@ -358,41 +360,71 @@ def test_feature_cache_rejects_rows_that_do_not_match_records(
     for descriptors in (np.zeros((2, 3), np.float32), np.zeros(1, np.float32)):
         np.save(path, descriptors)
         with pytest.raises(StaleCacheError, match="missing or corrupt"):
-            pipeline_module._descriptor_blocks(manifest, path)
+            feature_cache.legacy_blocks(manifest, path)
 
 
-def test_saved_run_with_a_legacy_feature_cache_keeps_its_geometry_audit(
-    review_config: dict[str, Any],
+def write_legacy_feature_cache(
+    pipeline: MolecularPipeline, features: Sequence[MolecularFeatures], layout: str
 ) -> None:
-    pipeline = MolecularPipeline(review_config)
-    pipeline.select()
-    expected = pipeline.audit()["nearest_selected_distances"]
-    features = pipeline.featurize()
+    """Rewrite a cache in the molecular_v1.5 or molecular_v1.4 layout.
+
+    v1.5 kept JSON records and one signature table; v1.4 also stored every
+    record's descriptors as a compressed npz member and its own signatures.
+    """
     directory = pipeline.feature_directory
-    # Rewrite the cache in the layout used before molecular_v1.5.
-    np.savez_compressed(
-        directory / "descriptors.npz",
-        allow_pickle=False,
-        **{f"f{i}": np.asarray(f.descriptors) for i, f in enumerate(features)},
-    )
-    (directory / "descriptors.npy").unlink()
-    manifest = json.loads((directory / "features.json").read_text())
-    table = manifest.pop("signatures")
-    for row, feature in zip(manifest["records"], features, strict=True):
-        row["signatures"] = {token: table[token] for token in feature.signatures}
-    manifest["arrays_sha256"] = hashlib.sha256(
-        (directory / "descriptors.npz").read_bytes()
-    ).hexdigest()
+    settings = json.loads((directory / "features.json").read_text())["settings"]
+    records: list[dict[str, Any]] = [
+        {
+            "record_id": f.record_id,
+            "family_id": f.family_id,
+            "state_key": list(f.state_key),
+            "token_hierarchy": [list(path) for path in f.token_hierarchy],
+            "graph_status": f.graph_status,
+            "safeguard_targets": list(f.safeguard_targets),
+            "zero_descriptor_atoms": list(f.zero_descriptor_atoms),
+        }
+        for f in features
+    ]
+    table = {token: f.signatures[token] for f in features for token in f.signatures}
+    manifest: dict[str, Any] = {"records": records, "settings": settings}
+    if layout == "v1.5":
+        manifest["signatures"] = dict(sorted(table.items()))
+        arrays = directory / "descriptors.npy"
+    else:
+        for row, feature in zip(records, features, strict=True):
+            row["signatures"] = dict(feature.signatures)
+        arrays = directory / "descriptors.npz"
+        np.savez_compressed(
+            arrays,
+            allow_pickle=False,
+            **{f"f{i}": np.asarray(f.descriptors) for i, f in enumerate(features)},
+        )
+        (directory / "descriptors.npy").unlink()
+    manifest["arrays_sha256"] = hashlib.sha256(arrays.read_bytes()).hexdigest()
+    for name in ("records.parquet", "signatures.parquet"):
+        (directory / name).unlink()
     (directory / "features.json").write_text(json.dumps(manifest))
     digest = hashlib.sha256((directory / "features.json").read_bytes()).hexdigest()
     (directory / "commit.json").write_text(json.dumps({"features_sha256": digest}))
     provenance = json.loads((pipeline.directory / "provenance.json").read_text())
     provenance["features_sha256"] = digest
     (pipeline.directory / "provenance.json").write_text(json.dumps(provenance))
+
+
+@pytest.mark.parametrize("layout", ["v1.4", "v1.5"])
+def test_saved_run_with_a_legacy_feature_cache_keeps_its_geometry_audit(
+    review_config: dict[str, Any], layout: str
+) -> None:
+    pipeline = MolecularPipeline(review_config)
+    pipeline.select()
+    expected = pipeline.audit()["nearest_selected_distances"]
+    features = pipeline.featurize()
+    write_legacy_feature_cache(pipeline, features, layout)
     loaded = MolecularPipeline.load_run(pipeline.directory)
     report = loaded.audit()
     assert report["geometry_audit_status"] == "available"
     assert report["nearest_selected_distances"] == expected
     for old, new in zip(features, loaded.featurize(), strict=True):
         assert new.signatures == old.signatures
+        assert new.token_hierarchy == old.token_hierarchy
         assert np.array_equal(new.descriptors, old.descriptors)

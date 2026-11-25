@@ -116,7 +116,7 @@ class MolecularFeatures:
     family_id: str | None
     state_key: StateKey
     token_hierarchy: tuple[tuple[str, ...], ...]
-    signatures: dict[str, str]
+    signatures: Mapping[str, str]
     descriptors: npt.NDArray[np.float32]
     graph_status: str
     safeguard_targets: tuple[str, ...] = ()
