@@ -563,4 +563,6 @@ implementation:
 
 EnvTok is released under the [MIT License](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSE). Code adapted from
 omat24-chemenv-subset keeps its MIT notice in
-[`LICENSES/omat24-chemenv-subset-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt).
+[`LICENSES/omat24-chemenv-subset-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt),
+and code adapted from pymatgen in
+[`LICENSES/pymatgen-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/pymatgen-MIT.txt).

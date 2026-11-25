@@ -52,6 +52,15 @@ images of the same atom are distinct contacts. The neighbour multiset, the
 geometry, the compression and the asymmetry of a site always come from the
 same chosen neighbour set.
 
+ChemEnv scores every candidate ordering of a site's neighbours against each
+model polyhedron. EnvTok scores all orderings of one separation plane together,
+as stacked arrays, instead of in one pymatgen call each. Every ordering passes
+through the same BLAS and LAPACK routines as pymatgen's per-call code, so
+symmetry measures, environments and tokens are bit-for-bit identical. The
+batched finder is used only when the installed pymatgen has exactly the code it
+mirrors (checked by source digest); otherwise pymatgen's own finder runs. On the
+bundled OMat24 sample it makes tokenisation about 1.6 times faster on one worker.
+
 Symmetry reuse is purely an optimisation. Geometric results are reused across
 an orbit, while each atom keeps its own initial moment. If spglib fails or
 returns an inconsistent dataset, every site is analysed individually and the
