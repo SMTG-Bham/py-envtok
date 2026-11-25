@@ -23,7 +23,7 @@ from helpers import CORPUS
 import envtok
 from envtok.cli import build_parser, main
 from envtok.config import EnvTokConfig, load_config
-from envtok.errors import ConfigError
+from envtok.errors import ConfigError, CoverageError
 from envtok.execution import ExecutionSettings
 from envtok.pipeline import Pipeline, load_selection, random_baselines
 from envtok.profiles import REFERENCE_723696D, MagneticPolicy
@@ -335,6 +335,16 @@ class TestPipeline:
         _, result, directory = selection
         _, reloaded = load_selection(directory)
         assert reloaded.record_ids == result.record_ids
+        assert reloaded.validate()["strata"] == report["strata"]
+        manifest = directory / "selected_manifest.parquet"
+        table = pq.read_table(manifest)
+        keep = [
+            json.loads(m)["charge"] == 0 for m in table["metadata_json"].to_pylist()
+        ]
+        pq.write_table(table.filter(keep), manifest)
+        _, incomplete = load_selection(directory)
+        with pytest.raises(CoverageError, match="uncovered"):
+            incomplete.validate()
         assert [s.reason for s in reloaded.selected] == [
             s.reason for s in result.selected
         ]

@@ -452,8 +452,19 @@ def audit(result: SelectionResult) -> dict[str, Any]:
         "held_out": held_out_novelty(classes),
     }
     if result.strata:
+        selected = set(result.record_ids)
         report["strata"] = [
-            {"stratum": stratum, **audit_classes(part.classes, part.record_ids)}
+            {
+                "stratum": stratum,
+                **audit_classes(
+                    part.classes,
+                    [
+                        rid
+                        for rid in part.classes.pool.record_ids.tolist()
+                        if rid in selected
+                    ],
+                ),
+            }
             for stratum, part in result.strata
         ]
     return report
