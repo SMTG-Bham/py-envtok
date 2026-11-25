@@ -38,7 +38,11 @@ if distribution.version != sys.argv[1] or envtok.__version__ != sys.argv[1]:
     raise RuntimeError('installed version does not match the project version')
 if not (package.parent / 'py.typed').is_file():
     raise RuntimeError('installed package is missing py.typed')
-for license_file in ('LICENSE', 'LICENSES/omat24-chemenv-subset-MIT.txt'):
+for license_file in (
+    'LICENSE',
+    'LICENSES/omat24-chemenv-subset-MIT.txt',
+    'LICENSES/pymatgen-MIT.txt',
+):
     if not distribution.read_text('licenses/' + license_file):
         raise RuntimeError('installed distribution is missing ' + license_file)
 print(json.dumps({

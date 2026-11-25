@@ -36,7 +36,6 @@ from typing import Any
 import numpy as np
 from pymatgen.analysis.chemenv.coordination_environments import (
     chemenv_strategies,
-    coordination_geometry_finder,
     structure_environments,
 )
 from pymatgen.analysis.local_env import CrystalNN, VoronoiNN
@@ -44,6 +43,7 @@ from pymatgen.core.structure import Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 from envtok.profiles.reference import GeometrySettings, MeasureSettings
+from envtok.tokenizer.chemenv import make_finder
 from envtok.tokenizer.measures import (
     UNDEFINED_MEASURES,
     ContactMeasures,
@@ -51,7 +51,6 @@ from envtok.tokenizer.measures import (
 )
 from envtok.tokenizer.tokens import INVALID, Composition, composition
 
-LocalGeometryFinder = coordination_geometry_finder.LocalGeometryFinder
 SimplestChemenvStrategy = chemenv_strategies.SimplestChemenvStrategy
 LightStructureEnvironments = structure_environments.LightStructureEnvironments
 
@@ -238,7 +237,7 @@ class GeometryEngine:
         """Create the finder and neighbour algorithms with frozen settings."""
         self.settings = settings
         self.measure_settings = measures
-        self.finder = LocalGeometryFinder(
+        self.finder = make_finder(
             permutations_safe_override=settings.permutations_safe_override,
             plane_ordering_override=settings.plane_ordering_override,
             plane_safe_permutations=settings.plane_safe_permutations,
