@@ -19,7 +19,7 @@ import array
 import itertools
 import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Any
@@ -313,6 +313,34 @@ def write_feature_cache(
     return manifest
 
 
+def _checked(
+    directory: Path,
+    manifest: Mapping[str, Any],
+    names: Sequence[str],
+    *,
+    verify: bool,
+) -> npt.NDArray[np.float32]:
+    """Check the named tables and the descriptors, then map the descriptors."""
+    files = manifest.get("files")
+    if manifest.get("layout") != _LAYOUT or not isinstance(files, dict):
+        raise StaleCacheError(_METADATA)
+    descriptors = directory / DESCRIPTORS
+    if not descriptors.is_file() or (
+        verify and file_hash(descriptors) != manifest["arrays_sha256"]
+    ):
+        raise StaleCacheError(_DESCRIPTORS)
+    for name in names:
+        path = directory / name
+        if not path.is_file() or (verify and file_hash(path) != files.get(name)):
+            raise StaleCacheError(_METADATA)
+    matrix: npt.NDArray[np.float32] = np.load(
+        descriptors, mmap_mode="r", allow_pickle=False
+    )
+    if matrix.ndim != _MATRIX or len(matrix) != manifest["atom_count"]:
+        raise StaleCacheError(_DESCRIPTORS)
+    return matrix
+
+
 def _paths(
     table: pa.Table, tokens: Sequence[str]
 ) -> tuple[list[tuple[str, ...]], npt.NDArray[np.int64], npt.NDArray[np.int64]]:
@@ -346,25 +374,12 @@ def read_feature_cache(
     """
     if isinstance(manifest.get("records"), list):
         return _read_legacy(directory, manifest)
-    files = manifest.get("files")
-    if manifest.get("layout") != _LAYOUT or not isinstance(files, dict):
-        raise StaleCacheError(_METADATA)
-    descriptors = directory / DESCRIPTORS
-    if not descriptors.is_file() or (
-        verify and file_hash(descriptors) != manifest["arrays_sha256"]
-    ):
-        raise StaleCacheError(_DESCRIPTORS)
-    for name in (RECORDS, SIGNATURES):
-        path = directory / name
-        if not path.is_file() or (verify and file_hash(path) != files.get(name)):
-            raise StaleCacheError(_METADATA)
-    matrix = np.load(descriptors, mmap_mode="r", allow_pickle=False)
-    if matrix.ndim != _MATRIX or len(matrix) != manifest["atom_count"]:
-        raise StaleCacheError(_DESCRIPTORS)
+    matrix = _checked(directory, manifest, (RECORDS, SIGNATURES), verify=verify)
     tokens: list[str] = (
         pq.read_table(directory / SIGNATURES, columns=["token"]).column(0).to_pylist()
     )
-    signatures = SignatureTable(directory / SIGNATURES, files[SIGNATURES], tokens)
+    digest = manifest["files"][SIGNATURES]
+    signatures = SignatureTable(directory / SIGNATURES, digest, tokens)
     table = pq.read_table(directory / RECORDS)
     paths, path_of, records = _paths(table, tokens)
     if records[-1] - records[0] != len(matrix):
@@ -415,6 +430,58 @@ def read_feature_cache(
             )
         )
     return tuple(features), matrix
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureSummary:
+    """What an audit needs from a cache: record order, row counts and status."""
+
+    record_ids: list[str]
+    atoms: list[int]
+    graph_status: list[str]
+    zero_descriptor_atoms: list[tuple[int, ...]]
+    descriptors: npt.NDArray[np.float32]
+    features: tuple[MolecularFeatures, ...] | None = None
+    """Full features, already loaded for caches written before ``molecular_v1.6``."""
+
+
+def read_feature_summary(
+    directory: Path, manifest: Mapping[str, Any]
+) -> FeatureSummary:
+    """Each record's ID, row count, graph status and zero-descriptor atoms.
+
+    Token hierarchies and signatures are not read. The descriptor array and
+    record table are checked against the manifest's digests.
+
+    Raises:
+        StaleCacheError: If a file is missing, changed or inconsistent.
+    """
+    if isinstance(manifest.get("records"), list):
+        features, matrix = _read_legacy(directory, manifest)
+        return FeatureSummary(
+            [f.record_id for f in features],
+            [len(f.token_hierarchy) for f in features],
+            [f.graph_status for f in features],
+            [f.zero_descriptor_atoms for f in features],
+            matrix,
+            features,
+        )
+    matrix = _checked(directory, manifest, (RECORDS,), verify=True)
+    table = pq.read_table(
+        directory / RECORDS,
+        columns=["record_id", "graph_status", "atoms", "zero_descriptor_atoms"],
+    )
+    atoms: list[int] = table.column("atoms").to_pylist()
+    if sum(atoms) != len(matrix):
+        raise StaleCacheError(_DESCRIPTORS)
+    zeros: list[list[int]] = table.column("zero_descriptor_atoms").to_pylist()
+    return FeatureSummary(
+        table.column("record_id").to_pylist(),
+        atoms,
+        table.column("graph_status").to_pylist(),
+        [tuple(values) for values in zeros],
+        matrix,
+    )
 
 
 def _read_legacy(

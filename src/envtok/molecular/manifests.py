@@ -32,6 +32,8 @@ from envtok.molecular.selection import Candidate, HierarchyResult, Target
 Built: TypeAlias = tuple[
     tuple[Candidate, ...], dict[str, Target], HierarchyResult, GeometryRegions
 ]
+AtomClasses: TypeAlias = tuple[Sequence[str], npt.NDArray[np.integer[Any]]]
+"""Class names, and each descriptor row's position in them."""
 
 TARGETS = "targets.json"
 """The run's target manifest; ``provenance.json`` records its digest."""
@@ -46,6 +48,7 @@ _CLASSES = "classes.parquet"
 _REQUIREMENTS = "requirements.parquet"
 _GEOMETRY = "geometry.parquet"
 _PROTOTYPES = "prototypes.npy"
+_ATOM_CLASSES = "atom_classes.npy"
 _OVERFLOW = "overflow.parquet"
 _CORRUPT = "frozen molecular targets are missing or corrupt"
 _LEGACY_FIELDS = {
@@ -173,8 +176,11 @@ def _target_tokens(built: Built) -> set[str]:
     return tokens
 
 
-def write_targets(directory: Path, built: Built) -> None:
+def write_targets(directory: Path, built: Built, atom_classes: AtomClasses) -> None:
     """Write the frozen target tables, then ``targets.json`` listing their digests.
+
+    ``atom_classes`` gives the fitted class of every descriptor row, in
+    feature-cache order, so audits need not map each atom's tokens again.
 
     Raises:
         ConfigError: If costs are not whole atom counts, or prototype
@@ -229,6 +235,11 @@ def write_targets(directory: Path, built: Built) -> None:
     ]
     digests = {name: write_table(folder / name, build()) for name, build in tables}
     digests[_PROTOTYPES] = _write_prototypes(folder / _PROTOTYPES, regions)
+    names, codes = atom_classes
+    positions = np.asarray([index[name] for name in names], dtype=np.int32)
+    digests[_ATOM_CLASSES] = _write_array(
+        folder / _ATOM_CLASSES, positions[np.asarray(codes, dtype=np.int64)]
+    )
     write_json(
         directory / TARGETS,
         {"layout": _LAYOUT, "region_radius": regions.radius, "files": digests},
@@ -321,6 +332,17 @@ def _class_table(hierarchy: HierarchyResult, index: Mapping[str, int]) -> pa.Tab
     return pa.table(columns)
 
 
+def _write_array(path: Path, values: npt.NDArray[Any]) -> str:
+    """Write a 1-D or 2-D array atomically and return its digest."""
+    partial = path.with_name(path.name + ".partial")
+    with partial.open("wb") as raw:
+        stream = HashingWriter(raw)
+        write_array_header(stream, values.dtype, values.shape)
+        stream.write(as_bytes(values, values.dtype))
+    partial.replace(path)
+    return stream.digest.hexdigest()
+
+
 def _write_prototypes(path: Path, regions: GeometryRegions) -> str:
     """Stream every class's prototypes, in class order, into one float64 array."""
     classes = sorted(regions.prototypes)
@@ -371,6 +393,7 @@ class FrozenTargets:
             _GEOMETRY,
             _PROTOTYPES,
             _OVERFLOW,
+            _ATOM_CLASSES,
         ):
             path = self.folder / name
             if not path.is_file() or (verify and file_hash(path) != files.get(name)):
@@ -459,6 +482,16 @@ class FrozenTargets:
         if self.legacy is not None:
             return len(self.legacy["overflow"])
         return int(pq.ParquetFile(self.folder / _OVERFLOW).metadata.num_rows)
+
+    def atom_classes(self) -> AtomClasses | None:
+        """Every descriptor row's class, as positions in the token vocabulary.
+
+        Runs saved before ``molecular_v1.6`` did not record them.
+        """
+        if self.legacy is not None:
+            return None
+        codes = np.load(self.folder / _ATOM_CLASSES, mmap_mode="r", allow_pickle=False)
+        return self.tokens, codes
 
     def prototypes(self) -> dict[str, npt.NDArray[np.float64]]:
         """Each class's prototypes, as views of the memory-mapped array."""

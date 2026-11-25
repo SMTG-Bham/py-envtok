@@ -1,5 +1,6 @@
 """Chunked geometry must reproduce the frozen per-environment reference exactly."""
 
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -125,3 +126,114 @@ def test_errors_match_frozen_reference(
             module.build_geometry_regions(rows)
         with pytest.raises(ConfigError, match=message):
             module.nearest_selected_distances(rows, [], sample_size=1)
+
+
+def as_pool(
+    rows: dict[str, list[tuple[str, Any]]], dimension: int, seed: int
+) -> geometry.DescriptorPool:
+    """The same environments as arrays, with records in a shuffled order."""
+    order = list(rows)
+    np.random.default_rng(seed).shuffle(order)
+    class_ids = sorted({class_id for atoms in rows.values() for class_id, _ in atoms})
+    index = {class_id: position for position, class_id in enumerate(class_ids)}
+    atoms = [atom for record_id in order for atom in rows[record_id]]
+    return geometry.DescriptorPool(
+        record_ids=order,
+        offsets=np.cumsum([0, *(len(rows[record_id]) for record_id in order)]),
+        class_ids=class_ids,
+        classes=np.asarray([index[class_id] for class_id, _ in atoms], dtype=np.int32),
+        vectors=np.stack([vector for _, vector in atoms])
+        if atoms
+        else np.zeros((0, dimension), dtype=np.float32),
+    )
+
+
+@pytest.mark.parametrize("chunk_bytes", [None, 64])
+def test_descriptor_pool_matches_the_mapping(
+    chunk_bytes: int | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if chunk_bytes is not None:
+        monkeypatch.setattr(geometry, "_CHUNK_BYTES", chunk_bytes)
+    for seed in range(60):
+        rng = np.random.default_rng(seed)
+        dimension = int(rng.choice([1, 3, 17, 680]))
+        rows: dict[str, list[tuple[str, Any]]] = {}
+        groups: dict[str, str | None] = {}
+        for index in range(int(rng.integers(0, 25))):
+            record_id = f"r{int(rng.integers(0, 10**6)):06d}-{index}"
+            rows[record_id] = [
+                (
+                    f"c{int(rng.integers(0, 4))}",
+                    np.zeros(dimension, np.float32)
+                    if rng.random() < 0.05
+                    else rng.normal(size=dimension).astype(np.float32),
+                )
+                for _ in range(int(rng.integers(0, 8)))
+            ]
+            groups[record_id] = None if rng.random() < 0.3 else f"g{index % 3}"
+        pool = as_pool(rows, dimension, seed)
+        options: dict[str, Any] = {
+            "group_ids": groups,
+            "radius": float(rng.choice([0.0, 0.3, 1.0])),
+            "prototype_cap": int(rng.integers(1, 5)),
+            "reservoir_size": int(rng.integers(1, 12)),
+            "seed": seed % 3,
+        }
+        assert_regions_equal(
+            geometry.build_geometry_regions(pool, **options),
+            geometry.build_geometry_regions(rows, **options),
+        )
+        chosen = [rid for rid in rows if rng.random() < 0.3]
+        assert geometry.nearest_selected_distances(
+            pool, chosen, sample_size=7, seed=seed
+        ) == geometry.nearest_selected_distances(rows, chosen, sample_size=7, seed=seed)
+
+
+def test_pool_regions_report_python_atom_indices() -> None:
+    rows = {"a": [("x", vector(1, 0)), ("x", vector(0, 1))]}
+    regions = geometry.build_geometry_regions(
+        as_pool(rows, 2, 0), radius=0.1, prototype_cap=1
+    )
+    assert [type(row[1]) for row in regions.overflow] == [int]
+
+
+def pool_with(**changes: Any) -> geometry.DescriptorPool:
+    base = geometry.DescriptorPool(
+        record_ids=["a", "b"],
+        offsets=np.asarray([0, 1, 2]),
+        class_ids=["x"],
+        classes=np.asarray([0, 0]),
+        vectors=np.ones((2, 3), dtype=np.float32),
+    )
+    return replace(base, **changes)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"offsets": np.asarray([0, 2])},
+        {"offsets": np.asarray([1, 1, 2])},
+        {"offsets": np.asarray([0, 1, 3])},
+        {"offsets": np.asarray([0, 2, 1])},
+        {"vectors": np.ones(2, dtype=np.float32)},
+        {"vectors": np.ones((3, 3), dtype=np.float32)},
+        {"vectors": np.ones((2, 0), dtype=np.float32)},
+        {"classes": np.asarray([0, 1])},
+        {"classes": np.asarray([-1, 0])},
+        {"record_ids": ["a", "a"]},
+    ],
+)
+def test_inconsistent_pools_are_rejected(changes: dict[str, Any]) -> None:
+    pool = pool_with(**changes)
+    with pytest.raises(ConfigError, match="inconsistent"):
+        geometry.build_geometry_regions(pool)
+    with pytest.raises(ConfigError, match="inconsistent"):
+        geometry.nearest_selected_distances(pool, [])
+
+
+def test_nonfinite_pool_vectors_are_rejected() -> None:
+    pool = pool_with(vectors=np.asarray([[1, 0, 0], [np.nan, 0, 0]], np.float32))
+    with pytest.raises(ConfigError, match="finite"):
+        geometry.build_geometry_regions(pool)
+    with pytest.raises(ConfigError, match="finite"):
+        geometry.nearest_selected_distances(pool, ["a"])

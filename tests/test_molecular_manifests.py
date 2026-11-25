@@ -34,6 +34,7 @@ TABLES = (
     "geometry.parquet",
     "prototypes.npy",
     "overflow.parquet",
+    "atom_classes.npy",
 )
 
 
@@ -234,12 +235,18 @@ def minimal_targets(**regions: Any) -> Built:
     return candidates, {"t": Target()}, hierarchy, replace(geometry, **regions)
 
 
+ATOMS = (["t"], np.zeros(2, dtype=np.int32))
+
+
 def test_targets_without_prototypes_round_trip(tmp_path: Path) -> None:
     built = minimal_targets()
-    write_targets(tmp_path, built)
-    loaded = FrozenTargets(tmp_path).load()
-    assert as_compared(loaded) == as_compared(built)
+    write_targets(tmp_path, built, ATOMS)
+    targets = FrozenTargets(tmp_path)
+    assert as_compared(targets.load()) == as_compared(built)
     assert np.load(tmp_path / TARGET_TABLES / "prototypes.npy").shape == (0, 0)
+    classes = targets.atom_classes()
+    assert classes is not None
+    assert [classes[0][code] for code in classes[1]] == ["t", "t"]
 
 
 def test_target_writer_rejects_fractional_costs_and_mixed_dimensions(
@@ -248,10 +255,10 @@ def test_target_writer_rejects_fractional_costs_and_mixed_dimensions(
     candidates, mandatory, hierarchy, regions = minimal_targets()
     fractional = (replace(candidates[0], cost=2.5),)
     with pytest.raises(ConfigError, match="whole-number atom costs"):
-        write_targets(tmp_path, (fractional, mandatory, hierarchy, regions))
+        write_targets(tmp_path, (fractional, mandatory, hierarchy, regions), ATOMS)
     mixed = minimal_targets(
         prototypes={"a": np.zeros((1, 2)), "b": np.zeros((1, 3))},
         sampled_counts={"a": 1, "b": 1},
     )
     with pytest.raises(ConfigError, match="one descriptor dimension"):
-        write_targets(tmp_path, mixed)
+        write_targets(tmp_path, mixed, ATOMS)

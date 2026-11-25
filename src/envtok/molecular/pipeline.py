@@ -39,16 +39,24 @@ from envtok.molecular.data import (
 )
 from envtok.molecular.feature_cache import (
     FEATURES,
+    FeatureSummary,
     descriptor_file,
     read_feature_cache,
+    read_feature_summary,
     write_feature_cache,
 )
 from envtok.molecular.geometry import (
+    DescriptorPool,
     GeometryRegions,
     build_geometry_regions,
     nearest_selected_distances,
 )
-from envtok.molecular.manifests import TARGETS, FrozenTargets, write_targets
+from envtok.molecular.manifests import (
+    TARGETS,
+    AtomClasses,
+    FrozenTargets,
+    write_targets,
+)
 from envtok.molecular.manifests import read_json as _read_json
 from envtok.molecular.manifests import write_json as _write_json
 from envtok.molecular.records import MolecularRecord
@@ -71,6 +79,32 @@ IMPLEMENTATION_VERSION = "molecular_v1.6"
 
 def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, indent=2, allow_nan=False)
+
+
+def _mapped_classes(
+    features: Sequence[MolecularFeatures], mapping: Mapping[str, str]
+) -> AtomClasses:
+    """Each descriptor row's fitted class, from its atom's finest token."""
+    names = sorted(set(mapping.values()))
+    index = {name: position for position, name in enumerate(names)}
+    codes = np.fromiter(
+        (index[mapping[path[0]]] for f in features for path in f.token_hierarchy),
+        dtype=np.int32,
+        count=sum(len(f.token_hierarchy) for f in features),
+    )
+    return names, codes
+
+
+def _pool(
+    record_ids: Sequence[str],
+    atoms: Sequence[int],
+    classes: AtomClasses,
+    descriptors: npt.NDArray[np.float32],
+) -> DescriptorPool:
+    """Records' descriptor rows and classes, without per-atom objects."""
+    offsets = np.zeros(len(atoms) + 1, dtype=np.int64)
+    np.cumsum(atoms, out=offsets[1:])
+    return DescriptorPool(record_ids, offsets, classes[0], classes[1], descriptors)
 
 
 def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
@@ -331,6 +365,13 @@ class MolecularPipeline:
         return self._frozen_targets().load()
 
     def _load_features(self) -> tuple[MolecularFeatures, ...]:
+        features, self._descriptors = read_feature_cache(
+            self.feature_directory, self._feature_manifest()
+        )
+        return features
+
+    def _feature_manifest(self) -> dict[str, Any]:
+        """The committed feature manifest, matching the frozen run if loaded."""
         manifest_path = self.feature_directory / FEATURES
         commit = _read_json(self.feature_directory / "commit.json", {"features_sha256"})
         if (
@@ -344,11 +385,7 @@ class MolecularPipeline:
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-        manifest = _read_json(manifest_path, {"arrays_sha256"})
-        features, self._descriptors = read_feature_cache(
-            self.feature_directory, manifest
-        )
-        return features
+        return _read_json(manifest_path, {"arrays_sha256"})
 
     @property
     def seed(self) -> int:
@@ -491,8 +528,15 @@ class MolecularPipeline:
             rare_policy=hierarchy_settings["rare_policy"],
         )
         selection = self.settings["selection"]
+        atom_classes = _mapped_classes(features, hierarchy.mapping)
+        assert self._descriptors is not None  # noqa: S101 - set by featurize()
         regions = build_geometry_regions(
-            self.descriptor_rows(hierarchy),
+            _pool(
+                [f.record_id for f in features],
+                [len(f.token_hierarchy) for f in features],
+                atom_classes,
+                self._descriptors,
+            ),
             group_ids=families,
             radius=selection["prototype_region_radius"],
             prototype_cap=selection["prototype_cap"],
@@ -517,7 +561,9 @@ class MolecularPipeline:
             for row in candidates
             for token in sorted(row.targets - hierarchy.optional_targets)
         }
-        write_targets(self.directory, (candidates, mandatory, hierarchy, regions))
+        write_targets(
+            self.directory, (candidates, mandatory, hierarchy, regions), atom_classes
+        )
         # Hold the written prototypes as file pages rather than a second copy.
         regions = replace(
             regions, prototypes=FrozenTargets.unverified(self.directory).prototypes()
@@ -638,40 +684,47 @@ class MolecularPipeline:
             budget=self.atom_budget(),
         )
         manifest_path = self.feature_directory / FEATURES
+        summary: FeatureSummary | None = None
         if manifest_path.exists() and descriptor_file(self.feature_directory):
             provenance = _read_json(
                 self.directory / "provenance.json", {"features_sha256"}
             )
             if _file_hash(manifest_path) != provenance["features_sha256"]:
                 raise StaleCacheError("frozen molecular feature metadata changed")
-            features = self._load_features()
-            mapping = targets.mapping()
-            descriptors = {
-                feature.record_id: [
-                    (mapping[path[0]], vector)
-                    for path, vector in zip(
-                        feature.token_hierarchy, feature.descriptors, strict=True
-                    )
-                ]
-                for feature in features
-            }
+            summary = read_feature_summary(
+                self.feature_directory, self._feature_manifest()
+            )
+            atom_classes = targets.atom_classes()
+            if atom_classes is None:
+                features = summary.features or self._load_features()
+                atom_classes = _mapped_classes(features, targets.mapping())
             report["nearest_selected_distances"] = nearest_selected_distances(
-                descriptors, ids, seed=self.seed
+                _pool(
+                    summary.record_ids,
+                    summary.atoms,
+                    atom_classes,
+                    summary.descriptors,
+                ),
+                ids,
+                seed=self.seed,
             )
             report["geometry_audit_status"] = "available"
         else:
-            features = ()
             report["nearest_selected_distances"] = None
             report["geometry_audit_status"] = "unavailable_feature_cache"
         report["geometry_overflow_environments"] = targets.overflow_count()
-        report["graph_status"] = dict(
-            Counter(feature.graph_status for feature in features)
+        report["graph_status"] = dict(Counter(summary.graph_status if summary else ()))
+        report["zero_descriptor_atoms"] = (
+            {
+                record_id: zeros
+                for record_id, zeros in zip(
+                    summary.record_ids, summary.zero_descriptor_atoms, strict=True
+                )
+                if zeros
+            }
+            if summary
+            else {}
         )
-        report["zero_descriptor_atoms"] = {
-            feature.record_id: feature.zero_descriptor_atoms
-            for feature in features
-            if feature.zero_descriptor_atoms
-        }
         report["software_environment_matches_selection"] = (
             self.runtime_software == self.software
         )

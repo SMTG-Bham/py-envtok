@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 import yaml
 
@@ -219,3 +221,25 @@ def test_writer_rejects_inconsistent_descriptor_rows(
     with pytest.raises(ConfigError, match="atom count"):
         feature_cache.write_feature_cache(directory, iter(features), natoms, settings)
     assert not list(directory.glob("*.partial"))
+
+
+def test_audit_rejects_record_rows_that_do_not_match_descriptors(
+    example_config: dict[str, Any],
+) -> None:
+    pipeline = MolecularPipeline(example_config)
+    pipeline.select()
+    path = pipeline.feature_directory / "records.parquet"
+    table = pq.read_table(path)
+    atoms = table.column("atoms").to_pylist()
+    atoms[0] += 1
+    column = table.schema.get_field_index("atoms")
+    pq.write_table(table.set_column(column, "atoms", pa.array(atoms, pa.int64())), path)
+    rewrite(path, path.read_bytes(), pipeline)
+    provenance_path = pipeline.directory / "provenance.json"
+    provenance = json.loads(provenance_path.read_text())
+    provenance["features_sha256"] = hashlib.sha256(
+        (pipeline.feature_directory / "features.json").read_bytes()
+    ).hexdigest()
+    provenance_path.write_text(json.dumps(provenance))
+    with pytest.raises(StaleCacheError, match="descriptor cache"):
+        pipeline.audit()
