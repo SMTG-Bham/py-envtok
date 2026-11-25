@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from envtok.errors import ConfigError, EnvTokError
+from envtok.export import write_report
 from envtok.molecular import cli as molecular_cli
 from envtok.pipeline import Pipeline, load_selection, random_baselines
 
@@ -91,8 +92,7 @@ def _dispatch(arguments: argparse.Namespace) -> Any:  # noqa: PLR0911 - one exit
             return {"summary": random_baselines(arguments.run, arguments.seeds)}
         pipeline, result = load_selection(arguments.run)
         if command == "report":
-            result.write_manifest(arguments.run, config=pipeline.config.resolved())
-            return json.loads((arguments.run / "coverage.json").read_text())["classes"]
+            return write_report(result, arguments.run)["classes"]
         fmt = arguments.format or pipeline.config.output.format
         suffix = ".extxyz" if fmt == "extxyz" else ".db"
         target = arguments.output or arguments.run / f"subset{suffix}"

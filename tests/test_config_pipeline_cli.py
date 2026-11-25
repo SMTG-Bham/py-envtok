@@ -467,8 +467,18 @@ class TestCli:
             ["sweep", "--config", config, "--min-support", "2", "3"], capsys
         )
         assert Path(sweep["summary"]).exists()
+        frozen = {
+            path: path.read_bytes()
+            for path in run_dir.rglob("*")
+            if path.is_file() and path.name not in {"coverage.json", "report.html"}
+        }
+        (run_dir / "coverage.json").unlink()
+        (run_dir / "report.html").unlink()
         classes = self.run(["report", "--run", str(run_dir)], capsys)
         assert classes["fraction"] == 1.0
+        assert json.loads((run_dir / "coverage.json").read_text())["classes"] == classes
+        assert (run_dir / "report.html").is_file()
+        assert all(path.read_bytes() == data for path, data in frozen.items())
         target = tmp_path / "out.db"
         exported = self.run(
             [

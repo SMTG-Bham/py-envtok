@@ -127,16 +127,22 @@ def write_manifest(
         directory / "provenance.json",
         json.dumps(collect(result), indent=1, default=str) + "\n",
     )
+    write_report(result, directory)
+    if save_classes:
+        classes.save(directory / "classes")
+    return directory
+
+
+def write_report(result: SelectionResult, directory: Path) -> dict[str, Any]:
+    """Regenerate the independent audit and HTML report for a selection."""
     report = audit(result)
-    tables = diagnostics(classes, result.record_ids)
+    tables = diagnostics(result.classes, result.record_ids)
     _atomic_text(
         directory / "coverage.json",
         json.dumps({**report, "diagnostics": tables}, indent=1, default=str) + "\n",
     )
     _atomic_text(directory / "report.html", render_html(report, tables))
-    if save_classes:
-        classes.save(directory / "classes")
-    return directory
+    return report
 
 
 def _frozen(atoms: Atoms) -> Atoms:
