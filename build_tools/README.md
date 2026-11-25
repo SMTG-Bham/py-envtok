@@ -67,7 +67,9 @@ The selection benchmark defaults to 1,000 synthetic records, 200 possible tokens
 and T=5. The molecular benchmark times `selection` (cover mode, and budget
 mode with a 10% background reserve) or `geometry` (region fitting and the
 nearest-selected audit) on synthetic pools of the given sizes; `pipeline
---config` times each stage of a real configuration. The periodic check uses 20 generated fixtures in native LMDB storage,
+--config` reports each stage's time and peak resident memory for a real
+configuration, and the size of each artifact. `replicate` writes perturbed
+copies of a source for `pipeline --source` to measure larger pools. The periodic check uses 20 generated fixtures in native LMDB storage,
 including real geometry, two worker counts and interrupted restart. Supply
 `--source` and `--revision` to the periodic runner for a small real native shard.
 The molecular screen trains a cheap CPU energy/force model on the bundled OMol
