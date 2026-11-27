@@ -590,6 +590,30 @@ def test_registry_merge_rejects_conflicting_payloads() -> None:
         registry.merge({token: '{"a":2}'})
 
 
+def test_materialized_features_share_repeated_signature_text() -> None:
+    record = _record()
+    first, second = rep.featurize_records([record, record], _radial())
+    assert first.signatures is not second.signatures
+    assert all(first.signatures[t] is second.signatures[t] for t in first.signatures)
+
+
+def test_stream_rejects_a_token_collision_between_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Radius zero and one atom give each record a single token. The conflict
+    # is observable only after the first record's local registry is gone.
+    digest = MagicMock()
+    digest.hexdigest.return_value = "constant"
+    monkeypatch.setattr(rep, "sha256", lambda _: digest)
+    settings = _radial(graph_radius=0)
+    hydrogen = _record(Atoms("H"))
+    oxygen = _record(Atoms("O"))
+    features = rep.iter_features([hydrogen, hydrogen, oxygen], settings)
+    assert next(features).signatures == next(features).signatures
+    with pytest.raises(ConfigError, match="digest collision"):
+        next(features)
+
+
 def test_worker_batches_match_serial_features() -> None:
     records = [
         replace(_record(item), record=replace(_record(item).record, record_id=f"r{i}"))

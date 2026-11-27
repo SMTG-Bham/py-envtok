@@ -21,7 +21,7 @@ from collections import deque
 from collections.abc import Iterator, Mapping, Sequence
 from concurrent.futures import Future, ProcessPoolExecutor
 from dataclasses import dataclass, field, replace
-from hashlib import sha256
+from hashlib import blake2b, sha256
 from typing import Any
 
 import numpy as np
@@ -146,6 +146,21 @@ class SignatureRegistry:
         previous = self.signatures.setdefault(token, serialized)
         if previous != serialized:
             raise ConfigError(f"molecular token digest collision: {token}")
+
+
+class _SignatureDigests:
+    """Check signatures across streamed records without retaining their text."""
+
+    def __init__(self) -> None:
+        self.digests: dict[str, bytes] = {}
+
+    def merge(self, signatures: Mapping[str, str]) -> None:
+        for token, payload in signatures.items():
+            # Use an independent hash: a collision in the SHA-256 token must
+            # still be detectable after the original payload has been written.
+            digest = blake2b(payload.encode(), digest_size=16).digest()
+            if self.digests.setdefault(token, digest) != digest:
+                raise ConfigError(f"molecular token digest collision: {token}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -835,11 +850,19 @@ def featurize_records(
     caller must not include held-out records when fitting this vocabulary.
     See :func:`iter_features` for ``workers`` and ``threads_per_worker``.
     """
-    return list(
-        iter_features(
-            records, settings, workers=workers, threads_per_worker=threads_per_worker
-        )
-    )
+    # This API keeps all results. Share repeated payload strings for as long
+    # as the returned records live, without imposing that lifetime on streams.
+    shared: dict[str, str] = {}
+    features = []
+    for feature in iter_features(
+        records, settings, workers=workers, threads_per_worker=threads_per_worker
+    ):
+        signatures = {
+            token: shared.setdefault(token, payload)
+            for token, payload in feature.signatures.items()
+        }
+        features.append(replace(feature, signatures=signatures))
+    return features
 
 
 MAX_BATCH = 64
@@ -871,16 +894,17 @@ def iter_features(
                 sorted({int(z) for record in records for z in record.atoms.numbers})
             ),
         )
+    digests = _SignatureDigests()
     if workers <= 1 or len(records) <= 1:
-        registry = SignatureRegistry()
         for record in records:
-            yield featurize(record, settings, registry=registry)
+            feature = featurize(record, settings)
+            digests.merge(feature.signatures)
+            yield feature
         return
     from envtok.store.executor import thread_limits  # noqa: PLC0415
 
     size = max(1, min(MAX_BATCH, math.ceil(len(records) / (4 * workers))))
     starts = iter(range(0, len(records), size))
-    registry = SignatureRegistry()
     with (
         thread_limits(threads_per_worker),
         ProcessPoolExecutor(
@@ -899,7 +923,7 @@ def iter_features(
             done = pending.popleft()
             pending.extend(map(submit, itertools.islice(starts, 1)))
             for feature in done.result():
-                registry.merge(feature.signatures)
+                digests.merge(feature.signatures)
                 yield feature
 
 
