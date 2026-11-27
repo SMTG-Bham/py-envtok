@@ -284,8 +284,10 @@ def _label_identity(record: MolecularRecord) -> str:
 
 def _groups(
     records: list[MolecularRecord], include_constraints: bool
-) -> tuple[dict[str, str], list[str]]:
+) -> tuple[dict[str, str], dict[str, str], list[str]]:
+    """Find split groups and the first record ID for each repeated exact identity."""
     parents = {record.record_id: record.record_id for record in records}
+    exact_matches: dict[str, str] = {}
 
     def root(key: str) -> str:
         while parents[key] != key:
@@ -324,11 +326,15 @@ def _groups(
         )
         for key in keys:
             if key in owners:
-                left, right = root(record.record_id), root(owners[key])
+                owner = owners[key]
+                if key[0] == "exact_record":
+                    exact_matches[owner] = owner
+                    exact_matches[record.record_id] = owner
+                left, right = root(record.record_id), root(owner)
                 parents[max(left, right)] = min(left, right)
             else:
                 owners[key] = record.record_id
-    return {key: root(key) for key in parents}, warnings
+    return {key: root(key) for key in parents}, exact_matches, warnings
 
 
 def _development_split(
@@ -367,6 +373,35 @@ def _development_split(
     return result, warnings
 
 
+def _eligible_records(
+    records: Iterable[MolecularRecord],
+) -> tuple[list[MolecularRecord], list[dict[str, Any]]]:
+    """Collect eligible records and exclusions in stable record-ID order."""
+    eligible, exclusions = [], []
+    previous_id = None
+    for record in sorted(records, key=lambda item: item.record_id):
+        if record.record_id == previous_id:
+            raise DuplicateRecordError(
+                f"duplicate molecular record ID: {record.record_id}"
+            )
+        previous_id = record.record_id
+        issues = validate_molecular_record(record)
+        failed = [issue for issue in issues if issue.severity is not IssueSeverity.WARN]
+        if failed:
+            exclusions.append(
+                {
+                    "record_id": record.record_id,
+                    "reasons": [
+                        {"code": issue.code, "message": issue.message}
+                        for issue in failed
+                    ],
+                }
+            )
+        else:
+            eligible.append(record)
+    return eligible, exclusions
+
+
 def prepare_records(
     records: Iterable[MolecularRecord],
     *,
@@ -382,36 +417,19 @@ def prepare_records(
     """
     if not 0.0 <= validation_fraction < 1.0:
         raise ConfigError("validation_fraction must lie in [0, 1)")
-    eligible, exclusions = [], []
-    seen_ids: set[str] = set()
-    for record in sorted(records, key=lambda item: item.record_id):
-        if record.record_id in seen_ids:
-            raise DuplicateRecordError(
-                f"duplicate molecular record ID: {record.record_id}"
-            )
-        seen_ids.add(record.record_id)
-        issues = validate_molecular_record(record)
-        failed = [issue for issue in issues if issue.severity is not IssueSeverity.WARN]
-        if failed:
-            exclusions.append(
-                {
-                    "record_id": record.record_id,
-                    "reasons": [
-                        {"code": issue.code, "message": issue.message}
-                        for issue in failed
-                    ],
-                }
-            )
-        else:
-            eligible.append(record)
-    groups, warnings = _groups(eligible, include_constraints)
-    exact: dict[str, list[tuple[MolecularRecord, str]]] = {}
+    eligible, exclusions = _eligible_records(records)
+    groups, exact_matches, warnings = _groups(eligible, include_constraints)
+    compared: dict[str, list[tuple[MolecularRecord, str]]] = {}
     lineage: dict[str, list[str]] = {}
     kept, conflicts, cross_split = [], [], []
     for record in eligible:
-        identity = exact_identity(record, include_constraints=include_constraints)
+        # Also check that unique records' labels are finite and serializable.
         labels = _label_identity(record)
-        previous = exact.setdefault(identity, [])
+        first = exact_matches.get(record.record_id)
+        if first is None:
+            kept.append(record)
+            continue
+        previous = compared.setdefault(first, [])
         duplicate = None
         for other, other_labels in previous:
             if record.split is not other.split:

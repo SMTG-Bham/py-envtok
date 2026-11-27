@@ -396,6 +396,12 @@ results (including descriptors) fell from 37.27 to 36.34 MiB. Feature-cache
 files, selection and export matched byte for byte with one and two workers.
 Whole-run parent peak RSS on this sample was similar before and after.
 
+Reusing exact identities during preparation reduced the median time to validate,
+group and deduplicate those 512 records from 0.163 to 0.097 seconds over three
+warm single-process runs. Peak traced Python allocations during preparation
+fell from 472 to 325 KiB. Both measurements exclude reading the source and the
+memory occupied by the input records.
+
 `build_tools/benchmark_molecular.py` measured perturbed copies of the 29 bundled
 OMol records, with `omol_metadata` removed, through `select()` in budget mode
 (25% of atoms, 10% reserve) with SOAP descriptors on one 20-core machine with

@@ -436,6 +436,30 @@ def test_conflicting_labels_and_cross_split_duplicates_remain_reported() -> None
     )
 
 
+def test_prepare_hashes_each_exact_identity_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    records = list(
+        from_atoms(
+            [water(family_id="A"), water(family_id="B"), water(total_charge=1)],
+            label_namespace="method",
+        )
+    )
+    hashed = []
+
+    def counted(record: MolecularRecord, *, include_constraints: bool) -> str:
+        hashed.append(record.record_id)
+        return exact_identity(record, include_constraints=include_constraints)
+
+    monkeypatch.setattr("envtok.molecular.data.exact_identity", counted)
+    prepared = prepare_records(reversed(records))
+    assert hashed == [r.record_id for r in records]
+    assert prepared.duplicate_lineage == {records[0].record_id: [records[1].record_id]}
+    assert [r.record_id for r in prepared.candidates] == [
+        r.record_id for r in records[::2]
+    ]
+
+
 def test_development_split_groups_transitive_relations_and_preserves_official() -> None:
     atoms = [
         water(family_id="A"),

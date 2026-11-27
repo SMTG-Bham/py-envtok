@@ -7,6 +7,9 @@
 - Streaming molecular featurisation retains a 16-byte collision-check digest
   per token. Worker batches share a signature table and encode token references
   as integers. Saved features and per-record signatures retain their format.
+- Molecular preparation computes each eligible record's exact identity once.
+  Only records with matching identities need entries in the label comparison
+  table used for deduplication.
 
 ## 0.1.0a3 — 2026-11-27
 
