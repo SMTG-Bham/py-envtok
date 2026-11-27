@@ -98,3 +98,6 @@ confirm both in the authenticated PyPI and GitHub settings before publishing.
 
 The trigger is the GitHub release's `published` event. A tag and a draft
 release can both exist before the upload.
+
+For a GitHub-only release, include `<!-- skip-pypi -->` in the release notes
+before publishing. This skips the PyPI job while leaving qualification enabled.

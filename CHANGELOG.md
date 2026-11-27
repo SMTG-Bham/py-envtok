@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0a4 — 2026-11-27
+
 ### Changed
 
 - Streaming molecular featurisation retains a 16-byte collision-check digest
