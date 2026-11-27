@@ -1,7 +1,7 @@
 """Restartable molecular pilot pipeline, manifests and independent auditing.
 
-This implementation is intended for measured pilot pools. Records and incidence
-are held in memory; full-dataset sharding is a separate scaling milestone.
+Fresh runs keep full records through featurisation. Target fitting, selection
+and audit use compact candidate metadata and in-memory incidence.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import math
 import platform
 import time
 from collections import Counter
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from importlib import metadata
 from pathlib import Path
@@ -76,7 +76,7 @@ from envtok.molecular.selection import (
     build_hierarchy,
     select_candidates,
 )
-from envtok.records import SourceRef
+from envtok.records import SourceRef, Split
 from envtok.selection.incidence import check_budget
 
 IMPLEMENTATION_VERSION = "molecular_v1.7"
@@ -172,7 +172,9 @@ class _CandidateIndex:
     split_sha256: str
 
     @classmethod
-    def from_prepared(cls, prepared: PreparedRecords) -> _CandidateIndex:
+    def from_records(
+        cls, records: Iterable[MolecularRecord], split_sha256: str
+    ) -> _CandidateIndex:
         rows = {
             r.record_id: _CandidateInfo(
                 natoms=r.natoms,
@@ -186,9 +188,9 @@ class _CandidateIndex:
                 split=r.split.value,
                 source_ref=r.record.source_ref,
             )
-            for r in prepared.candidates
+            for r in records
         }
-        return cls(rows, _digest(prepared.split_manifest))
+        return cls(rows, split_sha256)
 
 
 def _file_hash(path: Path) -> str:
@@ -518,32 +520,60 @@ class MolecularPipeline:
         return prepared
 
     def _candidate_index(self) -> _CandidateIndex:
+        if self._index is None and self._loaded and self._prepared is None:
+            self._index = self._saved_candidate_index()
         if self._index is None:
-            self._index = _CandidateIndex.from_prepared(self.ingest())
+            prepared = self.ingest()
+            self._index = _CandidateIndex.from_records(
+                prepared.candidates, _digest(prepared.split_manifest)
+            )
             if self._loaded:
                 self._prepared = None
         return self._index
+
+    def _saved_candidate_index(self) -> _CandidateIndex | None:
+        """Stream summaries for the training IDs in a verified split manifest."""
+        provenance = _read_json(self.directory / "provenance.json", set())
+        digest = provenance.get("split_sha256")
+        if not digest:
+            return None
+        try:
+            splits = _read_json(self.directory / "splits.json", set())
+            verified = _digest(splits) == digest
+        except (StaleCacheError, ValueError):
+            return None
+        if not verified:
+            # Runs can be restored without these optional reports. Recompute
+            # eligibility from the verified source if the manifest is unusable.
+            return None
+        candidates = (
+            r for r in self._source_records() if splits.get(r.record_id) == Split.TRAIN
+        )
+        index = _CandidateIndex.from_records(candidates, digest)
+        self._check_source()
+        return index
 
     def featurize(self) -> tuple[MolecularFeatures, ...]:
         """Fit species on training candidates and cache local features."""
         self._check_source()
         if self._features is not None:
             return self._features
-        records = self.ingest().candidates
-        if not records:
-            raise ConfigError(
-                "no eligible training candidates; official held-out splits "
-                "are never used for fitting"
-            )
-        if not self._loaded:
-            self._check_memory(records)
+        prepared = None if self._loaded else self.ingest()
+        if prepared is not None:
+            if not prepared.candidates:
+                raise ConfigError(
+                    "no eligible training candidates; official held-out splits "
+                    "are never used for fitting"
+                )
+            self._check_memory(prepared.candidates)
         start = time.perf_counter()
         commit_path = self.feature_directory / COMMIT
-        if self._loaded or (
+        if prepared is None or (
             self.settings["execution"]["resume"] and commit_path.exists()
         ):
             features = self._load_features()
         else:
+            records = prepared.candidates
             geometry = {
                 key: value
                 for key, value in self.settings["geometry"].items()
@@ -571,7 +601,8 @@ class MolecularPipeline:
                 settings,
             )
         self._check_source()
-        self._candidate_index()
+        if self._prepared is not None:
+            self._candidate_index()
         self._features = features
         self._prepared = None
         self.timings["featurize_seconds"] = time.perf_counter() - start

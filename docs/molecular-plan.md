@@ -101,6 +101,5 @@ separate reaction/cluster/metal/polymer/periodic profiles stay outside this
 small acceptance pass. Local parallel featurisation, a single memory-mapped
 descriptor array, columnar target and feature manifests and a memory budget
 have since been added (see the scaling tracking issue,
-SMTG-Bham/py-envtok#14). The pipeline still holds records and incidence in
-memory. These limits remain documented, rather than being treated as
-prerequisites for a useful local workflow.
+SMTG-Bham/py-envtok#14). Full records must still fit in memory during preparation
+and featurisation. Later stages retain compact candidate metadata and incidence.

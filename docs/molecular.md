@@ -344,8 +344,18 @@ directories. Descriptor arrays can be reused across selection settings; source,
 state mappings, representation settings/version and recorded software changes
 use another feature cache. Repeating deterministic stages preserves selected
 IDs. Set `execution.resume: false` in a new run configuration to recompute
-features. This pilot implementation holds records and incidence in memory and
-does not yet provide cluster sharding.
+features. The pilot runs on a single machine. A fresh run holds full molecular
+records through featurisation.
+Target fitting, selection and audit then use compact candidate metadata and
+in-memory incidence. Calling `ingest()` explicitly can materialise all records
+again. Export reads the selected frames in selection order from the verified
+source. Indexed plain files yield one frame at a time. Sequential compressed
+files buffer selected frames during a filtered pass so export can restore their
+selection order.
+
+On a saved run, audit can rebuild the candidate metadata in a pass over the
+source using the recorded split assignments. If the split manifest is missing
+or fails verification, the pipeline repeats preparation from the source.
 
 ### Workers and memory
 
@@ -398,3 +408,11 @@ reports. Most of the remaining target size is the float64 prototypes
 not fit in that machine's page cache. The select stage took 480 s but used only
 91 s of CPU, waiting on disk reads for the rest; target fitting took 410 s, and
 how much of that was paging was not measured.
+
+On the 512-record native OMol25 compression sample, a single-worker check of
+the record-lifetime change counted 512 original ASE atom objects still reachable
+after featurisation before the change and zero afterward. The selected IDs,
+selected manifest, coverage report and exported structures matched byte for
+byte. Peak process RSS through export was about 490 MiB before and 485 MiB
+after in this small run. Peak memory at 100k records with this change remains
+unmeasured.

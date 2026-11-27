@@ -123,7 +123,33 @@ def test_features_release_records_and_later_stages_export_identically(
     assert [r.record_id for r in pipeline.ingest().candidates] == ids
     loaded = MolecularPipeline.load_run(pipeline.directory)
     saved = (pipeline.directory / "subset.extxyz").read_bytes()
+    monkeypatch.setattr(loaded, "ingest", forbidden)
+    loaded.featurize()
     assert loaded.export(tmp_path / "reloaded.extxyz").read_bytes() == saved
+
+
+@pytest.mark.parametrize("missing", ["digest", "file", "invalid", "wrong-splits"])
+def test_loaded_audit_with_unusable_split_manifest(
+    molecular_config: dict[str, Any],
+    missing: str,
+) -> None:
+    pipeline = MolecularPipeline(molecular_config)
+    directory = pipeline.run()
+    original = (directory / "coverage.json").read_bytes()
+    splits = directory / "splits.json"
+    if missing == "digest":
+        path = directory / "provenance.json"
+        provenance = json.loads(path.read_text())
+        del provenance["split_sha256"]
+        write_json(path, provenance)
+    elif missing == "file":
+        splits.unlink()
+    elif missing == "invalid":
+        splits.write_text("invalid JSON")
+    else:
+        write_json(splits, {})
+    MolecularPipeline.load_run(directory).audit()
+    assert (directory / "coverage.json").read_bytes() == original
 
 
 @pytest.mark.parametrize("budget", [0, 2, 5])

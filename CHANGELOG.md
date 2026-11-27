@@ -14,6 +14,10 @@
 
 ### Changed
 
+- Molecular selection and audit keep compact candidate metadata after
+  featurisation. Export reads selected frames from the source. Saved runs can
+  audit and export using verified split assignments without loading the full
+  record pool into memory.
 - Molecular feature caches and run targets are stored as Parquet tables and
   NumPy arrays, indexed by small `features.json` and `targets.json` manifests
   that record each file's digest. Token strings are stored once and shared when
