@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Streaming molecular featurisation retains a 16-byte collision-check digest
+  per token. Worker batches share a signature table and encode token references
+  as integers. Saved features and per-record signatures retain their format.
+
 ## 0.1.0a3 — 2026-11-27
 
 ### Added

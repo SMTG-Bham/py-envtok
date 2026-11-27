@@ -361,10 +361,14 @@ or fails verification, the pipeline repeats preparation from the source.
 
 Featurisation can run in local worker processes. Set `execution.workers` to
 the number of processes and `execution.threads_per_worker` to cap the native
-threads in each (both default to 1). Records are split into ordered batches,
-and every worker's signatures are merged into one registry, so the features are
-identical to a serial run and a digest collision between batches is still
-rejected. Worker settings are left out of run and feature fingerprints, so
+threads in each (both default to 1). Each worker returns one table of distinct
+tokens and signature payloads per batch. Atom hierarchies and safeguards refer
+to rows of that table. The parent reconstructs each record's signatures and
+checks for conflicts using a 16-byte BLAKE2b digest per SHA-256 token. Serial
+featurisation uses the same check across records. An explicitly supplied
+`SignatureRegistry` still retains the full payloads.
+
+Worker settings are left out of run and feature fingerprints, so
 changing them reuses an existing run. Starting the workers takes several
 seconds, because each imports the descriptor and perception libraries, so
 pools that featurise in a few seconds gain little. Use at most one worker per
@@ -384,6 +388,13 @@ the page cache and are not counted. Like the worker settings, the budget does
 not change run or feature fingerprints.
 
 ### Scale measurements
+
+On the 512-record native OMol25 compression sample, the collision registry
+retained 4.04 MiB of Python allocations for 21,733 tokens, down from 9.63 MiB
+with payload strings. Across eight 64-record SOAP batches, serialized worker
+results (including descriptors) fell from 37.27 to 36.34 MiB. Feature-cache
+files, selection and export matched byte for byte with one and two workers.
+Whole-run parent peak RSS on this sample was similar before and after.
 
 `build_tools/benchmark_molecular.py` measured perturbed copies of the 29 bundled
 OMol records, with `omol_metadata` removed, through `select()` in budget mode

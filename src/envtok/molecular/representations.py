@@ -768,6 +768,15 @@ def _torsion_targets(
     return targets
 
 
+def _record_signatures(
+    hierarchy: Sequence[tuple[str, ...]],
+    safeguards: tuple[str, ...],
+    signatures: Mapping[str, str],
+) -> dict[str, str]:
+    used = {token for path in hierarchy for token in path}.union(safeguards)
+    return {token: signatures[token] for token in sorted(used)}
+
+
 def featurize(
     record: MolecularRecord,
     settings: RepresentationSettings,
@@ -822,14 +831,12 @@ def featurize(
             )
         )
     )
-    used = {token for row in hierarchy for token in row} | set(safeguards)
-    signatures = {token: registry.signatures[token] for token in sorted(used)}
     return MolecularFeatures(
         record.record_id,
         record.family_id,
         record.state_key,
         tuple(hierarchy),
-        signatures,
+        _record_signatures(hierarchy, safeguards, registry.signatures),
         descriptors,
         status,
         safeguards,
@@ -867,6 +874,43 @@ def featurize_records(
 
 MAX_BATCH = 64
 """Records per worker batch at most, bounding the descriptors in flight."""
+
+
+@dataclass(slots=True)
+class _BatchRecord:
+    """In transit, hierarchy paths and safeguards index the batch vocabulary."""
+
+    record_id: str
+    family_id: str | None
+    state_key: StateKey
+    paths: tuple[tuple[int, ...], ...]
+    descriptors: npt.NDArray[np.float32]
+    graph_status: str
+    safeguards: tuple[int, ...]
+    zeros: tuple[int, ...]
+
+
+@dataclass(slots=True)
+class _FeatureBatch:
+    signatures: dict[str, str]
+    records: list[_BatchRecord]
+
+    def __iter__(self) -> Iterator[MolecularFeatures]:
+        tokens = tuple(self.signatures)
+        for r in self.records:
+            hierarchy = tuple(tuple(map(tokens.__getitem__, path)) for path in r.paths)
+            safeguards = tuple(map(tokens.__getitem__, r.safeguards))
+            yield MolecularFeatures(
+                r.record_id,
+                r.family_id,
+                r.state_key,
+                hierarchy,
+                _record_signatures(hierarchy, safeguards, self.signatures),
+                r.descriptors,
+                r.graph_status,
+                safeguards,
+                r.zeros,
+            )
 
 
 def iter_features(
@@ -912,7 +956,7 @@ def iter_features(
         ) as pool,
     ):
 
-        def submit(start: int) -> Future[list[MolecularFeatures]]:
+        def submit(start: int) -> Future[_FeatureBatch]:
             batch = records[start : start + size]
             return pool.submit(_featurize_batch, batch, settings)
 
@@ -922,13 +966,35 @@ def iter_features(
         while pending:
             done = pending.popleft()
             pending.extend(map(submit, itertools.islice(starts, 1)))
-            for feature in done.result():
-                digests.merge(feature.signatures)
-                yield feature
+            batch = done.result()
+            digests.merge(batch.signatures)
+            yield from batch
 
 
 def _featurize_batch(
     records: Sequence[MolecularRecord], settings: RepresentationSettings
-) -> list[MolecularFeatures]:
+) -> _FeatureBatch:
     registry = SignatureRegistry()
-    return [featurize(record, settings, registry=registry) for record in records]
+    positions: dict[str, int] = {}
+    packed = []
+    for record in records:
+        feature = featurize(record, settings, registry=registry)
+        for token in feature.signatures:
+            positions.setdefault(token, len(positions))
+        packed.append(
+            _BatchRecord(
+                feature.record_id,
+                feature.family_id,
+                feature.state_key,
+                tuple(
+                    tuple(map(positions.__getitem__, path))
+                    for path in feature.token_hierarchy
+                ),
+                feature.descriptors,
+                feature.graph_status,
+                tuple(map(positions.__getitem__, feature.safeguard_targets)),
+                feature.zero_descriptor_atoms,
+            )
+        )
+    signatures = {token: registry.signatures[token] for token in positions}
+    return _FeatureBatch(signatures, packed)

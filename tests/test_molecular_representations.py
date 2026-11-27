@@ -597,8 +597,10 @@ def test_materialized_features_share_repeated_signature_text() -> None:
     assert all(first.signatures[t] is second.signatures[t] for t in first.signatures)
 
 
+@pytest.mark.parametrize("workers", [1, 2])
 def test_stream_rejects_a_token_collision_between_records(
     monkeypatch: pytest.MonkeyPatch,
+    workers: int,
 ) -> None:
     # Radius zero and one atom give each record a single token. The conflict
     # is observable only after the first record's local registry is gone.
@@ -608,7 +610,18 @@ def test_stream_rejects_a_token_collision_between_records(
     settings = _radial(graph_radius=0)
     hydrogen = _record(Atoms("H"))
     oxygen = _record(Atoms("O"))
-    features = rep.iter_features([hydrogen, hydrogen, oxygen], settings)
+    # Run the worker function locally so it sees the forced hash collision.
+    # With three records and two workers, each submitted batch has one record.
+    pool = MagicMock()
+    pool.return_value.__enter__.return_value.submit.side_effect = lambda func, *args: (
+        MagicMock(result=lambda: func(*args))
+    )
+    monkeypatch.setattr(rep, "ProcessPoolExecutor", pool)
+    with pytest.raises(ConfigError, match="digest collision"):
+        rep._featurize_batch([hydrogen, oxygen], settings)
+    features = rep.iter_features(
+        [hydrogen, hydrogen, oxygen], settings, workers=workers
+    )
     assert next(features).signatures == next(features).signatures
     with pytest.raises(ConfigError, match="digest collision"):
         next(features)
@@ -620,7 +633,11 @@ def test_worker_batches_match_serial_features() -> None:
         for i, item in enumerate([molecule("H2O"), molecule("CH4")])
     ]
     settings = rep.RepresentationSettings(backend="radial", species=(1, 6, 8))
+    records[0].atoms.info["fragment_ids"] = [0, 0, 1]
     batch = rep._featurize_batch(records, settings)
     serial = rep.featurize_records(records, settings)
+    assert serial[0].safeguard_targets
+    assert batch.signatures == {t: s for f in serial for t, s in f.signatures.items()}
+    assert [f.safeguard_targets for f in batch] == [f.safeguard_targets for f in serial]
     assert [f.token_hierarchy for f in batch] == [f.token_hierarchy for f in serial]
     assert [f.signatures for f in batch] == [f.signatures for f in serial]
