@@ -66,9 +66,7 @@ def dispatch(arguments: argparse.Namespace) -> Any:  # noqa: PLR0911 - stage dis
             getattr(arguments, "num_shards", 1) != 1
             or getattr(arguments, "shard_index", 0) != 0
         ):
-            raise ConfigError(
-                "molecular pilot featurization is serial; sharding is not implemented"
-            )
+            raise ConfigError("molecular featurization does not support sharding")
         return {
             "records": len(pipeline.featurize()),
             "features": pipeline.feature_directory,

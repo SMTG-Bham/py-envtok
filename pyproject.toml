@@ -4,8 +4,8 @@ build-backend = "uv_build"
 
 [project]
 name = "py-envtok"
-version = "0.1.0a5"
-description = "Interpretable local-environment tokens and coverage-guaranteed subset selection for atomistic datasets."
+version = "1.0.0"
+description = "Python toolkit for selecting compact subsets of atomistic datasets and auditing local chemical-environment coverage."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 license = "MIT"
@@ -22,9 +22,9 @@ keywords = [
   "subset selection",
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Science/Research",
-  "Operating System :: OS Independent",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -76,6 +76,16 @@ test = [
 
 [tool.uv.build-backend]
 module-name = "envtok"
+source-include = [
+  "CHANGELOG.md",
+  "docs/discrepancies.md",
+  "docs/molecular.md",
+  "docs/specification.md",
+  "examples/quickstart/README.md",
+  "examples/quickstart/config.yaml",
+  "examples/quickstart/quickstart.py",
+  "tests/fixtures/corpus.extxyz",
+]
 
 [tool.pytest]
 minversion = "9.1"

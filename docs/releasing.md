@@ -42,6 +42,11 @@ runs. They are evidence of those runs, not a substitute for qualifying the final
 release commit. These engineering gates do not establish scientific accuracy;
 retain the limitations in the release notes.
 
+For a public release, run the README quick start with the installed package
+outside the checkout. The source distribution includes the changelog, scientific
+guides, and the periodic example and fixture. Check public access to any GitHub
+links you plan to share with users.
+
 ## Configure publishing once
 
 The [release workflow](../.github/workflows/release.yml) uses PyPI trusted
@@ -75,7 +80,8 @@ name on the first successful upload.
    for that exact commit.
 2. Read the candidate version with `uv version --short`. Create and push its
    matching tag on the qualified commit, then prepare a GitHub release against
-   that tag with the changelog's release notes.
+   that tag with the changelog's release notes. Use a regular GitHub release for
+   a final version such as `1.0.0`.
 3. Publishing the GitHub release starts the Release workflow. Its first job
    runs CI on the tagged revision. Once CI passes, the build job checks the
    tag against the project version, builds the wheel and sdist, and qualifies

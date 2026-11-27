@@ -10,16 +10,17 @@ The periodic workflow implements the EnvTok method from Moerman *et al.*'s
 [*Atoms that Matter*](https://arxiv.org/abs/2610.14392). The experimental
 molecular workflow adds state-aware selection and hard atom budgets.
 
-The 0.1 series is alpha software. APIs and saved-run formats may change between
-releases. See the [release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md).
+Version 1.0.0 is the first stable release of the periodic workflow and its
+documented Python and command-line interfaces. See the
+[release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md).
 
 ## Install
 
-Use CPython 3.11–3.14. Once the first PyPI release is available, run the
-following commands. The Python import and CLI are both `envtok`.
+Use standard CPython 3.11–3.14. Once the stable release is available on PyPI,
+install `py-envtok`. The Python import and CLI are both `envtok`.
 
 ```bash
-python -m pip install --pre py-envtok
+python -m pip install py-envtok
 envtok --version
 ```
 
@@ -30,12 +31,13 @@ Install the `molecular` extra for RDKit and DScribe or `omat24` for the
 OMat24 ASE-LMDB reader. The reader runs without fairchem or torch.
 
 ```bash
-python -m pip install --pre 'py-envtok[molecular,omat24]'
+python -m pip install 'py-envtok[molecular,omat24]'
 ```
 
-If you installed an older GitHub wheel distributed as `envtok`, uninstall
-that distribution before installing `py-envtok` in the same environment. Both
-wheels provide the same import and CLI.
+If you installed an older GitHub wheel distributed as `envtok`, run
+`python -m pip uninstall envtok` before installing `py-envtok` in the same
+environment. Both distributions provide the same import and CLI. If you
+already installed `py-envtok`, use `python -m pip install --upgrade py-envtok`.
 
 </details>
 
@@ -45,7 +47,7 @@ wheels provide the same import and CLI.
 ### From a source checkout
 
 The supported development environment uses [uv](https://docs.astral.sh/uv/)
-0.13.6 or newer.
+0.13.6 or newer. Use these commands if you have access to the GitHub repository.
 
 ```bash
 git clone https://github.com/SMTG-Bham/py-envtok.git
@@ -69,12 +71,43 @@ provides separate run and development environments.
 
 ## Quick start
 
-Try the periodic workflow on the bundled 20-structure corpus. You only need
-the checkout and uv.
+### Python API
+
+After installing `py-envtok`, generate three periodic aluminium structures with
+ASE and select a subset. Run this in a working directory where you can save the
+results.
 
 ```bash
-git clone https://github.com/SMTG-Bham/py-envtok.git
-cd py-envtok
+python - <<'PY'
+from pathlib import Path
+
+from ase.build import bulk
+from envtok import Corpus, CoverageBuilder, Selector, Tokenizer
+
+frames = [bulk("Al", "fcc", a=a, cubic=True) for a in (4.03, 4.05, 4.07)]
+corpus = Corpus.from_atoms(frames, name="al-demo", revision="v1", split="train")
+workdir = Path("al-demo")
+cache = Tokenizer(profile="reference-723696d").run(corpus, workdir)
+classes = CoverageBuilder(min_structure_support=2).fit(cache, split="train")
+selection = Selector(mode="cover", cost="atoms").select(classes)
+selection.validate()
+output = selection.write_manifest(workdir / "selection")
+selection.export(output / "subset.extxyz", format="extxyz", corpus=corpus)
+print(f"Selected {len(selection.record_ids)} of {len(frames)} structures.")
+PY
+```
+
+Open `al-demo/selection/report.html` to review the coverage audit. The same
+directory contains the selected structures in `subset.extxyz` and their IDs in
+`selected_ids.txt`. See [Inputs](#inputs) for ways to load your own dataset.
+
+<details>
+<summary>Run the bundled periodic example from a source checkout</summary>
+
+The source repository includes a 20-structure corpus and its configuration.
+From a source checkout, run the CLI with uv.
+
+```bash
 uv run --locked --no-dev envtok inspect --config examples/quickstart/config.yaml --sample 20
 uv run --locked --no-dev envtok run --config examples/quickstart/config.yaml
 ```
@@ -90,37 +123,11 @@ The [worked example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/q
 traces individual selections and compares a random subset at the same atom
 ceiling.
 
-<details>
-<summary>Run the same workflow with the Python API</summary>
+In Python, `Corpus.from_source("examples/quickstart/config.yaml")` reads the
+same input and corpus policy from YAML.
 
-### Python API
-
-This example uses the same bundled corpus:
-
-```python
-from envtok import Corpus, CoverageBuilder, Selector, Tokenizer
-
-corpus = Corpus.from_extxyz(
-    "tests/fixtures/corpus.extxyz",
-    dataset="fixtures",
-    revision="v1",
-    split="train",
-)
-cache = Tokenizer(profile="reference-723696d").run(corpus, "runs/quickstart-api")
-classes = CoverageBuilder(min_structure_support=2).fit(cache, split="train")
-result = Selector(mode="cover", cost="atoms").select(classes)
-report = result.validate()  # raises CoverageError if required coverage is missing
-output = result.write_manifest("runs/quickstart-api/selection")
-result.export(output / "subset.extxyz", format="extxyz")
-print(report["structures"], report["atoms"], report["classes"])
-```
-
-Use `Corpus.from_source("examples/quickstart/config.yaml")` to read the source
-and corpus policy from YAML instead. The other factories are listed under
-[Inputs](#inputs).
-
-For a complete script that also checks exported geometry, atom order, metadata
-and labels against the source:
+To check the exported geometry, atom order, metadata, and labels against the
+source, run the full Python example.
 
 ```bash
 uv run python examples/quickstart/quickstart.py
@@ -551,6 +558,9 @@ compliance, unmet constraints and nearest-selected geometry distances. See the
 
 ## Documentation and examples
 
+The source archive includes the periodic specification, discrepancy log,
+molecular guide, and a runnable periodic example with its synthetic fixture.
+
 - [Periodic specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md) and [discrepancy log](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md) describe the token fields, selection, and differences from the reference code.
 - The [molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md) covers data contracts, budgets, and limitations.
 - The [OMat24](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/README.md) and [OMol25](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md) examples measure compression on real data. Smaller bundled [OMat24](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) and [OMol](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) samples include qualification results and provenance.
@@ -618,3 +628,8 @@ py-envtok is released under the [MIT License](https://github.com/SMTG-Bham/py-en
 Adapted code retains the upstream MIT notices for
 [omat24-chemenv-subset](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt)
 and [pymatgen](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/pymatgen-MIT.txt).
+
+The bundled [OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md)
+and [OMol25 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md)
+are licensed separately under CC BY 4.0. Their documentation records the source
+and attribution for each sample.

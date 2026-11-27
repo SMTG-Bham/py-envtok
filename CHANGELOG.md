@@ -2,12 +2,45 @@
 
 ## Unreleased
 
+## 1.0.0 — 2026-11-27
+
+First stable release of the documented periodic workflow. Install it as
+`py-envtok` and use `envtok` for both the Python import and the command line.
+
+### Periodic workflow
+
+- Fit coverage classes to local-environment tokens and select whole structures
+  by atom cost. Audit the selected IDs against the fitted classes and configured
+  presence constraints in the eligible training pool.
+- Read ASE iterables, extended XYZ, and ASE databases. The `omat24` extra adds
+  OMat24 ASE-LMDB support. Export selected structures with their original
+  geometry and stored labels.
+- Resume tokenisation, distribute shards across workers, and sweep support
+  thresholds without rebuilding the token cache. Fit coverage separately within
+  metadata strata or opt into net-charge tokens.
+
+### Experimental molecular workflow
+
+- The optional `molecular` extra provides RDKit and DScribe for the
+  `molecular_v1` workflow. It combines state-aware graph tokens and SOAP geometry
+  and supports hard atom budgets. A budgeted run can report unmet constraints in
+  its coverage audit.
+
+### Support and upgrade
+
+- Standard CPython 3.11–3.14 on Linux is the qualification scope. Use held-out
+  model errors to assess training accuracy separately from coverage and
+  compression results.
+- Uninstall GitHub wheels distributed as `envtok` before installing `py-envtok`
+  into the same environment. Existing `py-envtok` installations can upgrade
+  directly.
+
 ## 0.1.0a5 — 2026-11-27
 
 ### Changed
 
-- The distribution is named `py-envtok` for its first PyPI release. The public
-  Python import and CLI are both `envtok`.
+- The distribution name changed to `py-envtok` in preparation for PyPI
+  publication. The public Python import and CLI are both `envtok`.
 
 ## 0.1.0a4 — 2026-11-27
 
