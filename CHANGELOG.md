@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0a3 — 2026-11-27
+
 ### Added
 
 - Molecular `execution.memory_budget`. Before featurisation, the pipeline adds
@@ -23,9 +25,8 @@
   that record each file's digest. Token strings are stored once and shared when
   loaded, signatures are read only when looked up, and audits read only the
   tables they need. `targets.json` no longer repeats the token signatures,
-  which stay in the feature cache. The molecular implementation version is now
-  `molecular_v1.6`, so new runs recompute `molecular_v1.5` feature caches;
-  saved `molecular_v1.5` and earlier runs still load, audit and export.
+  which stay in the feature cache. New runs use `molecular_v1.7`. Saved runs
+  from earlier molecular implementations can still load, audit and export.
 - Periodic tokenisation scores ChemEnv's candidate neighbour orderings in
   batches rather than one pymatgen call each, with bit-identical symmetry
   measures. On the bundled OMat24 sample it is about 1.5 times faster on one
@@ -40,9 +41,26 @@
 - On 29,696 perturbed OMol records with 4 workers, peak anonymous memory fell
   from 4,569 to 1,991 MiB, the frozen targets from 1,272 to 222 MiB and the
   feature metadata from 441 to 37 MiB, with byte-identical selections,
-  coverage reports and selected manifests. A 100,050-record run peaked at
+  coverage reports and selected manifests. Before the record-lifetime change,
+  a 100,050-record run peaked at
   5,376 MiB, of which 2,650 MiB was the loaded records. See the
   [molecular guide](docs/molecular.md#scale-measurements).
+
+### Fixed
+
+- Molecular deduplication and export preserve atomic movement constraints.
+  Molecular extended XYZ reads also restore per-atom tensor shapes in ASE
+  calculator results. Interrupted feature builds resume from the cache commit
+  marker.
+- Periodic database exports preserve custom atom arrays. Stratified audits
+  use the saved selected IDs for each stratum, and regenerating reports
+  preserves selection artifacts.
+- Partition cleanup protects in-flight shard writes. Staged compressed XYZ
+  inputs use the configured source checksum when determining cache reuse.
+
+The molecular workflow remains experimental. Fresh runs still hold full
+records through featurisation. The scale benchmarks measure engineering
+performance on sample pools and do not establish downstream model accuracy.
 
 ## 0.1.0a2 — 2026-11-24
 
