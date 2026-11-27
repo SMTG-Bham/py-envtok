@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -25,7 +25,7 @@ from envtok.molecular.records import (
     adapt_record,
     validate_molecular_record,
 )
-from envtok.records import IssueSeverity, Split
+from envtok.records import IssueSeverity, SourceRef, Split
 
 _GROUP_KEYS = (
     "family_id",
@@ -168,12 +168,21 @@ def iter_extxyz(  # noqa: PLR0913 - explicit adapter options
     family_key: str = "family_id",
     label_sources: Mapping[str, str] | None = None,
     label_units: Mapping[str, str] | None = None,
+    refs: Sequence[SourceRef] | None = None,
 ) -> Iterator[MolecularRecord]:
-    """Read plain/compressed extended XYZ with explicit state and unit mapping."""
+    """Read molecular frames, optionally in the order of selected source refs."""
     adapter = ExtxyzAdapter(
         path, _options(dataset, revision, split, family_key, label_sources, label_units)
     )
-    for source_record in adapter.iter_records():
+    records = (
+        adapter.iter_records()
+        if refs is None
+        else (
+            make_record(atoms, ref.shard, ref.key, adapter.options)
+            for ref, atoms in adapter.retrieve(refs)
+        )
+    )
+    for source_record in records:
         record = source_record
         if record.atoms.info.get("envtok_array_shapes"):
             _restore_shapes(record.atoms)

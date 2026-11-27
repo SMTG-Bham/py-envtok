@@ -301,17 +301,25 @@ class ExtxyzAdapter(Adapter):
         wanted: dict[str, set[str]] = {}
         for ref in refs:
             wanted.setdefault(ref.shard, set()).add(ref.key)
+        indexed: dict[str, tuple[Path, list[int]]] = {}
         found: dict[tuple[str, str], Atoms] = {}
         for shard, keys in wanted.items():
             path = self._path_of(shard)
-            if self.compressed == "sequential" and _compression(path):
-                for frame, atoms in enumerate(self._iter_file(path)):
-                    if str(frame) in keys:
-                        found[shard, str(frame)] = atoms
-            else:
-                offsets = self._frame_offsets(path)
-                readable = self._readable(path)
-                for key in keys:
-                    found[shard, key] = read_frame_at(readable, offsets[int(key)])
+            if self.compressed != "sequential" or not _compression(path):
+                try:
+                    indexed[shard] = self._readable(path), self._frame_offsets(path)
+                except UnsupportedInputError:
+                    # ASE also accepts frames with trailing VEC cell vectors,
+                    # which the simple atom-count index cannot represent.
+                    pass
+                else:
+                    continue
+            for frame, atoms in enumerate(self._iter_file(path)):
+                if str(frame) in keys:
+                    found[shard, str(frame)] = atoms
         for ref in refs:
-            yield ref, found[ref.shard, ref.key]
+            if ref.shard in indexed:
+                readable, offsets = indexed[ref.shard]
+                yield ref, read_frame_at(readable, offsets[int(ref.key)])
+            else:
+                yield ref, found[ref.shard, ref.key]

@@ -48,6 +48,42 @@ def adapt(atoms: Atoms, key: str = "0", **kwargs: Any) -> MolecularRecord:
     )
 
 
+@pytest.mark.parametrize("compressed", [False, True])
+def test_selected_source_refs_preserve_order_labels_and_tensors(
+    tmp_path: Path, compressed: bool
+) -> None:
+    frames = [water(family_id=str(i)) for i in range(3)]
+    for i, atoms in enumerate(frames):
+        atoms.new_array("tensor", np.arange(27).reshape(3, 3, 3) + i)
+        atoms.calc = SinglePointCalculator(atoms, energy=float(i))
+    path = export_records(
+        from_atoms(frames, label_namespace="source"), tmp_path / "input.extxyz"
+    )
+    if compressed:
+        packed = path.with_suffix(".extxyz.gz")
+        packed.write_bytes(gzip.compress(path.read_bytes()))
+        path = packed
+    source = list(iter_extxyz(path, label_namespace="test"))
+    selected = [source[i] for i in (2, 0, 2)]
+    refs = [r.record.source_ref for r in selected]
+    reread = iter_extxyz(path, label_namespace="test", refs=refs)
+    assert (
+        export_records(reread, tmp_path / "actual").read_bytes()
+        == export_records(selected, tmp_path / "expected").read_bytes()
+    )
+
+
+def test_selected_refs_in_source_with_vec_cell_frame(tmp_path: Path) -> None:
+    path = tmp_path / "mixed.xyz"
+    path.write_text("1\n\nH 0 0 0\nVEC1 5 0 0\n1\n\nHe 0 0 0\n")
+    records = list(iter_extxyz(path, label_namespace="test"))
+    (frame,) = iter_extxyz(
+        path, label_namespace="test", refs=[records[1].record.source_ref]
+    )
+    assert frame.record_id == records[1].record_id
+    assert frame.atoms.get_chemical_formula() == "He"
+
+
 def test_state_round_trip_preserves_precision_arrays_and_nested_metadata(
     tmp_path: Path,
 ) -> None:
