@@ -4,7 +4,7 @@ import copy
 import hashlib
 import json
 import os
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,9 @@ from envtok.molecular import feature_cache
 from envtok.molecular import pipeline as pipeline_module
 from envtok.molecular.data import prepare_records
 from envtok.molecular.pipeline import MolecularPipeline
+from envtok.molecular.records import MolecularRecord
 from envtok.molecular.representations import MolecularFeatures, RepresentationSettings
+from envtok.records import SourceRef
 
 
 @pytest.fixture
@@ -83,6 +85,27 @@ def test_source_change_during_ingestion_rejected(
     with pytest.raises(StaleCacheError, match="source content changed"):
         pipeline.ingest()
     assert not (pipeline.directory / "ingestion.json").exists()
+
+
+def test_source_change_during_selected_reread_preserves_export(
+    review_config: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pipeline = MolecularPipeline(review_config)
+    directory = pipeline.run()
+    output = directory / "subset.extxyz"
+    original = output.read_bytes()
+    read = pipeline._source_records
+
+    def change_at_end(refs: Sequence[SourceRef]) -> Iterator[MolecularRecord]:
+        yield from read(refs)
+        with pipeline.source.open("a") as source:
+            source.write("\n")
+
+    monkeypatch.setattr(pipeline, "_source_records", change_at_end)
+    with pytest.raises(StaleCacheError, match="source content changed"):
+        pipeline.export(output)
+    assert output.read_bytes() == original
+    assert not (directory / ".subset.extxyz.partial").exists()
 
 
 def test_moved_run_uses_frozen_targets_in_changed_runtime(
@@ -302,8 +325,11 @@ def test_same_size_rewrite_soon_after_a_check_is_detected(
     pipeline.featurize()
     # A source changed this recently is re-hashed rather than trusted by stat.
     hashed.clear()
-    pipeline.ingest()
+    pipeline.featurize()
     assert len(hashed) == 1
+    hashed.clear()
+    pipeline.ingest()  # Re-reading full records verifies the source at both ends.
+    assert len(hashed) == 2
     text = source.read_text()
     source.write_text(text.replace("sid=a", "sid=z"))
     assert source.stat().st_size == len(text.encode())

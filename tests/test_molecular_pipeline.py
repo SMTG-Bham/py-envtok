@@ -2,7 +2,10 @@
 
 import argparse
 import copy
+import gc
+import gzip
 import json
+import weakref
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +20,7 @@ from envtok.cli import main
 from envtok.errors import ConfigError, CoverageError, StaleCacheError
 from envtok.molecular import MolecularPipeline, feature_cache, load_molecular_config
 from envtok.molecular.cli import dispatch, is_molecular
+from envtok.molecular.data import export_records
 from envtok.molecular.manifests import write_json
 from envtok.molecular.pipeline import audit_selection
 from envtok.molecular.selection import Candidate, Target
@@ -82,6 +86,44 @@ def test_full_pipeline_restart_export_and_state(
     assert resumed.run() == directory
     assert (directory / "selected_ids.txt").read_text() == ids
     assert resumed.featurize()[0].zero_descriptor_atoms == ()
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_features_release_records_and_later_stages_export_identically(
+    molecular_config: dict[str, Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    compressed: bool,
+) -> None:
+    if compressed:
+        source = Path(molecular_config["source"]["path"])
+        packed = source.with_suffix(".extxyz.gz")
+        packed.write_bytes(gzip.compress(source.read_bytes()))
+        molecular_config["source"]["path"] = str(packed)
+    pipeline = MolecularPipeline(molecular_config)
+    prepared = pipeline.ingest()
+    original_atoms = [weakref.ref(r.atoms) for r in prepared.records]
+    ids = [r.record_id for r in prepared.candidates]
+    expected = export_records(prepared.candidates, tmp_path / "expected.extxyz")
+    del prepared
+    pipeline.featurize()
+    gc.collect()
+    assert all(ref() is None for ref in original_atoms)
+
+    def forbidden() -> None:
+        pytest.fail("later stages must use the prepared candidate metadata")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(pipeline, "ingest", forbidden)
+        pipeline.run()
+        actual = export_records(pipeline.selected_records(ids), tmp_path / "actual")
+        assert actual.read_bytes() == expected.read_bytes()
+
+    # Clients can still explicitly request every full record after selection.
+    assert [r.record_id for r in pipeline.ingest().candidates] == ids
+    loaded = MolecularPipeline.load_run(pipeline.directory)
+    saved = (pipeline.directory / "subset.extxyz").read_bytes()
+    assert loaded.export(tmp_path / "reloaded.extxyz").read_bytes() == saved
 
 
 @pytest.mark.parametrize("budget", [0, 2, 5])

@@ -14,7 +14,7 @@ import platform
 import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -76,6 +76,7 @@ from envtok.molecular.selection import (
     build_hierarchy,
     select_candidates,
 )
+from envtok.records import SourceRef
 from envtok.selection.incidence import check_budget
 
 IMPLEMENTATION_VERSION = "molecular_v1.7"
@@ -147,6 +148,47 @@ def _fingerprinted(settings: Mapping[str, Any]) -> dict[str, Any]:
 
 def _digest(value: Any) -> str:
     return hashlib.sha256(_json(value).encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidateInfo:
+    """Source fields needed for the selection manifest and audit distributions."""
+
+    natoms: int
+    formula: str
+    audit_state: str
+    total_charge: float | None
+    spin_multiplicity: int | None
+    electronic_state_id: str | None
+    label_namespace: str
+    family_id: str | None
+    split: str
+    source_ref: SourceRef
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidateIndex:
+    rows: dict[str, _CandidateInfo]
+    split_sha256: str
+
+    @classmethod
+    def from_prepared(cls, prepared: PreparedRecords) -> _CandidateIndex:
+        rows = {
+            r.record_id: _CandidateInfo(
+                natoms=r.natoms,
+                formula=str(r.atoms.get_chemical_formula()),
+                audit_state=_json(r.state_key),
+                total_charge=r.total_charge,
+                spin_multiplicity=r.spin_multiplicity,
+                electronic_state_id=r.electronic_state_id,
+                label_namespace=r.label_namespace,
+                family_id=r.family_id,
+                split=r.split.value,
+                source_ref=r.record.source_ref,
+            )
+            for r in prepared.candidates
+        }
+        return cls(rows, _digest(prepared.split_manifest))
 
 
 def _file_hash(path: Path) -> str:
@@ -286,6 +328,7 @@ class MolecularPipeline:
         )
         self.feature_directory.mkdir(parents=True, exist_ok=True)
         self._prepared: PreparedRecords | None = None
+        self._index: _CandidateIndex | None = None
         self._features: tuple[MolecularFeatures, ...] | None = None
         self._descriptors: npt.NDArray[np.float32] | None = None
         self._built: (
@@ -344,6 +387,7 @@ class MolecularPipeline:
         self._source_stat = None
         self._loaded = True
         self._prepared = None
+        self._index = None
         self._features = None
         self._descriptors = None
         self._built = None
@@ -413,12 +457,9 @@ class MolecularPipeline:
         """Selection randomness, separate from downstream model seeds."""
         return int(self.settings["reproducibility"]["seed"])
 
-    def ingest(self) -> PreparedRecords:
-        """Validate records, protect splits and deduplicate conservatively."""
-        self._check_source()
-        if self._prepared is not None:
-            return self._prepared
-        start = time.perf_counter()
+    def _source_records(
+        self, refs: Sequence[SourceRef] | None = None
+    ) -> Iterator[MolecularRecord]:
         source = {
             key: value
             for key, value in self.settings["source"].items()
@@ -429,15 +470,24 @@ class MolecularPipeline:
             for key, value in self.settings["state"].items()
             if key != "strict_training_export"
         }
-        self._prepared = prepare_records(
-            iter_extxyz(self.source, **source, **state),
+        return iter_extxyz(self.source, refs=refs, **source, **state)
+
+    def ingest(self) -> PreparedRecords:
+        """Return full prepared records, re-reading them if already released."""
+        self._check_source()
+        if self._prepared is not None:
+            return self._prepared
+        start = time.perf_counter()
+        prepared = prepare_records(
+            self._source_records(),
             validation_fraction=self.settings["split"]["validation_fraction"],
             seed=self.seed,
             include_constraints=self.software["implementation"]
             not in _PRE_CONSTRAINT_VERSIONS,
         )
         self._check_source()
-        prepared = self._prepared
+        if self._index is not None:
+            return prepared
         report = {
             key: getattr(prepared, key)
             for key in (
@@ -464,7 +514,15 @@ class MolecularPipeline:
             _write_json(self.directory / "ingestion.json", report)
             _write_json(self.directory / "splits.json", prepared.split_manifest)
         self.timings["ingest_seconds"] = time.perf_counter() - start
+        self._prepared = prepared
         return prepared
+
+    def _candidate_index(self) -> _CandidateIndex:
+        if self._index is None:
+            self._index = _CandidateIndex.from_prepared(self.ingest())
+            if self._loaded:
+                self._prepared = None
+        return self._index
 
     def featurize(self) -> tuple[MolecularFeatures, ...]:
         """Fit species on training candidates and cache local features."""
@@ -484,7 +542,7 @@ class MolecularPipeline:
         if self._loaded or (
             self.settings["execution"]["resume"] and commit_path.exists()
         ):
-            self._features = self._load_features()
+            features = self._load_features()
         else:
             geometry = {
                 key: value
@@ -502,7 +560,7 @@ class MolecularPipeline:
                 ],
             )
             execution = self.settings["execution"]
-            self._features = self._write_features(
+            features = self._write_features(
                 iter_features(
                     records,
                     settings,
@@ -513,6 +571,9 @@ class MolecularPipeline:
                 settings,
             )
         self._check_source()
+        self._candidate_index()
+        self._features = features
+        self._prepared = None
         self.timings["featurize_seconds"] = time.perf_counter() - start
         return self._features
 
@@ -589,7 +650,7 @@ class MolecularPipeline:
             reservoir_size=selection["reservoir_size"],
             seed=self.seed,
         )
-        records = {r.record_id: r for r in self.ingest().candidates}
+        records = self._candidate_index().rows
         candidates = tuple(
             Candidate(
                 f.record_id,
@@ -637,8 +698,9 @@ class MolecularPipeline:
             return None
         if selection["atom_budget"] is not None:
             return int(selection["atom_budget"])
+        self._check_source()
         return math.floor(
-            sum(r.natoms for r in self.ingest().candidates)
+            sum(r.natoms for r in self._candidate_index().rows.values())
             * float(selection["atom_fraction"])
         )
 
@@ -663,21 +725,22 @@ class MolecularPipeline:
         (self.directory / "selected_ids.txt").write_text(
             "".join(f"{rid}\n" for rid in result.selected_ids)
         )
-        selected = self.selected_records(result.selected_ids)
+        index = self._candidate_index()
+        selected = ((rid, index.rows[rid]) for rid in result.selected_ids)
         rows = [
             {
-                "record_id": r.record_id,
+                "record_id": rid,
                 "natoms": r.natoms,
                 "total_charge": r.total_charge,
                 "spin_multiplicity": r.spin_multiplicity,
                 "electronic_state_id": r.electronic_state_id,
                 "label_namespace": r.label_namespace,
                 "family_id": r.family_id,
-                "split": r.split.value,
-                "source_ref_json": _json(asdict(r.record.source_ref)),
-                "reason": result.reasons[r.record_id],
+                "split": r.split,
+                "source_ref_json": _json(asdict(r.source_ref)),
+                "reason": result.reasons[rid],
             }
-            for r in selected
+            for rid, r in selected
         ]
         pq.write_table(
             pa.Table.from_pylist(rows)
@@ -694,7 +757,7 @@ class MolecularPipeline:
             {
                 "fingerprint": self.fingerprint,
                 "source_sha256": self.source_hash,
-                "split_sha256": _digest(self.ingest().split_manifest),
+                "split_sha256": index.split_sha256,
                 "feature_directory": str(self.feature_directory),
                 "targets_sha256": _file_hash(self.directory / TARGETS),
                 "features_sha256": _file_hash(self.feature_directory / FEATURES),
@@ -712,8 +775,17 @@ class MolecularPipeline:
         self, selected_ids: Sequence[str]
     ) -> tuple[MolecularRecord, ...]:
         """Retrieve selected records with their original atom order and labels."""
-        lookup = {r.record_id: r for r in self.ingest().candidates}
-        return tuple(lookup[rid] for rid in selected_ids)
+        return tuple(self._iter_selected_records(selected_ids))
+
+    def _iter_selected_records(
+        self, selected_ids: Sequence[str]
+    ) -> Iterator[MolecularRecord]:
+        self._check_source()
+        rows = self._candidate_index().rows
+        refs = [rows[rid].source_ref for rid in selected_ids]
+        yield from self._source_records(refs)
+        # Verify the reread before export_records publishes its partial file.
+        self._check_source()
 
     def audit(self) -> dict[str, Any]:
         """Audit saved IDs against training-only targets, cost and local distances."""
@@ -774,15 +846,16 @@ class MolecularPipeline:
         report["software_environment_matches_selection"] = (
             self.runtime_software == self.software
         )
-        selected = self.selected_records(ids)
-        distribution_keys: tuple[tuple[str, Callable[[MolecularRecord], str]], ...] = (
-            ("state", lambda r: _json(r.state_key)),
+        records = self._candidate_index().rows
+        selected = [records[rid] for rid in ids]
+        distribution_keys: tuple[tuple[str, Callable[[_CandidateInfo], str]], ...] = (
+            ("state", lambda r: r.audit_state),
             ("size", lambda r: str(r.natoms)),
-            ("formula", lambda r: str(r.atoms.get_chemical_formula())),
+            ("formula", lambda r: r.formula),
         )
         report["distributions"] = {
             name: {
-                "input": dict(Counter(key(r) for r in self.ingest().candidates)),
+                "input": dict(Counter(key(r) for r in records.values())),
                 "selected": dict(Counter(key(r) for r in selected)),
             }
             for name, key in distribution_keys
@@ -809,7 +882,7 @@ class MolecularPipeline:
         self._check_source(full=True)
         ids = (self.directory / "selected_ids.txt").read_text().splitlines()
         return export_records(
-            self.selected_records(ids),
+            self._iter_selected_records(ids),
             output or self.directory / "subset.extxyz",
             strict_training_export=self.settings["state"]["strict_training_export"],
         )
