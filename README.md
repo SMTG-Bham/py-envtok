@@ -1,80 +1,51 @@
 # py-envtok
 
-py-envtok implements and extends the EnvTok method that Moerman *et al.*
-describe in [*Atoms that Matter*](https://arxiv.org/abs/2610.14392).
+Select whole structures from an atomistic dataset and see which local chemical
+environments your subset covers. py-envtok counts the atoms you keep, audits
+coverage, and exports the original geometries and labels for training.
 
-It selects whole configurations from atomistic datasets and reports which
-local chemical environments the subset covers. It measures the cost in atoms
-and exports the selected structures with their original geometry and labels.
+[Install](#install) · [Quick start](#quick-start) · [Molecules](#molecules-experimental) · [Configure your dataset](#configure-your-dataset) · [Documentation](#documentation-and-examples)
 
-| Your data | Workflow | First run |
-|---|---|---|
-| Fully periodic structures | `reference-723696d` fits coverage classes and selects a low-atom-cost cover | [Periodic quick start](#quick-start) |
-| Finite molecules | Experimental `molecular_v1` protects charge and spin and supports a hard atom budget | [Molecular quick start](#molecules-experimental) |
+The periodic workflow implements the EnvTok method from Moerman *et al.*'s
+[*Atoms that Matter*](https://arxiv.org/abs/2610.14392). The experimental
+molecular workflow adds state-aware selection and hard atom budgets.
 
 The 0.1 series is alpha software. APIs and saved-run formats may change between
 releases. See the [release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md).
 
-The default profile `reference-723696d` follows the paper's reference
-implementation,
-[`em819/omat24-chemenv-subset@723696d`](https://github.com/em819/omat24-chemenv-subset/tree/723696de2c26584b8a907ef900690c0caf3c7b68).
-Every token of the golden fixture corpus matches that code running in its own
-pinned environment. See [`docs/specification.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md) and
-[`docs/discrepancies.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md).
-
-The ~1% retention reported in the paper belongs to its OMat24 experiment.
-Evaluate model accuracy on a held-out split when choosing a subset for training.
-
-## How selection works
-
-1. **Tokenise the periodic source.** Record each site's element, rounded magnetic
-   moment, neighbour composition, ChemEnv polyhedron and distortion, compression
-   and asymmetry bins. Cache the measurements. An optional token field records
-   the structure's [net charge](#charged-structures).
-2. **Fit coverage classes.** Count support in distinct eligible training
-   records, then progressively drop token detail according to the profile's
-   coarsening ladder. Repeated equivalent sites within one structure count
-   only once toward support.
-3. **Select and repair.** Start with required records and sole suppliers of a
-   class, greedily add coverage per atom, prune redundant structures, then
-   repair missing signatures in four families. These pair element with
-   polyhedron, coordination number, coordination and compression, or coordination
-   and asymmetry. Each signature observed in the eligible pool needs one witness.
-4. **Audit independently.** Recompute coverage from the selected IDs and the
-   frozen class mapping. The report distinguishes class coverage, original
-   full-token coverage, processing quality, and the atoms and structures kept.
-
-The coverage guarantee applies to the fitted classes and configured presence
-constraints over the eligible pool. It does not mean every original full token
-is retained. Held-out records do not influence the classes; unseen held-out
-tokens are reported as out of vocabulary.
-
 ## Install
 
-Use standard CPython 3.11–3.14. The CI matrix covers these interpreters on Linux.
-Other Python versions, operating systems and free-threaded builds are outside
-the qualification scope.
-
-### From PyPI
-
-Once the first PyPI release is available, install the alpha and check the CLI.
+Use CPython 3.11–3.14. Once the first PyPI release is available, run the
+following commands. The Python import and CLI are both `envtok`.
 
 ```bash
 python -m pip install --pre py-envtok
 envtok --version
 ```
 
-Use `python -m pip install --pre 'py-envtok[molecular,omat24]'` to install both
-optional extras. The Python import is `envtok`.
+<details>
+<summary>Optional extras and upgrades from older wheels</summary>
 
-If you installed an older GitHub release distributed as `envtok`, uninstall that
-distribution before installing `py-envtok` in the same environment. Both
-distributions provide the `envtok` import and CLI.
+Install the `molecular` extra for RDKit and DScribe or `omat24` for the
+OMat24 ASE-LMDB reader. The reader runs without fairchem or torch.
+
+```bash
+python -m pip install --pre 'py-envtok[molecular,omat24]'
+```
+
+If you installed an older GitHub wheel distributed as `envtok`, uninstall
+that distribution before installing `py-envtok` in the same environment. Both
+wheels provide the same import and CLI.
+
+</details>
+
+<details>
+<summary>Install from a source checkout</summary>
 
 ### From a source checkout
 
-The supported development environment uses
-[uv](https://docs.astral.sh/uv/) 0.13.6 or newer.
+The supported development environment uses [uv](https://docs.astral.sh/uv/)
+0.13.6 or newer.
 
 ```bash
 git clone https://github.com/SMTG-Bham/py-envtok.git
@@ -83,52 +54,44 @@ uv sync --locked
 uv run envtok --version
 ```
 
-The commands below assume you are in the repository root. Use `uv sync --locked`
-to require the committed dependency lockfile. The default sync also installs
-the development tools; add `--no-dev` if you only need to run the package.
-The checkout defaults to Python 3.14 via `.python-version`. To use another
-supported interpreter, pass it explicitly to uv, for example
-`uv sync --locked --python 3.11` and `uv run --python 3.11 envtok --version`.
+The checkout defaults to Python 3.14. Choose another supported version with
+`uv sync --locked --python 3.11` and pass the same version to `uv run`. Add
+`--no-dev` to skip development dependencies or `--extra molecular --extra omat24`
+to install both extras. The CI matrix qualifies standard CPython on Linux.
 
-To read OMat24 ASE-LMDB shards, install the LMDB backend. fairchem and torch
-are not needed.
+From an existing Python environment, use `python -m pip install .` or
+`python -m pip install '.[molecular,omat24]'` in the checkout. To install a
+built wheel, pass its path to `python -m pip install`. The
+[Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment)
+provides separate run and development environments.
 
-```bash
-uv sync --extra omat24
-```
-
-The `molecular` extra adds RDKit and DScribe for the molecular workflow. Both
-extras can be installed together with `uv sync --extra omat24 --extra molecular`.
-An alternative [Conda setup](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md#conda-environment), with
-separate run and development environments, is also provided.
-
-With an existing Python 3.11–3.14 environment, run `python -m pip install .`
-from the checkout, or `python -m pip install '.[molecular,omat24]'` for both
-extras. To install a built wheel, pass its path to `python -m pip install`.
-Run the commands below from the checkout to access the example configurations
-and fixture data.
+</details>
 
 ## Quick start
 
-Inspect and run the pipeline on the bundled 20-structure synthetic corpus.
-No dataset download or optional dependency is needed:
+Try the periodic workflow on the bundled 20-structure corpus. You only need
+the checkout and uv.
 
 ```bash
-uv run envtok inspect --config examples/quickstart/config.yaml --sample 20
-uv run envtok run --config examples/quickstart/config.yaml
+git clone https://github.com/SMTG-Bham/py-envtok.git
+cd py-envtok
+uv run --locked --no-dev envtok inspect --config examples/quickstart/config.yaml --sample 20
+uv run --locked --no-dev envtok run --config examples/quickstart/config.yaml
 ```
 
-The final command prints JSON containing the `selection` directory, under
-`runs/quickstart/selection-T2-<fingerprint>/`. Open its `report.html` to review
-coverage and retention; `subset.extxyz` contains the selected original
-structures, and `selected_ids.txt` records their identities. Repeating the
-command reuses committed tokenisation work.
+The run selects **16 of 20 structures and 56 of 76 atoms**, covering all
+**26 fitted classes** and **32 of 33 full tokens** at a support threshold of 2.
+Open `report.html` in the selection directory printed by the command to see
+which environments the subset covers. The same directory contains the selected
+structures in `subset.extxyz` and their IDs in `selected_ids.txt`.
+Rerunning the command reuses committed tokenisation work.
 
-At a support threshold of 2, the subset retains 16 of 20 structures and
-56 of 76 atoms. It covers all 26 fitted classes and 32 of 33 full tokens.
 The [worked example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/quickstart/README.md)
-shows how to read those counts, trace individual selections and compare a
-random subset at the same atom ceiling.
+traces individual selections and compares a random subset at the same atom
+ceiling.
+
+<details>
+<summary>Run the same workflow with the Python API</summary>
 
 ### Python API
 
@@ -163,6 +126,11 @@ and labels against the source:
 uv run python examples/quickstart/quickstart.py
 ```
 
+</details>
+
+<details>
+<summary>See the compression results on real OMat24 structures</summary>
+
 ### Real OMat24 compression example
 
 The [OMat24 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/README.md)
@@ -184,7 +152,135 @@ The example includes a threshold sweep, equal-atom random comparisons, saved
 results and export checks. The [bundled 32-record sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md)
 also runs without an archive, but shows no compression.
 
+</details>
+
+## Molecules (experimental)
+
+The `molecular_v1` profile selects intact molecules while protecting total
+charge, spin multiplicity, electronic state, and reference method. It combines
+rooted graph tokens with local SOAP geometry and supports hard atom budgets.
+
+From the repository root, run the bundled OMol configuration. Its top-level
+`profile: molecular_v1` selects the molecular schema.
+
+```bash
+uv run --locked --no-dev --extra molecular envtok run --config examples/molecular/omol/config.yaml
+uv run --locked --no-dev --extra molecular envtok benchmark --config examples/molecular/omol/config.yaml
+```
+
+<details>
+<summary>Set an atom budget and map charge and spin fields</summary>
+
+To impose a hard atom cap, set exactly one of `atom_fraction` or `atom_budget`:
+
+```yaml
+selection:
+  mode: budget
+  atom_fraction: 0.25  # alternatively, replace this with atom_budget: 1000
+```
+
+The fraction is measured against atoms in the deduplicated training candidate
+pool. For `mode: cover`, omit both budget settings. A budgeted run can finish
+with `complete: false`: inspect `unmet_constraints` in `coverage.json` to see
+what the selected subset does not cover. An incomplete heuristic cover is not
+a proof that complete coverage is impossible within that budget.
+
+Set `source.label_namespace` to identify the reference method, and map the
+total-charge and spin-multiplicity fields with `state.charge_key` and
+`state.multiplicity_key` (defaults: `total_charge` and `spin_multiplicity`).
+Neither is inferred from partial charges or site magnetic moments. Unknown
+states remain distinct, and the default strict training export requires known
+charge and multiplicity.
+
+Molecular runs write to `<workdir>/molecular-<fingerprint>/`. The pipeline
+reads one extended XYZ source. The Python adapters can also prepare records
+from an ASE iterable. Featurisation supports local worker processes and
+memory-mapped descriptors. Records and selection incidence stay in memory.
+
+</details>
+
+<details>
+<summary>Explore the OMol samples and training results</summary>
+
+The bundled [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) contains 29 real
+training configurations with stored energy, force, charge and spin data. Its
+selector benchmark compares stratified random, token-only and combined
+selection at a 25% atom ceiling with seed 0, plus a full-pool control.
+Use `--fractions` and `--seeds` to change the comparison.
+The [molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md)
+walks through the budget report, custom label units, Python API and saved-run
+audit.
+
+The [native OMol25 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md)
+starts from 512 real configurations / 10,938 atoms. Unbudgeted cover mode
+retains 146 configurations / 3,276 atoms (**70.0% fewer atoms**), covering
+all 44 mandatory element/state targets and 517 modeled SOAP regions.
+However, 91.3% of source environments fall outside the fitted prototype
+radii. A finer 64-prototype check retains 6,122 atoms (44.0% fewer).
+
+A separate training experiment split the neutral singlets by composition before
+selection. The 64-prototype cover used 52.4% fewer training atoms. Its mean
+held-out force RMSE was 1.7% higher than the full-pool model's, and one of
+three paired seeds exceeded the 10% regression threshold. See the
+[molecular MACE training results](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/training.md).
+
+</details>
+
+## How selection works
+
+The periodic workflow tokenises local environments, fits coverage classes to
+the eligible training pool, selects a subset by atom cost, and audits the result.
+The guarantee applies to those fitted classes and configured presence constraints.
+The report also measures full-token coverage.
+
+<details>
+<summary>Read the selection and audit steps</summary>
+
+1. **Tokenise the periodic source.** Record each site's element, rounded magnetic
+   moment, neighbour composition, ChemEnv polyhedron and distortion, compression
+   and asymmetry bins. Cache the measurements. An optional token field records
+   the structure's [net charge](#charged-structures).
+2. **Fit coverage classes.** Count support in distinct eligible training
+   records, then progressively drop token detail according to the profile's
+   coarsening ladder. Repeated equivalent sites within one structure count
+   only once toward support.
+3. **Select and repair.** Start with required records and sole suppliers of a
+   class, greedily add coverage per atom, prune redundant structures, then
+   repair missing signatures in four families. These pair element with
+   polyhedron, coordination number, coordination and compression, or coordination
+   and asymmetry. Each signature observed in the eligible pool needs one witness.
+4. **Audit independently.** Recompute coverage from the selected IDs and the
+   frozen class mapping. The report distinguishes class coverage, original
+   full-token coverage, processing quality, and the atoms and structures kept.
+
+Held-out records do not influence the classes. The report counts unseen held-out
+tokens as out of vocabulary.
+
+</details>
+
+<details>
+<summary>Compare with the paper and reference implementation</summary>
+
+The default profile `reference-723696d` follows the paper's reference
+implementation,
+[`em819/omat24-chemenv-subset@723696d`](https://github.com/em819/omat24-chemenv-subset/tree/723696de2c26584b8a907ef900690c0caf3c7b68).
+Every token of the golden fixture corpus matches that code running in its own
+pinned environment. See the [specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md)
+and [discrepancy log](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md).
+
+The paper reports roughly 1% retention for its OMat24 experiment.
+Evaluate model accuracy on a held-out split when choosing a subset for training.
+
+</details>
+
 ## Configure your dataset
+
+Point a YAML file at your source and specify the training split, tokeniser,
+coverage settings, and export format. Use `envtok inspect --config dataset.yaml`
+to check the input before a full run.
+
+<details>
+<summary>Copy a periodic configuration and tune coverage</summary>
 
 Save a configuration such as `dataset.yaml` next to your `data/` directory:
 
@@ -250,11 +346,95 @@ The reference selector supports `mode: cover` with atom cost. Its
 `mode: budget` is not implemented; hard atom budgets are available in the
 separate molecular profile.
 
+</details>
+
+## Inputs
+
+The periodic workflow reads extended XYZ, ASE databases, and OMat24 ASE-LMDB.
+The Python API also accepts ASE atoms directly.
+
+<details>
+<summary>See adapters, record identities, and label handling</summary>
+
+| Input | YAML `source.adapter` | Python factory |
+|---|---|---|
+| ASE sequences, factories or iterators | Python API only | `Corpus.from_atoms(...)` |
+| Extended XYZ, including `.gz`, `.bz2` and `.xz` | `extxyz` | `Corpus.from_extxyz(...)` |
+| ASE databases | `asedb` | `Corpus.from_ase_db(...)` |
+| OMat24 ASE-LMDB shards | `omat24` | `Corpus.from_omat24(...)` |
+
+For a one-shot ASE iterator, pass `spool_to="runs/source.extxyz"` to
+`Corpus.from_atoms(...)` to make the source retrievable for export and
+resumable. Supply `name`, a meaningful `revision`, and `split="train"` when
+building a training corpus. File-based factories use `dataset` instead of
+`name`. By default, records are `unsplit`, whereas class fitting defaults to
+`train`; set the split explicitly or intentionally fit `split="unsplit"`.
+
+Record IDs are namespaced by dataset, revision, shard and native key, so an
+OMat24 `sid` is never assumed unique. Every discovered record is accounted
+for as eligible, excluded or failed; nothing is skipped silently. The
+`omat24-study` preset reproduces the study's La–Lu/Ac–Lr exclusion. The
+default `general` preset applies no element exclusions.
+
+The reference profile uses source initial magnetic moments, rounds their
+absolute values, and defaults missing moments to zero. Vector moments are
+unsupported under that policy. Energy and force labels are not needed to
+choose a diversity subset, but downstream training still needs suitable
+labels. Stored energy, forces, stress and supported arrays are preserved on
+export; no live calculator runs and the reference workflow does not convert
+label units.
+
+</details>
+
+## Charged structures
+
+Use protected strata to require coverage for each charge state, or add net
+charge to the finer levels of the reference token.
+
+<details>
+<summary>Set the charge policy and inspect missing values</summary>
+
+- **Protected strata** (`selection.stratify_by: [charge]`) fit and cover each
+  charge state separately, so every state gets a complete cover of its own.
+- **The net-charge token field** adds the record's net charge, rounded with
+  its sign kept, to every site token (`Fe_0_q-1_Cl-O-O-O_T:4_3_1_2`). Charge
+  distinguishes environments at the two finest rungs. A charge state too rare
+  to support its own class merges with the other states of its environment
+  at the next rung, `R1q_drop_charge`.
+
+```yaml
+tokenizer:
+  charge_policy: net_round      # or net_round_zero_if_missing; default disabled
+  charge_key: charge            # the info / key-value key holding the net charge
+```
+
+```python
+from envtok import Tokenizer, get_profile, with_net_charge
+
+profile = with_net_charge(get_profile("reference-723696d"), "net_round", key="charge")
+cache = Tokenizer(profile).run(corpus, "runs/charged")
+```
+
+Under `net_round`, an absent charge fails with reason `missing_charge`.
+`net_round_zero_if_missing` treats an absent charge as neutral and counts
+it as defaulted. A string or boolean fails as `invalid_charge` under either
+policy. The charge is read from the cached metadata when the index
+is built, so switching the field on or off never repeats the geometry pass.
+Run `envtok inspect` first to check that the key is present. See
+[§1.7 of the specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md#17-net-charge-extension-opt-in).
+
+</details>
+
 ## Command-line interface
 
-These are the reference-profile commands. Use `uv run envtok --help` or
-`uv run envtok <command> --help` for arguments, and put `-v` before the command
-to log progress, for example `uv run envtok -v run --config dataset.yaml`.
+Run `envtok --help` to list commands or `envtok <command> --help` for options.
+Use `uv run envtok` from a source checkout.
+
+<details>
+<summary>Inspect, select, audit, and export</summary>
+
+For progress logs, put `-v` before the command, as in
+`uv run envtok -v run --config dataset.yaml`.
 
 | Command | Purpose |
 |---|---|
@@ -282,6 +462,11 @@ uv run envtok baseline --run "$RUN_DIR" --seeds 0 1 2
 `select` writes and audits a manifest; `run` also exports in the configured
 format. `baseline` measures coverage of random subsets using the selection's
 atom count as the budget; it does not measure downstream model accuracy.
+
+</details>
+
+<details>
+<summary>Restart, sweep support thresholds, and run in parallel</summary>
 
 ### Restart, sweeps and parallel runs
 
@@ -323,138 +508,15 @@ complete configuration and
 [`examples/slurm/tokenize_array.sbatch`](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/slurm/tokenize_array.sbatch)
 for array-job tokenisation.
 
-## Molecules (experimental)
-
-The separate `molecular_v1` profile selects intact finite molecules while
-protecting total charge, spin multiplicity, electronic state and reference
-method. It combines rooted graph tokens (or an explicit graph-unknown fallback)
-with local SOAP geometry, conservative deduplication, and hard atom budgets.
-Unknown state is never silently converted to neutral/singlet.
-
-This profile has its own configuration schema, selected by the top-level
-`profile: molecular_v1`. Start from the bundled configuration:
-
-```bash
-uv sync --extra molecular
-uv run --extra molecular envtok run --config examples/molecular/omol/config.yaml
-uv run --extra molecular envtok benchmark --config examples/molecular/omol/config.yaml
-```
-
-To impose a hard atom cap, set exactly one of `atom_fraction` or `atom_budget`:
-
-```yaml
-selection:
-  mode: budget
-  atom_fraction: 0.25  # alternatively, replace this with atom_budget: 1000
-```
-
-The fraction is measured against atoms in the deduplicated training candidate
-pool. For `mode: cover`, omit both budget settings. A budgeted run can finish
-with `complete: false`: inspect `unmet_constraints` in `coverage.json` to see
-what the selected subset does not cover. An incomplete heuristic cover is not
-a proof that complete coverage is impossible within that budget.
-
-Set `source.label_namespace` to identify the reference method, and map the
-total-charge and spin-multiplicity fields with `state.charge_key` and
-`state.multiplicity_key` (defaults: `total_charge` and `spin_multiplicity`).
-Neither is inferred from partial charges or site magnetic moments. Unknown
-states remain distinct, and the default strict training export requires known
-charge and multiplicity.
-
-Molecular runs write to `<workdir>/molecular-<fingerprint>/`. The pipeline
-reads one extended XYZ source. The Python adapters can also prepare records
-from an ASE iterable. Featurisation supports local worker processes and
-memory-mapped descriptors. Records and selection incidence stay in memory.
-
-The bundled [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) contains 29 real
-training configurations with stored energy, force, charge and spin data. Its
-selector benchmark compares stratified random, token-only and combined
-selection at a 25% atom ceiling with seed 0, plus a full-pool control.
-Use `--fractions` and `--seeds` to change the comparison.
-The [molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md)
-walks through the budget report, custom label units, Python API and saved-run
-audit.
-
-The [native OMol25 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md)
-starts from 512 real configurations / 10,938 atoms. Unbudgeted cover mode
-retains 146 configurations / 3,276 atoms (**70.0% fewer atoms**), covering
-all 44 mandatory element/state targets and 517 modeled SOAP regions.
-However, 91.3% of source environments fall outside the fitted prototype
-radii. A finer 64-prototype check retains 6,122 atoms (44.0% fewer).
-
-A separate training experiment split the neutral singlets by composition before
-selection. The 64-prototype cover used 52.4% fewer training atoms. Its mean
-held-out force RMSE was 1.7% higher than the full-pool model's, and one of
-three paired seeds exceeded the 10% regression threshold. See the
-[molecular MACE training results](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/training.md).
-
-## Inputs
-
-The reference workflow supports these sources:
-
-| Input | YAML `source.adapter` | Python factory |
-|---|---|---|
-| ASE sequences, factories or iterators | Python API only | `Corpus.from_atoms(...)` |
-| Extended XYZ, including `.gz`, `.bz2` and `.xz` | `extxyz` | `Corpus.from_extxyz(...)` |
-| ASE databases | `asedb` | `Corpus.from_ase_db(...)` |
-| OMat24 ASE-LMDB shards | `omat24` | `Corpus.from_omat24(...)` |
-
-For a one-shot ASE iterator, pass `spool_to="runs/source.extxyz"` to
-`Corpus.from_atoms(...)` to make the source retrievable for export and
-resumable. Supply `name`, a meaningful `revision`, and `split="train"` when
-building a training corpus. File-based factories use `dataset` instead of
-`name`. By default, records are `unsplit`, whereas class fitting defaults to
-`train`; set the split explicitly or intentionally fit `split="unsplit"`.
-
-Record IDs are namespaced by dataset, revision, shard and native key, so an
-OMat24 `sid` is never assumed unique. Every discovered record is accounted
-for as eligible, excluded or failed; nothing is skipped silently. The
-`omat24-study` preset reproduces the study's La–Lu/Ac–Lr exclusion. The
-default `general` preset applies no element exclusions.
-
-The reference profile uses source initial magnetic moments, rounds their
-absolute values, and defaults missing moments to zero. Vector moments are
-unsupported under that policy. Energy and force labels are not needed to
-choose a diversity subset, but downstream training still needs suitable
-labels. Stored energy, forces, stress and supported arrays are preserved on
-export; no live calculator runs and the reference workflow does not convert
-label units.
-
-## Charged structures
-
-The reference token ignores charge. py-envtok can keep charge states apart in
-two ways.
-
-- **Protected strata** (`selection.stratify_by: [charge]`) fit and cover each
-  charge state separately, so every state gets a complete cover of its own.
-- **The net-charge token field** adds the record's net charge, rounded with
-  its sign kept, to every site token (`Fe_0_q-1_Cl-O-O-O_T:4_3_1_2`). Charge
-  distinguishes environments at the two finest rungs. A charge state too rare
-  to support its own class merges with the other states of its environment
-  at the next rung, `R1q_drop_charge`.
-
-```yaml
-tokenizer:
-  charge_policy: net_round      # or net_round_zero_if_missing; default disabled
-  charge_key: charge            # the info / key-value key holding the net charge
-```
-
-```python
-from envtok import Tokenizer, get_profile, with_net_charge
-
-profile = with_net_charge(get_profile("reference-723696d"), "net_round", key="charge")
-cache = Tokenizer(profile).run(corpus, "runs/charged")
-```
-
-Under `net_round`, an absent charge fails with reason `missing_charge`.
-`net_round_zero_if_missing` treats an absent charge as neutral and counts
-it as defaulted. A string or boolean fails as `invalid_charge` under either
-policy. The charge is read from the cached metadata when the index
-is built, so switching the field on or off never repeats the geometry pass.
-Run `envtok inspect` first to check that the key is present. See
-[§1.7 of the specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md#17-net-charge-extension-opt-in).
+</details>
 
 ## Outputs
+
+Open `report.html` for a coverage overview and use `coverage.json` for the
+underlying audit. The manifest records which original structures were selected.
+
+<details>
+<summary>Find manifests, provenance, and saved-run files</summary>
 
 Each reference-profile selection goes to its own configuration-addressed
 directory
@@ -485,7 +547,19 @@ provenance and reports. Their additional artifacts are `ingestion.json`,
 compliance, unmet constraints and nearest-selected geometry distances. See the
 [molecular output contract](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md#commands-restart-and-outputs).
 
-## Troubleshooting
+</details>
+
+## Documentation and examples
+
+- [Periodic specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md) and [discrepancy log](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md) describe the token fields, selection, and differences from the reference code.
+- The [molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md) covers data contracts, budgets, and limitations.
+- The [OMat24](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/README.md) and [OMol25](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md) examples measure compression on real data. Smaller bundled [OMat24](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) and [OMol](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md) samples include qualification results and provenance.
+- The [build tools](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md) cover benchmarks and package checks. The [release guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/releasing.md) covers publishing.
+
+<details>
+<summary>Troubleshoot a run</summary>
+
+### Troubleshooting
 
 | Symptom | What to check |
 |---|---|
@@ -496,27 +570,12 @@ compliance, unmet constraints and nearest-selected geometry distances. See the
 | Selection exceeds the configured memory policy | Review the estimate and available resources, then adjust `execution.memory_budget`; DuckDB aggregation does not remove the selector's own memory needs. |
 | Molecular export rejects unknown state | Provide known total charge and multiplicity through the configured keys; see the molecular data contract for permissive export. |
 
-## Documentation and examples
+</details>
 
-- [Specification](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md): token fields, coarsening ladder,
-  selection algorithm, storage, audit and execution contracts.
-- [Discrepancy log](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/discrepancies.md): differences between the paper,
-  reference implementation and this package.
-- [Molecular guide](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/molecular.md): data contracts, graphs, descriptors,
-  safeguards and current limitations.
-- [OMat24 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/compression-demo/README.md):
-  1,024 real structures, measured compression, coverage audits and random comparisons.
-- [OMol25 compression example](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/compression-demo/README.md):
-  512 native molecular configurations, cover and budget comparisons, and geometry limits.
-- [OMat24 sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/omat24/small-sample/README.md) and
-  [OMol sample](https://github.com/SMTG-Bham/py-envtok/blob/main/examples/molecular/omol/README.md): real-data provenance and
-  small qualification results.
-- [Build and benchmark tools](https://github.com/SMTG-Bham/py-envtok/blob/main/build_tools/README.md): acceptance runs,
-  accuracy screens and packaging checks.
-- [Release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md) and [release procedure](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/releasing.md):
-  supported scope, artifact checks and publishing configuration.
+<details>
+<summary>Set up development and run CI checks</summary>
 
-## Development
+### Development
 
 Install the development environment and run the checks used by CI:
 
@@ -540,6 +599,8 @@ To exercise the real optional molecular backends, run
 and 3.14 with the locked and lowest allowed direct dependency versions, plus a
 locked molecular-extra job for each interpreter.
 
+</details>
+
 ## Citing
 
 If you use py-envtok, please cite both the method paper and its reference
@@ -553,8 +614,7 @@ implementation.
 
 ## License
 
-py-envtok is released under the [MIT License](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSE). Code adapted from
-omat24-chemenv-subset keeps its MIT notice in
-[`LICENSES/omat24-chemenv-subset-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt),
-and code adapted from pymatgen in
-[`LICENSES/pymatgen-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/pymatgen-MIT.txt).
+py-envtok is released under the [MIT License](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSE).
+Adapted code retains the upstream MIT notices for
+[omat24-chemenv-subset](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt)
+and [pymatgen](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/pymatgen-MIT.txt).
