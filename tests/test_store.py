@@ -158,8 +158,8 @@ class TestFingerprints:
             json_default(Point)
 
     def test_package_versions(self) -> None:
-        versions = package_versions(("numpy", "envtok", "no-such-package-xyz"))
-        assert versions["envtok"] == __version__
+        versions = package_versions(("numpy", "py-envtok", "no-such-package-xyz"))
+        assert versions["py-envtok"] == __version__
         assert versions["numpy"]
         assert versions["no-such-package-xyz"] is None
 

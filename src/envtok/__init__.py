@@ -1,4 +1,4 @@
-"""EnvTok: interpretable local-environment tokens and coverage-guaranteed subsets.
+"""Local-environment tokens and coverage-guaranteed subsets with py-envtok.
 
 Typical use::
 
@@ -26,7 +26,7 @@ from envtok.store.cache import TokenCache
 from envtok.tokenization import Tokenizer
 from envtok.tokenizer import SiteToken
 
-__version__ = version("envtok")
+__version__ = version("py-envtok")
 
 __all__ = [
     "Corpus",

@@ -1,6 +1,9 @@
-# EnvTok
+# py-envtok
 
-EnvTok selects whole configurations from atomistic datasets and reports which
+py-envtok implements and extends the EnvTok method that Moerman *et al.*
+describe in [*Atoms that Matter*](https://arxiv.org/abs/2610.14392).
+
+It selects whole configurations from atomistic datasets and reports which
 local chemical environments the subset covers. It measures the cost in atoms
 and exports the selected structures with their original geometry and labels.
 
@@ -12,9 +15,8 @@ and exports the selected structures with their original geometry and labels.
 The 0.1 series is alpha software. APIs and saved-run formats may change between
 releases. See the [release notes](https://github.com/SMTG-Bham/py-envtok/blob/main/CHANGELOG.md).
 
-The default profile `reference-723696d` reproduces the method of Moerman *et
-al.*, *Atoms that Matter* (arXiv:2610.14392). It follows the reference
-implementation
+The default profile `reference-723696d` follows the paper's reference
+implementation,
 [`em819/omat24-chemenv-subset@723696d`](https://github.com/em819/omat24-chemenv-subset/tree/723696de2c26584b8a907ef900690c0caf3c7b68).
 Every token of the golden fixture corpus matches that code running in its own
 pinned environment. See [`docs/specification.md`](https://github.com/SMTG-Bham/py-envtok/blob/main/docs/specification.md) and
@@ -49,11 +51,30 @@ tokens are reported as out of vocabulary.
 
 ## Install
 
-Use standard CPython 3.11–3.14; the CI matrix covers these interpreters on Linux.
+Use standard CPython 3.11–3.14. The CI matrix covers these interpreters on Linux.
 Other Python versions, operating systems and free-threaded builds are outside
 the qualification scope.
+
+### From PyPI
+
+Once the first PyPI release is available, install the alpha and check the CLI.
+
+```bash
+python -m pip install --pre py-envtok
+envtok --version
+```
+
+Use `python -m pip install --pre 'py-envtok[molecular,omat24]'` to install both
+optional extras. The Python import is `envtok`.
+
+If you installed an older GitHub release distributed as `envtok`, uninstall that
+distribution before installing `py-envtok` in the same environment. Both
+distributions provide the `envtok` import and CLI.
+
+### From a source checkout
+
 The supported development environment uses
-[uv](https://docs.astral.sh/uv/) 0.13.6 or newer. From a source checkout:
+[uv](https://docs.astral.sh/uv/) 0.13.6 or newer.
 
 ```bash
 git clone https://github.com/SMTG-Bham/py-envtok.git
@@ -401,8 +422,8 @@ label units.
 
 ## Charged structures
 
-The reference token ignores charge. EnvTok offers two ways to keep charge
-states apart:
+The reference token ignores charge. py-envtok can keep charge states apart in
+two ways.
 
 - **Protected strata** (`selection.stratify_by: [charge]`) fit and cover each
   charge state separately, so every state gets a complete cover of its own.
@@ -521,8 +542,8 @@ locked molecular-extra job for each interpreter.
 
 ## Citing
 
-If you use EnvTok, please cite the method paper and the reference
-implementation:
+If you use py-envtok, please cite both the method paper and its reference
+implementation.
 
 - E. Moerman, I. Poltavsky, A. Charkin-Gorbulin, A. Tkatchenko, *Atoms that
   Matter: Largest Materials Datasets Are 99% Redundant, and Local Chemistry
@@ -532,7 +553,7 @@ implementation:
 
 ## License
 
-EnvTok is released under the [MIT License](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSE). Code adapted from
+py-envtok is released under the [MIT License](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSE). Code adapted from
 omat24-chemenv-subset keeps its MIT notice in
 [`LICENSES/omat24-chemenv-subset-MIT.txt`](https://github.com/SMTG-Bham/py-envtok/blob/main/LICENSES/omat24-chemenv-subset-MIT.txt),
 and code adapted from pymatgen in

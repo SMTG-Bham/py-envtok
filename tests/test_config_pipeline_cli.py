@@ -432,9 +432,8 @@ class TestCli:
         with pytest.raises(SystemExit) as exit_info:
             main(["--version"])
         assert exit_info.value.code == 0
-        assert (
-            capsys.readouterr().out.strip() == version("envtok") == envtok.__version__
-        )
+        assert capsys.readouterr().out.strip() == envtok.__version__
+        assert envtok.__version__ == version("py-envtok")
         assert build_parser().prog == "envtok"
 
     def test_every_command(

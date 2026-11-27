@@ -1,4 +1,4 @@
-# Releasing EnvTok
+# Releasing py-envtok
 
 Set the candidate version in [pyproject.toml](../pyproject.toml), run
 `uv lock`, and move its release notes from `Unreleased` to a dated version
@@ -56,18 +56,18 @@ Use these exact values for this repository:
 
 | Setting | Value |
 | --- | --- |
-| PyPI project | `envtok` |
+| PyPI project | `py-envtok` |
 | GitHub owner | `SMTG-Bham` |
 | GitHub repository | `py-envtok` |
 | Workflow filename | `release.yml` |
 | GitHub environment | `pypi` |
 
-Create the matching `pypi` environment in the repository settings. Ensure its
-deployment rules allow the intended release tag; add required reviewers if the
-maintainers want a final publication approval. No long-lived PyPI API token is
-needed. A pending publisher does not reserve the project name. The repository's
-historical public name check cannot verify account permissions or this setup;
-confirm both in the authenticated PyPI and GitHub settings before publishing.
+Create the matching `pypi` environment in the repository settings if needed.
+Ensure its deployment rules allow the intended release tag. Maintainers can
+add required reviewers for a final publication approval. Trusted Publishing
+uses short-lived credentials. Confirm the publisher and environment settings in
+the authenticated PyPI and GitHub accounts before publishing. PyPI reserves the
+name on the first successful upload.
 
 ## Publish the qualified commit
 
@@ -84,14 +84,15 @@ confirm both in the authenticated PyPI and GitHub settings before publishing.
    upload the qualified distributions with attestations. The Actions run keeps
    the `dist` artifact and a separate `artifact-qualification` report containing
    their hashes.
-5. Confirm the published files and version on PyPI. From the tagged checkout,
-   install that exact version in a fresh Python 3.14 environment.
+5. Confirm the files and version on the [py-envtok PyPI project](https://pypi.org/project/py-envtok/).
+   From the tagged checkout, install that exact version in a fresh Python 3.14
+   environment.
 
    ```bash
    release_version=$(uv version --short)
    check_dir=$(mktemp -d)
    uv venv --python 3.14 "$check_dir/venv"
-   uv pip install --python "$check_dir/venv/bin/python" "envtok==$release_version"
+   uv pip install --python "$check_dir/venv/bin/python" "py-envtok==$release_version"
    "$check_dir/venv/bin/envtok" --version
    "$check_dir/venv/bin/python" -m envtok --help
    ```

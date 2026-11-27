@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0a5 — 2026-11-27
+
+### Changed
+
+- The distribution is named `py-envtok` for its first PyPI release. The public
+  Python import and CLI are both `envtok`.
+
 ## 0.1.0a4 — 2026-11-27
 
 ### Changed

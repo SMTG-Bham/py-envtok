@@ -3,8 +3,8 @@ requires = ["uv_build>=0.13.6,<0.14"]
 build-backend = "uv_build"
 
 [project]
-name = "envtok"
-version = "0.1.0a4"
+name = "py-envtok"
+version = "0.1.0a5"
 description = "Interpretable local-environment tokens and coverage-guaranteed subset selection for atomistic datasets."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -73,6 +73,9 @@ test = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
 ]
+
+[tool.uv.build-backend]
+module-name = "envtok"
 
 [tool.pytest]
 minversion = "9.1"

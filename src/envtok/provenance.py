@@ -5,9 +5,9 @@ from __future__ import annotations
 import platform
 import sys
 from datetime import UTC, datetime
-from importlib.metadata import version
 from typing import TYPE_CHECKING, Any
 
+from envtok import __version__
 from envtok.execution import peak_rss_bytes
 from envtok.fingerprint import package_versions
 from envtok.profiles.reference import REFERENCE_COMMIT, REFERENCE_REPOSITORY
@@ -42,7 +42,7 @@ def collect(result: SelectionResult) -> dict[str, Any]:
     cache = classes.token_cache
     manifest = cache.manifest
     return {
-        "envtok": version("envtok"),
+        "envtok": __version__,
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "dependencies": package_versions(DEPENDENCIES),

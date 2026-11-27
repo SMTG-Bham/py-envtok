@@ -29,12 +29,15 @@ import json
 import sys
 from pathlib import Path
 import envtok
+expected_name, expected_version = sys.argv[1:]
 prefix = Path(sys.prefix).resolve()
 package = Path(envtok.__file__).resolve()
 if sys.prefix == sys.base_prefix or not package.is_relative_to(prefix):
     raise RuntimeError('package was not imported from the isolated environment')
-distribution = importlib.metadata.distribution('envtok')
-if distribution.version != sys.argv[1] or envtok.__version__ != sys.argv[1]:
+distribution = importlib.metadata.distribution(expected_name)
+if distribution.metadata['Name'] != expected_name:
+    raise RuntimeError('installed distribution name does not match the project name')
+if distribution.version != expected_version or envtok.__version__ != expected_version:
     raise RuntimeError('installed version does not match the project version')
 if not (package.parent / 'py.typed').is_file():
     raise RuntimeError('installed package is missing py.typed')
@@ -47,6 +50,7 @@ for license_file in (
         raise RuntimeError('installed distribution is missing ' + license_file)
 print(json.dumps({
     'python': sys.version.split()[0],
+    'distribution': distribution.metadata['Name'],
     'version': distribution.version,
     'installed_package_in_isolated_environment': True,
     'typing_marker_and_licenses': 'passed',
@@ -84,6 +88,7 @@ def qualify(
     python: str,
     *,
     offline: bool,
+    expected_name: str,
     expected_version: str,
 ) -> dict[str, Any]:
     """Install one artifact and verify the public pipeline outside the checkout."""
@@ -118,7 +123,7 @@ def qualify(
     installed = time.perf_counter()
     probe = json.loads(
         _run(
-            [str(executable), "-I", "-c", PROBE, expected_version],
+            [str(executable), "-I", "-c", PROBE, expected_name, expected_version],
             environment,
             workspace,
         )
@@ -194,6 +199,7 @@ def main() -> None:
                 uv,
                 args.python,
                 offline=args.offline,
+                expected_name=project["name"],
                 expected_version=project["version"],
             )
         results.append(result)

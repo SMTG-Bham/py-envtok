@@ -304,9 +304,9 @@ def test_missing_optional_backends_are_actionable(
     monkeypatch.setattr(
         "envtok.molecular.representations.importlib.import_module", missing
     )
-    with pytest.raises(ConfigError, match="DScribe"):
+    with pytest.raises(ConfigError, match=r"py-envtok\[molecular\] DScribe"):
         rep.featurize(_record(), rep.RepresentationSettings(species=(1, 8)))
-    with pytest.raises(ConfigError, match="RDKit"):
+    with pytest.raises(ConfigError, match=r"py-envtok\[molecular\] RDKit"):
         rep.featurize(_record(), _radial(allow_validated_perception=True))
 
 

@@ -721,84 +721,6 @@ wheels = [
 ]
 
 [[package]]
-name = "envtok"
-version = "0.1.0a4"
-source = { editable = "." }
-dependencies = [
-    { name = "ase" },
-    { name = "duckdb" },
-    { name = "numpy" },
-    { name = "pyarrow" },
-    { name = "pymatgen" },
-    { name = "pyyaml" },
-    { name = "spglib" },
-    { name = "typing-extensions" },
-]
-
-[package.optional-dependencies]
-molecular = [
-    { name = "dscribe" },
-    { name = "rdkit" },
-]
-omat24 = [
-    { name = "ase-db-backends" },
-    { name = "lmdb" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ase-db-backends" },
-    { name = "lmdb" },
-    { name = "mypy" },
-    { name = "prek" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-test = [
-    { name = "ase-db-backends" },
-    { name = "lmdb" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "ase", specifier = ">=3.27.0" },
-    { name = "ase-db-backends", marker = "extra == 'omat24'", specifier = ">=0.11.0" },
-    { name = "dscribe", marker = "extra == 'molecular'", specifier = ">=2.1.2" },
-    { name = "duckdb", specifier = ">=2.0.0" },
-    { name = "lmdb", marker = "extra == 'omat24'", specifier = ">=1.7.5" },
-    { name = "numpy", specifier = ">=2.3.3" },
-    { name = "pyarrow", specifier = ">=22.0.0" },
-    { name = "pymatgen", specifier = ">=2026.9.23" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "rdkit", marker = "extra == 'molecular'", specifier = ">=2026.9.1" },
-    { name = "spglib", specifier = ">=2.7.0" },
-    { name = "typing-extensions", specifier = ">=4.4.0" },
-]
-provides-extras = ["omat24", "molecular"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "ase-db-backends", specifier = ">=0.11.0" },
-    { name = "lmdb", specifier = ">=1.7.5" },
-    { name = "mypy", specifier = ">=2.4.0" },
-    { name = "prek", specifier = ">=0.5.5" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "ruff", specifier = ">=0.16.10" },
-    { name = "types-pyyaml", specifier = ">=6.0.12" },
-]
-test = [
-    { name = "ase-db-backends", specifier = ">=0.11.0" },
-    { name = "lmdb", specifier = ">=1.7.5" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-]
-
-[[package]]
 name = "fonttools"
 version = "4.68.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1805,6 +1727,84 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/df/22f4aec952cd5b2dd02f438399583ed69f7d04b90e7c31659d9571bbe188/psycopg2_binary-2.9.13-cp314-cp314-musllinux_1_2_riscv64.whl", hash = "sha256:dde942b46ce20f6c4464cdf551f3293207f803f4e4354454eb1f5599c3eb1fa1", size = 3052935, upload-time = "2026-09-09T23:55:55.117Z" },
     { url = "https://files.pythonhosted.org/packages/95/42/aab651bc22bafa961806ca3b21027bb0739a2730b0e6f7f0778baeb95e67/psycopg2_binary-2.9.13-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:215777c62ce81c3b487cefdb6a41969944eb982309f91349ff3ca0323d6f17ed", size = 3355387, upload-time = "2026-09-09T23:55:57.366Z" },
     { url = "https://files.pythonhosted.org/packages/bc/af/3b8220633eaf955e95ea7be67d76e81a0d1cd3c76362ea504b91ffa079db/psycopg2_binary-2.9.13-cp314-cp314-win_amd64.whl", hash = "sha256:f3088eb80f58ed933c62d87128741d31e786edc862e23266d3c286763d646de0", size = 2863890, upload-time = "2026-09-09T23:55:59.056Z" },
+]
+
+[[package]]
+name = "py-envtok"
+version = "0.1.0a5"
+source = { editable = "." }
+dependencies = [
+    { name = "ase" },
+    { name = "duckdb" },
+    { name = "numpy" },
+    { name = "pyarrow" },
+    { name = "pymatgen" },
+    { name = "pyyaml" },
+    { name = "spglib" },
+    { name = "typing-extensions" },
+]
+
+[package.optional-dependencies]
+molecular = [
+    { name = "dscribe" },
+    { name = "rdkit" },
+]
+omat24 = [
+    { name = "ase-db-backends" },
+    { name = "lmdb" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ase-db-backends" },
+    { name = "lmdb" },
+    { name = "mypy" },
+    { name = "prek" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+test = [
+    { name = "ase-db-backends" },
+    { name = "lmdb" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "ase", specifier = ">=3.27.0" },
+    { name = "ase-db-backends", marker = "extra == 'omat24'", specifier = ">=0.11.0" },
+    { name = "dscribe", marker = "extra == 'molecular'", specifier = ">=2.1.2" },
+    { name = "duckdb", specifier = ">=2.0.0" },
+    { name = "lmdb", marker = "extra == 'omat24'", specifier = ">=1.7.5" },
+    { name = "numpy", specifier = ">=2.3.3" },
+    { name = "pyarrow", specifier = ">=22.0.0" },
+    { name = "pymatgen", specifier = ">=2026.9.23" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "rdkit", marker = "extra == 'molecular'", specifier = ">=2026.9.1" },
+    { name = "spglib", specifier = ">=2.7.0" },
+    { name = "typing-extensions", specifier = ">=4.4.0" },
+]
+provides-extras = ["omat24", "molecular"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ase-db-backends", specifier = ">=0.11.0" },
+    { name = "lmdb", specifier = ">=1.7.5" },
+    { name = "mypy", specifier = ">=2.4.0" },
+    { name = "prek", specifier = ">=0.5.5" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "ruff", specifier = ">=0.16.10" },
+    { name = "types-pyyaml", specifier = ">=6.0.12" },
+]
+test = [
+    { name = "ase-db-backends", specifier = ">=0.11.0" },
+    { name = "lmdb", specifier = ">=1.7.5" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
 ]
 
 [[package]]

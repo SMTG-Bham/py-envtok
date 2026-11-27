@@ -16,7 +16,7 @@ from ase.calculators.emt import EMT
 from ase.calculators.singlepoint import SinglePointCalculator
 from helpers import CORPUS
 
-from envtok import export, report
+from envtok import __version__, export, report
 from envtok.adapters.asedb import ARRAYS_KEY, row_atoms
 from envtok.coarsen import CoverageBuilder, CoverageClasses
 from envtok.corpus import Corpus
@@ -297,6 +297,7 @@ class TestManifestAndProvenance:
 
     def test_provenance(self, result: SelectionResult) -> None:
         provenance = collect(result)
+        assert provenance["envtok"] == __version__
         assert provenance["profile"] == "reference-723696d"
         assert provenance["reference"]["commit"].startswith("723696d")
         assert provenance["dependencies"]["duckdb"]

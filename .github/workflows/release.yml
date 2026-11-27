@@ -78,7 +78,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: pypi
-      url: https://pypi.org/project/envtok/
+      url: https://pypi.org/project/py-envtok/
     permissions:
       id-token: write # trusted publishing and PEP 740 attestations
 

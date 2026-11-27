@@ -406,7 +406,7 @@ class TestAseDatabases:
         monkeypatch.setattr(ase.db, "connect", missing)
         shard = tmp_path / "x.aselmdb"
         shard.touch()
-        with pytest.raises(ConfigError, match=r"envtok\[omat24\]"):
+        with pytest.raises(ConfigError, match=r"install py-envtok\[omat24\]"):
             asedb.open_database(shard)
 
 

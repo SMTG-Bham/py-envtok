@@ -6,7 +6,7 @@ OMat24's ``sid`` is available as ``info["sid"]``. Stored calculator results
 come back as a ``SinglePointCalculator``; nothing is ever recomputed.
 
 OMat24 shards are read through ``ase.db.connect`` with the ``aselmdb``
-backend from ``ase-db-backends`` (install ``envtok[omat24]``), read-only and
+backend from ``ase-db-backends`` (install ``py-envtok[omat24]``), read-only and
 without a lock file. The version-sensitive calls are confined to
 :func:`open_database` and :func:`row_atoms`.
 """
@@ -85,7 +85,8 @@ def open_database(path: Path) -> Any:
         database = ase.db.connect(str(path), readonly=True, use_lock_file=False)
     except ImportError as exc:
         raise ConfigError(
-            f"reading {path} needs the ASE-LMDB backend; install envtok[omat24] ({exc})"
+            f"reading {path} needs the ASE-LMDB backend; "
+            f"install py-envtok[omat24] ({exc})"
         ) from exc
     _SHARED_LMDB[key] = (identity, database)
     return database

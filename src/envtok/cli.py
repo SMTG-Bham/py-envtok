@@ -5,10 +5,10 @@ import json
 import logging
 import sys
 from collections.abc import Sequence
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+from envtok import __version__
 from envtok.errors import ConfigError, EnvTokError
 from envtok.export import write_report
 from envtok.molecular import cli as molecular_cli
@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
             "local-environment coverage."
         ),
     )
-    parser.add_argument("--version", action="version", version=version("envtok"))
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("-v", "--verbose", action="store_true", help="log progress")
     commands = parser.add_subparsers(dest="command", required=True)
 

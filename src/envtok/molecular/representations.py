@@ -309,7 +309,7 @@ def _inferred_graph(record: MolecularRecord) -> dict[str, Any] | None:
         determine = importlib.import_module("rdkit.Chem.rdDetermineBonds")
     except ImportError as exc:
         raise ConfigError(
-            "graph perception requires the envtok[molecular] RDKit extra"
+            "graph perception requires the py-envtok[molecular] RDKit extra"
         ) from exc
     xyz = f"{record.natoms}\n\n" + "\n".join(
         " ".join((symbol, *map(_xyz_coordinate, position)))
@@ -641,7 +641,7 @@ def _soap_descriptors(
         soap = importlib.import_module("dscribe.descriptors").SOAP
     except ImportError as exc:
         raise ConfigError(
-            "SOAP requires the envtok[molecular] DScribe extra; "
+            "SOAP requires the py-envtok[molecular] DScribe extra; "
             "radial is an explicit smoke-test alternative"
         ) from exc
     backend = _soap_backend(soap, settings)

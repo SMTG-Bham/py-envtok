@@ -202,8 +202,8 @@ implementation restricts perception to integral known charge, singlets, and a
 small main-group vocabulary (H, B, C, N, O, F, Si, P, S, Cl, Br, I). It passes the
 known charge and uses charged-fragment assignments. Unsupported states,
 inferred radicals or failed perception use the fallback. This conservative
-restriction is not a claim that RDKit cannot represent those states. Install
-`envtok[molecular]` before enabling perception.
+restriction is not a claim that RDKit cannot represent those states. Install the
+`molecular` extra (`py-envtok[molecular]`) before enabling perception.
 
 ## Geometry and safeguards
 
